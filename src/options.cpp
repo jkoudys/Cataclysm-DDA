@@ -26,20 +26,25 @@ bool use_tiles;
 bool log_from_top;
 bool fov_3d;
 
-bool used_tiles_changed;
 #ifdef TILES
 extern cata_tiles *tilecontext;
 #endif // TILES
 
 std::map<std::string, std::string> TILESETS; // All found tilesets: <name, tileset_dir>
-std::unordered_map<std::string, cOpt> OPTIONS;
-std::unordered_map<std::string, cOpt> ACTIVE_WORLD_OPTIONS;
+std::unordered_map<std::string, options_manager::cOpt> OPTIONS;
+std::unordered_map<std::string, options_manager::cOpt> ACTIVE_WORLD_OPTIONS;
 options_data optionsdata; // store extraneous options data that doesn't need to be in OPTIONS,
 std::vector<std::pair<std::string, std::string> > vPages;
 std::map<int, std::vector<std::string> > mPageItems;
 std::map<std::string, int> mOptionsSort;
 std::map<std::string, std::string> optionNames;
 int iWorldOptPage;
+
+options_manager &get_options()
+{
+    static options_manager single_instance;
+    return single_instance;
+}
 
 options_data::options_data()
 {
@@ -77,7 +82,7 @@ void options_data::add_value( const std::string &lvar, const std::string &lval,
     std::map<std::string, std::string>::const_iterator it = post_json_verify.find(lvar);
     if ( it != post_json_verify.end() ) {
         auto ot = OPTIONS.find(lvar);
-        if ( ot != OPTIONS.end() && ot->second.sType == "string" ) {
+        if ( ot != OPTIONS.end() && ot->second.sType == "string_select" ) {
             for(std::vector<std::string>::const_iterator eit = ot->second.vItems.begin();
                 eit != ot->second.vItems.end(); ++eit) {
                 if ( *eit == lval ) { // already in
@@ -98,21 +103,21 @@ void options_data::add_value( const std::string &lvar, const std::string &lval,
 }
 
 //Default constructor
-cOpt::cOpt()
+options_manager::cOpt::cOpt()
 {
     sType = "VOID";
     sPage = "";
     hide = COPT_NO_HIDE;
 }
 
-//string constructor
-cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const std::string sItemsIn, std::string sDefaultIn, copt_hide_t opt_hide = COPT_NO_HIDE)
+//string select constructor
+options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
+           const std::string sItemsIn, std::string sDefaultIn, copt_hide_t opt_hide)
 {
     sPage = sPageIn;
     sMenuText = sMenuTextIn;
     sTooltip = sTooltipIn;
-    sType = "string";
+    sType = "string_select";
 
     hide = opt_hide;
 
@@ -132,9 +137,27 @@ cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::
     setSortPos(sPageIn);
 }
 
+//string input constructor
+options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
+           const std::string sDefaultIn, const int iMaxLengthIn, copt_hide_t opt_hide)
+{
+    sPage = sPageIn;
+    sMenuText = sMenuTextIn;
+    sTooltip = sTooltipIn;
+    sType = "string_input";
+
+    hide = opt_hide;
+
+    iMaxLength = iMaxLengthIn;
+    sDefault = (iMaxLength > 0) ? sDefaultIn.substr(0, iMaxLength) : sDefaultIn;
+    sSet = sDefault;
+
+    setSortPos(sPageIn);
+}
+
 //bool constructor
-cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const bool bDefaultIn, copt_hide_t opt_hide = COPT_NO_HIDE)
+options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
+           const bool bDefaultIn, copt_hide_t opt_hide)
 {
     sPage = sPageIn;
     sMenuText = sMenuTextIn;
@@ -150,8 +173,8 @@ cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::
 }
 
 //int constructor
-cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const int iMinIn, int iMaxIn, int iDefaultIn, copt_hide_t opt_hide = COPT_NO_HIDE)
+options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
+           const int iMinIn, int iMaxIn, int iDefaultIn, copt_hide_t opt_hide)
 {
     sPage = sPageIn;
     sMenuText = sMenuTextIn;
@@ -178,9 +201,8 @@ cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::
 }
 
 //float constructor
-cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
-           const float fMinIn, float fMaxIn, float fDefaultIn, float fStepIn,
-           copt_hide_t opt_hide = COPT_NO_HIDE)
+options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::string sTooltipIn,
+           const float fMinIn, float fMaxIn, float fDefaultIn, float fStepIn, copt_hide_t opt_hide)
 {
     sPage = sPageIn;
     sMenuText = sMenuTextIn;
@@ -208,7 +230,7 @@ cOpt::cOpt(const std::string sPageIn, const std::string sMenuTextIn, const std::
 }
 
 //helper functions
-bool cOpt::is_hidden()
+bool options_manager::cOpt::is_hidden()
 {
     switch(hide) {
     case COPT_NO_HIDE:
@@ -241,7 +263,7 @@ bool cOpt::is_hidden()
     }
 }
 
-void cOpt::setSortPos(const std::string sPageIn)
+void options_manager::cOpt::setSortPos(const std::string sPageIn)
 {
     if (!is_hidden()) {
         mOptionsSort[sPageIn]++;
@@ -252,34 +274,34 @@ void cOpt::setSortPos(const std::string sPageIn)
     }
 }
 
-int cOpt::getSortPos()
+int options_manager::cOpt::getSortPos()
 {
     return iSortPos;
 }
 
-std::string cOpt::getPage()
+std::string options_manager::cOpt::getPage()
 {
     return sPage;
 }
 
-std::string cOpt::getMenuText()
+std::string options_manager::cOpt::getMenuText()
 {
     return sMenuText;
 }
 
-std::string cOpt::getTooltip()
+std::string options_manager::cOpt::getTooltip()
 {
     return sTooltip;
 }
 
-std::string cOpt::getType()
+std::string options_manager::cOpt::getType()
 {
     return sType;
 }
 
-std::string cOpt::getValue()
+std::string options_manager::cOpt::getValue()
 {
-    if (sType == "string") {
+    if (sType == "string_select" || sType == "string_input") {
         return sSet;
 
     } else if (sType == "bool") {
@@ -302,9 +324,9 @@ std::string cOpt::getValue()
     return "";
 }
 
-std::string cOpt::getValueName()
+std::string options_manager::cOpt::getValueName()
 {
-    if (sType == "string") {
+    if (sType == "string_select") {
         return optionNames[sSet];
 
     } else if (sType == "bool") {
@@ -314,9 +336,9 @@ std::string cOpt::getValueName()
     return getValue();
 }
 
-std::string cOpt::getDefaultText(const bool bTranslated)
+std::string options_manager::cOpt::getDefaultText(const bool bTranslated)
 {
-    if (sType == "string") {
+    if (sType == "string_select") {
         std::string sItems = "";
         for( auto &elem : vItems ) {
             if (sItems != "") {
@@ -326,6 +348,9 @@ std::string cOpt::getDefaultText(const bool bTranslated)
         }
         return string_format(_("Default: %s - Values: %s"),
                              (bTranslated) ? optionNames[sDefault].c_str() : sDefault.c_str(), sItems.c_str());
+
+    } else if (sType == "string_input") {
+        return string_format(_("Default: %s"), sDefault.c_str());
 
     } else if (sType == "bool") {
         return (bDefault) ? _("Default: True") : _("Default: False");
@@ -340,9 +365,9 @@ std::string cOpt::getDefaultText(const bool bTranslated)
     return "";
 }
 
-int cOpt::getItemPos(const std::string sSearch)
+int options_manager::cOpt::getItemPos(const std::string sSearch)
 {
-    if (sType == "string") {
+    if (sType == "string_select") {
         for (size_t i = 0; i < vItems.size(); i++) {
             if (vItems[i] == sSearch) {
                 return i;
@@ -353,16 +378,31 @@ int cOpt::getItemPos(const std::string sSearch)
     return -1;
 }
 
-//set to next item
-void cOpt::setNext()
+int options_manager::cOpt::getMaxLength()
 {
-    if (sType == "string") {
+    if (sType == "string_input") {
+        return iMaxLength;
+    }
+
+    return 0;
+}
+
+//set to next item
+void options_manager::cOpt::setNext()
+{
+    if (sType == "string_select") {
         int iNext = getItemPos(sSet) + 1;
         if (iNext >= (int)vItems.size()) {
             iNext = 0;
         }
 
         sSet = vItems[iNext];
+
+    } else if (sType == "string_input") {
+        int iMenuTextLength = sMenuText.length();
+        sSet = string_input_popup("", (iMaxLength > 80) ? 80 : ((iMaxLength < iMenuTextLength) ? iMenuTextLength : iMaxLength+1),
+                                  sSet, sMenuText, "", iMaxLength
+                                 );
 
     } else if (sType == "bool") {
         bSet = !bSet;
@@ -382,15 +422,18 @@ void cOpt::setNext()
 }
 
 //set to prev item
-void cOpt::setPrev()
+void options_manager::cOpt::setPrev()
 {
-    if (sType == "string") {
+    if (sType == "string_select") {
         int iPrev = getItemPos(sSet) - 1;
         if (iPrev < 0) {
             iPrev = vItems.size() - 1;
         }
 
         sSet = vItems[iPrev];
+
+    } else if (sType == "string_select") {
+        setNext();
 
     } else if (sType == "bool") {
         bSet = !bSet;
@@ -410,7 +453,7 @@ void cOpt::setPrev()
 }
 
 //set value
-void cOpt::setValue(float fSetIn)
+void options_manager::cOpt::setValue(float fSetIn)
 {
     if (sType != "float") {
         debugmsg("tried to set a float value to a %s option", sType.c_str());
@@ -423,12 +466,15 @@ void cOpt::setValue(float fSetIn)
 }
 
 //set value
-void cOpt::setValue(std::string sSetIn)
+void options_manager::cOpt::setValue(std::string sSetIn)
 {
-    if (sType == "string") {
+    if (sType == "string_select") {
         if (getItemPos(sSetIn) != -1) {
             sSet = sSetIn;
         }
+
+    } else if (sType == "string_input") {
+        sSet = (iMaxLength > 0) ? sSetIn.substr(0, iMaxLength) : sSetIn;
 
     } else if (sType == "bool") {
         bSet = (sSetIn == "True" || sSetIn == "true" || sSetIn == "T" || sSetIn == "t");
@@ -454,10 +500,12 @@ void cOpt::setValue(std::string sSetIn)
 }
 
 //Set default class behaviour to float
-cOpt::operator float() const
+options_manager::cOpt::operator float() const
 {
-    if (sType == "string") {
+    if (sType == "string_select") {
         return (!sSet.empty() && sSet == sDefault) ? 1.0f : 0.0f;
+    } else if (sType == "string_input") {
+        return (!sSet.empty()) ? 1.0f : 0.0f;
     } else if (sType == "bool") {
         return (bSet) ? 1.0f : 0.0f;
     } else if (sType == "int") {
@@ -469,10 +517,12 @@ cOpt::operator float() const
     return 0.0f;
 }
 
-cOpt::operator int() const
+options_manager::cOpt::operator int() const
 {
-    if (sType == "string") {
+    if (sType == "string_select") {
         return (!sSet.empty() && sSet == sDefault) ? 1 : 0;
+    } else if (sType == "string_input") {
+        return (!sSet.empty()) ? 1 : 0;
     } else if (sType == "bool") {
         return (bSet) ? 1 : 0;
     } else if (sType == "int") {
@@ -484,19 +534,19 @@ cOpt::operator int() const
     return 0;
 }
 
-cOpt::operator bool() const
+options_manager::cOpt::operator bool() const
 {
     return static_cast<float>(*this) != 0.0f;
 }
 
 // if (class == "string")
-bool cOpt::operator==(const std::string sCompare) const
+bool options_manager::cOpt::operator==(const std::string sCompare) const
 {
-    return (sType == "string" && sSet == sCompare);
+    return ((sType == "string_select" || sType == "string_input") && sSet == sCompare);
 }
 
 // if (class != "string")
-bool cOpt::operator!=(const std::string sCompare) const
+bool options_manager::cOpt::operator!=(const std::string sCompare) const
 {
     return !(*this == sCompare);
 }
@@ -507,7 +557,7 @@ bool cOpt::operator!=(const std::string sCompare) const
  * Furthermore, it builds possible values list for cOpt class.
  * @return One string containing all found tilesets in form "tileset1,tileset2,tileset3,..."
  */
-static std::string build_tilesets_list()
+std::string options_manager::build_tilesets_list()
 {
     const std::string defaultTilesets = "hoder,deon";
     std::string tileset_names;
@@ -571,7 +621,7 @@ static std::string build_tilesets_list()
     return tileset_names;
 }
 
-void init_options()
+void options_manager::init()
 {
     OPTIONS.clear();
     ACTIVE_WORLD_OPTIONS.clear();
@@ -597,6 +647,13 @@ void init_options()
     tileset_names = build_tilesets_list(); //get the tileset names and set the optionNames
 
     ////////////////////////////GENERAL//////////////////////////
+    OPTIONS["DEF_CHAR_NAME"] = cOpt("general", _("Default character name"),
+                                    _("Set a default character name that will be used instead of a random name on character creation."),
+                                    "", 30
+                                   );
+
+    mOptionsSort["general"]++;
+
     OPTIONS["AUTO_PICKUP"] = cOpt("general", _("Auto pickup enabled"),
                                   _("Enable item auto pickup. Change pickup rules with the Auto Pickup Manager in the Help Menu ?3"),
                                   false
@@ -985,6 +1042,13 @@ void init_options()
 
     mOptionsSort["debug"]++;
 
+    OPTIONS["SKILL_TRAINING_SPEED"] = cOpt("debug", _("Skill training speed"),
+                                 _("Scales experience gained from practicing skills and reading books. 0.5 is half as fast as default, 2.0 is twice as fast, 0.0 disables skill training except for NPC training."),
+                                 0.0, 100.0, 1.0, 0.1
+                                );
+
+    mOptionsSort["debug"]++;
+
     //~ plain, default, normal
     optionNames["vanilla"] = _("Vanilla");
     //~ capped at a value
@@ -1077,6 +1141,11 @@ void init_options()
                                            0, 1000, 100
                                            );
 
+    OPTIONS["ETERNAL_SEASON"] = cOpt("world_default", _("Eternal season"),
+                                    _("Keep the initial season for ever."),
+                                    false
+                                   );
+
     mOptionsSort["world_default"]++;
 
     OPTIONS["STATIC_SPAWN"] = cOpt("world_default", _("Static spawn"),
@@ -1164,7 +1233,7 @@ void init_options()
     }
 }
 
-void show_options(bool ingame)
+void options_manager::show(bool ingame)
 {
     auto OPTIONS_OLD = OPTIONS;
     auto WOPTIONS_OLD = ACTIVE_WORLD_OPTIONS;
@@ -1217,8 +1286,7 @@ void show_options(bool ingame)
     int iLastPage = 0;
     int iCurrentLine = 0;
     int iStartPos = 0;
-    bool bStuffChanged = false;
-    bool bWorldStuffChanged = false;
+
     input_context ctxt("OPTIONS");
     ctxt.register_cardinal();
     ctxt.register_action("QUIT");
@@ -1228,8 +1296,6 @@ void show_options(bool ingame)
     ctxt.register_action("HELP_KEYBINDINGS");
 
     std::stringstream sTemp;
-
-    used_tiles_changed = false;
 
     while(true) {
         auto &cOPTIONS = ( ingame && iCurrentPage == iWorldOptPage ?
@@ -1365,7 +1431,6 @@ void show_options(bool ingame)
 
         const std::string action = ctxt.handle_input();
 
-        bool bChangedSomething = false;
         if (action == "DOWN") {
             do {
                 iCurrentLine++;
@@ -1383,10 +1448,8 @@ void show_options(bool ingame)
                    );
         } else if (!mPageItems[iCurrentPage].empty() && action == "RIGHT") {
             cOPTIONS[mPageItems[iCurrentPage][iCurrentLine]].setNext();
-            bChangedSomething = true;
         } else if (!mPageItems[iCurrentPage].empty() && action == "LEFT") {
             cOPTIONS[mPageItems[iCurrentPage][iCurrentLine]].setPrev();
-            bChangedSomething = true;
         } else if (action == "NEXT_TAB") {
             iCurrentLine = 0;
             iStartPos = 0;
@@ -1403,9 +1466,8 @@ void show_options(bool ingame)
             }
         } else if (!mPageItems[iCurrentPage].empty() && action == "CONFIRM") {
             cOpt &cur_opt = cOPTIONS[mPageItems[iCurrentPage][iCurrentLine]];
-            if (cur_opt.getType() == "bool" || cur_opt.getType() == "string") {
+            if (cur_opt.getType() == "bool" || cur_opt.getType() == "string_select" || cur_opt.getType() == "string_input" ) {
                 cur_opt.setNext();
-                bChangedSomething = true;
             } else {
                 const bool is_int = cur_opt.getType() == "int";
                 const bool is_float = cur_opt.getType() == "float";
@@ -1422,7 +1484,7 @@ void show_options(bool ingame)
                         ssTemp >> tmpFloat;
                         if (ssTemp) {
                             cur_opt.setValue(tmpFloat);
-                            bChangedSomething = true;
+
                         } else {
                             popup(_("Invalid input: not a number"));
                         }
@@ -1431,31 +1493,44 @@ void show_options(bool ingame)
                         // has taken care that the string contains
                         // only digits, parsing is done in setValue
                         cur_opt.setValue(opt_val);
-                        bChangedSomething = true;
                     }
                 }
             }
         } else if (action == "QUIT") {
             break;
         }
-        if(bChangedSomething) {
-            bStuffChanged = true;
-            if ( iCurrentPage == iWorldOptPage ) {
-                bWorldStuffChanged = true;
+    }
+
+    //Look for changes
+    bool options_changed = false;
+    bool world_options_changed = false;
+    bool lang_changed = false;
+    bool used_tiles_changed = false;
+
+    for (auto &iter : OPTIONS_OLD) {
+        if ( iter.second.getValue() != OPTIONS[iter.first].getValue() ) {
+            options_changed = true;
+
+            if ( iter.second.getPage() == "world_default" ) {
+                world_options_changed = true;
+            }
+
+            if ( iter.first == "TILES" || iter.first == "USE_TILES" ) {
+                used_tiles_changed = true;
+
+            } else if ( iter.first == "USE_LANG" ) {
+                lang_changed = true;
             }
         }
     }
 
-    used_tiles_changed = (OPTIONS_OLD["TILES"].getValue() != OPTIONS["TILES"].getValue()) ||
-                         (OPTIONS_OLD["USE_TILES"] != OPTIONS["USE_TILES"]);
-    bool lang_changed = OPTIONS_OLD["USE_LANG"].getValue() != OPTIONS["USE_LANG"].getValue();
-    if (bStuffChanged) {
+    if (options_changed) {
         if(query_yn(_("Save changes?"))) {
-            save_options(ingame && bWorldStuffChanged);
+            save(ingame && world_options_changed);
         } else {
             used_tiles_changed = false;
             OPTIONS = OPTIONS_OLD;
-            if (ingame && bWorldStuffChanged) {
+            if (ingame && world_options_changed) {
                 ACTIVE_WORLD_OPTIONS = WOPTIONS_OLD;
             }
         }
@@ -1466,8 +1541,8 @@ void show_options(bool ingame)
         g->mmenu_refresh_motd();
         g->mmenu_refresh_credits();
     }
-#ifdef TILES
     if( used_tiles_changed ) {
+#ifdef TILES
         //try and keep SDL calls limited to source files that deal specifically with them
         try {
             tilecontext->reinit();
@@ -1481,33 +1556,135 @@ void show_options(bool ingame)
             popup(_("Loading the tileset failed: %s"), err.what());
             use_tiles = false;
         }
-    }
 #endif // TILES
+    }
     delwin(w_options);
     delwin(w_options_border);
     delwin(w_options_header);
     delwin(w_options_tooltip);
 }
 
-void load_options()
+void options_manager::serialize(JsonOut &json) const
+{
+    json.start_array();
+
+    for( size_t j = 0; j < vPages.size(); ++j ) {
+        bool update_wopt = (bIngame && (int)j == iWorldOptPage );
+        for( auto &elem : mPageItems[j] ) {
+            if( OPTIONS[elem].getDefaultText() != "" ) {
+                json.start_object();
+
+                json.member( "info", OPTIONS[elem].getTooltip() );
+                json.member( "default", OPTIONS[elem].getDefaultText( false ) );
+                json.member( "name", elem );
+                json.member( "value", OPTIONS[elem].getValue() );
+
+                json.end_object();
+
+                if ( update_wopt ) {
+                    world_generator->active_world->WORLD_OPTIONS[elem] = ACTIVE_WORLD_OPTIONS[elem];
+                }
+            }
+        }
+
+        if( update_wopt ) {
+            calendar::set_season_length( ACTIVE_WORLD_OPTIONS["SEASON_LENGTH"] );
+        }
+    }
+
+    json.end_array();
+}
+
+void options_manager::deserialize(JsonIn &jsin)
+{
+    jsin.start_array();
+    while (!jsin.end_array()) {
+        JsonObject joOptions = jsin.get_object();
+
+        const std::string name = joOptions.get_string("name");
+        const std::string value = joOptions.get_string("value");
+
+        optionsdata.add_retry(name, value);
+        OPTIONS[ name ].setValue( value );
+    }
+}
+
+bool options_manager::save(bool ingame)
+{
+    bIngame = ingame;
+    const auto savefile = FILENAMES["options"];
+
+    try {
+        std::ofstream fout;
+        fout.exceptions(std::ios::badbit | std::ios::failbit);
+
+        fout.open(savefile.c_str());
+
+        if(!fout.is_open()) {
+            return true; //trick game into thinking it was saved
+        }
+
+        JsonOut jout( fout, true );
+        serialize(jout);
+
+        fout.close();
+        return true;
+
+    } catch(std::ios::failure &) {
+        popup(_("Failed to save options to %s"), savefile.c_str());
+        return false;
+    }
+
+    return false;
+}
+
+void options_manager::load()
+{
+    const auto file = FILENAMES["options"];
+
+    std::ifstream fin;
+    fin.open(file.c_str(), std::ifstream::in | std::ifstream::binary);
+    if( !fin.good() ) {
+        if (load_legacy()) {
+            if (save()) {
+                if(file_exist(FILENAMES["legacy_options"])) {
+                    remove_file(FILENAMES["legacy_options"]);
+                }
+
+                if(file_exist(FILENAMES["legacy_options2"])) {
+                    remove_file(FILENAMES["legacy_options2"]);
+                }
+            }
+        }
+
+    } else {
+        try {
+            JsonIn jsin(fin);
+            deserialize(jsin);
+        } catch( const JsonError &e ) {
+            DebugLog(D_ERROR, DC_ALL) << "options_manager::load: " << e;
+        }
+    }
+
+    fin.close();
+
+    trigdist = OPTIONS["CIRCLEDIST"]; // cache to global due to heavy usage.
+    use_tiles = OPTIONS["USE_TILES"]; // cache to global due to heavy usage.
+    log_from_top = OPTIONS["SIDEBAR_LOG_FLOW"] == "new_top"; // cache to global due to heavy usage.
+    fov_3d = false; // OPTIONS["FOV_3D"];
+}
+
+bool options_manager::load_legacy()
 {
     std::ifstream fin;
-    bool legacy_options_loaded = false;
-    fin.open(FILENAMES["options"].c_str());
+    // Try at the legacy location.
+    fin.open(FILENAMES["legacy_options"].c_str());
     if(!fin.is_open()) {
-        // Try at the legacy location.
-        fin.open(FILENAMES["legacy_options"].c_str());
+        // Try at the legacy location 2.
+        fin.open(FILENAMES["legacy_options2"].c_str());
         if(!fin.is_open()) {
-            // Create it since it doesn't seem to exist.
-            assure_dir_exist(FILENAMES["config_dir"]);
-            save_options();
-            fin.open(FILENAMES["options"].c_str());
-            if(!fin.is_open()) {
-                DebugLog( D_ERROR, DC_ALL ) << "Could neither read nor create" << FILENAMES["options"];
-                return;
-            }
-        } else {
-            legacy_options_loaded = true;
+            //No legacy txt options found, load json options
+            return false;
         }
     }
 
@@ -1527,75 +1704,8 @@ void load_options()
     }
 
     fin.close();
-    if( legacy_options_loaded ) {
-        // Write out options file at new location.
-        assure_dir_exist(FILENAMES["config_dir"]);
-        save_options();
-    }
 
-    trigdist = OPTIONS["CIRCLEDIST"]; // cache to global due to heavy usage.
-    use_tiles = OPTIONS["USE_TILES"]; // cache to global due to heavy usage.
-    log_from_top = OPTIONS["SIDEBAR_LOG_FLOW"] == "new_top"; // cache to global due to heavy usage.
-    fov_3d = false; // OPTIONS["FOV_3D"];
-}
-
-std::string options_header()
-{
-    return "\
-# This is the options file.  The format is\n\
-# <option name> <option value>\n\
-# <option value> may be any number, positive or negative.  If you use a\n\
-# negative sign, do not put a space between it and the number.\n\
-#\n\
-# If # is at the start of a line, it is considered a comment and is ignored.\n\
-# In-line commenting is not allowed.  I think.\n\
-#\n\
-# If you want to restore the default options, simply delete this file.\n\
-# A new options.txt will be created next time you play.\n\
-\n\
-";
-}
-
-void save_options(bool ingame)
-{
-    std::ofstream fout;
-    const auto path = FILENAMES["options"];
-    fout.open(path.c_str());
-    if(!fout.is_open()) {
-        popup( _( "Could not open the options file %s, check file permissions." ), path.c_str() );
-        return;
-    }
-
-    fout << options_header() << std::endl;
-
-    for( size_t j = 0; j < vPages.size(); ++j ) {
-        bool update_wopt = (ingame && (int)j == iWorldOptPage );
-        for( auto &elem : mPageItems[j] ) {
-            if( OPTIONS[elem].getDefaultText() != "" ) {
-                fout << "#" << OPTIONS[elem].getTooltip() << std::endl;
-                fout << "#" << OPTIONS[elem].getDefaultText( false ) << std::endl;
-                fout << elem << " " << OPTIONS[elem].getValue() << std::endl << std::endl;
-                if ( update_wopt ) {
-                    world_generator->active_world->world_options[elem] = ACTIVE_WORLD_OPTIONS[elem];
-                }
-            }
-        }
-        if( update_wopt ) {
-            calendar::set_season_length( ACTIVE_WORLD_OPTIONS["SEASON_LENGTH"] );
-        }
-    }
-
-    fout.close();
-    if( fout.fail() ) {
-        popup( _( "Failed to save the options to %s." ), path.c_str() );
-    }
-    if ( ingame ) {
-        world_generator->save_world( world_generator->active_world, false );
-    }
-    trigdist = OPTIONS["CIRCLEDIST"]; // update trigdist as well
-    use_tiles = OPTIONS["USE_TILES"]; // and use_tiles
-    log_from_top = OPTIONS["SIDEBAR_LOG_FLOW"] == "new_top"; // cache to global due to heavy usage.
-    fov_3d = false; // OPTIONS["FOV_3D"];
+    return true;
 }
 
 bool use_narrow_sidebar()
