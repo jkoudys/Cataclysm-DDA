@@ -366,6 +366,22 @@
             {
                 "input_method":"keyboard",
                 "key":"s"
+            },
+            {
+                "input_method":"keyboard",
+                "key":"RETURN"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id": "CHANGE_SIDE",
+        "category": "SORT_ARMOR",
+        "name": "Change side armor is worn on",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"c"
             }
         ]
     },
@@ -952,6 +968,17 @@
             {
                 "input_method":"keyboard",
                 "key":"f"
+            }
+        ]
+    },
+    {
+        "type" : "keybinding",
+        "id":"TRAVEL_TO",
+        "name":"Travel to destination",
+        "bindings":[
+            {
+                "input_method":"keyboard",
+                "key":"t"
             }
         ]
     },

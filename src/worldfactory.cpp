@@ -694,9 +694,9 @@ int worldfactory::show_worldgen_tab_options(WINDOW *win, WORLDPTR world)
                       cLineColor, "%s", (world->WORLD_OPTIONS[mPageItems[iWorldOptPage][i]].getValueName()).c_str());
         }
 
-        //Draw Scrollbar
         draw_scrollbar(win, iCurrentLine, iContentHeight,
                        mPageItems[iWorldOptPage].size(), iTooltipHeight + 4, 0, BORDER_COLOR);
+        wrefresh(win);
 
         fold_and_print(w_options_tooltip, 0, 0, 78, c_white, "%s #%s",
                        world->WORLD_OPTIONS[mPageItems[iWorldOptPage][iCurrentLine]].getTooltip().c_str(),
@@ -1466,7 +1466,9 @@ bool worldfactory::load_world_options(WORLDPTR &world)
             }
             fin.close();
 
-            save_world(world);
+            if ( save_world( world ) ) {
+                remove_file( path );
+            }
 
             return true;
         }

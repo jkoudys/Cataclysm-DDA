@@ -279,6 +279,25 @@ bool InitSDL()
     return true;
 }
 
+bool SetupRenderTarget()
+{
+    if( SDL_SetRenderDrawBlendMode( renderer, SDL_BLENDMODE_NONE ) != 0 ) {
+        dbg( D_ERROR ) << "SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE) failed: " << SDL_GetError();
+        // Ignored for now, rendering could still work
+    }
+    display_buffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, WindowWidth, WindowHeight);
+    if( display_buffer == nullptr ) {
+        dbg( D_ERROR ) << "Failed to create window buffer: " << SDL_GetError();
+        return false;
+    }
+    if( SDL_SetRenderTarget( renderer, display_buffer ) != 0 ) {
+        dbg( D_ERROR ) << "Failed to select render target: " << SDL_GetError();
+        return false;
+    }
+
+    return true;
+}
+
 //Registers, creates, and shows the Window!!
 bool WinCreate()
 {
@@ -289,8 +308,15 @@ bool WinCreate()
     WindowWidth = TERMINAL_WIDTH * fontwidth;
     WindowHeight = TERMINAL_HEIGHT * fontheight;
 
-    if (OPTIONS["FULLSCREEN"]) {
+    if( OPTIONS["SCALING_MODE"] != "none" ) {
+        window_flags |= SDL_WINDOW_RESIZABLE;
+        SDL_SetHint( SDL_HINT_RENDER_SCALE_QUALITY, OPTIONS["SCALING_MODE"].getValue().c_str() );
+    }
+
+    if (OPTIONS["FULLSCREEN"] == "fullscreen") {
         window_flags |= SDL_WINDOW_FULLSCREEN;
+    } else if (OPTIONS["FULLSCREEN"] == "windowedbl") {
+        window_flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     }
 
     window = SDL_CreateWindow(version.c_str(),
@@ -305,7 +331,7 @@ bool WinCreate()
         dbg(D_ERROR) << "SDL_CreateWindow failed: " << SDL_GetError();
         return false;
     }
-    if (window_flags & SDL_WINDOW_FULLSCREEN) {
+    if (window_flags & SDL_WINDOW_FULLSCREEN || window_flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
         SDL_GetWindowSize(window, &WindowWidth, &WindowHeight);
         // Ignore previous values, use the whole window, but nothing more.
         TERMINAL_WIDTH = WindowWidth / fontwidth;
@@ -334,6 +360,17 @@ bool WinCreate()
         if( renderer == NULL ) {
             dbg( D_ERROR ) << "Failed to initialize accelerated renderer, falling back to software rendering: " << SDL_GetError();
             software_renderer = true;
+        } else if( !SetupRenderTarget() ) {
+            dbg( D_ERROR ) << "Failed to initialize display buffer under accelerated rendering, falling back to software rendering.";
+            software_renderer = true;
+            if (display_buffer != NULL) {
+                SDL_DestroyTexture(display_buffer);
+                display_buffer = NULL;
+            }
+            if( renderer != NULL ) {
+                SDL_DestroyRenderer( renderer );
+                renderer = NULL;
+            }
         }
     }
     if( software_renderer ) {
@@ -341,22 +378,12 @@ bool WinCreate()
         if( renderer == NULL ) {
             dbg( D_ERROR ) << "Failed to initialize software renderer: " << SDL_GetError();
             return false;
+        } else if( !SetupRenderTarget() ) {
+            dbg( D_ERROR ) << "Failed to initialize display buffer under software rendering, unable to continue.";
+            return false;
         }
     }
 
-    if( SDL_SetRenderDrawBlendMode( renderer, SDL_BLENDMODE_NONE ) != 0 ) {
-        dbg( D_ERROR ) << "SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE) failed: " << SDL_GetError();
-        // Ignored for now, rendering could still work
-    }
-    display_buffer = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, WindowWidth, WindowHeight);
-    if( display_buffer == nullptr ) {
-        dbg( D_ERROR ) << "Failed to create window buffer: " << SDL_GetError();
-        return false;
-    }
-    if( SDL_SetRenderTarget( renderer, display_buffer ) != 0 ) {
-        dbg( D_ERROR ) << "Failed to select render target: " << SDL_GetError();
-        return false;
-    }
     ClearScreen();
 
     // Errors here are ignored, worst case: the option does not work as expected,
@@ -592,7 +619,7 @@ void BitmapFont::OutputChar(long t, int x, int y, unsigned char color)
 }
 
 // only update if the set interval has elapsed
-void try_update()
+void try_sdl_update()
 {
     unsigned long now = SDL_GetTicks();
     if (now - lastupdate >= interval) {
@@ -601,6 +628,7 @@ void try_update()
         if( SDL_SetRenderTarget( renderer, NULL ) != 0 ) {
             dbg(D_ERROR) << "SDL_SetRenderTarget failed: " << SDL_GetError();
         }
+        SDL_RenderSetLogicalSize( renderer, WindowWidth, WindowHeight );
         if( SDL_RenderCopy( renderer, display_buffer, NULL, NULL ) != 0 ) {
             dbg(D_ERROR) << "SDL_RenderCopy failed: " << SDL_GetError();
         }
@@ -1125,7 +1153,7 @@ void CheckMessages()
         }
     }
     if (needupdate) {
-        try_update();
+        try_sdl_update();
     }
     if(quit) {
         endwin();

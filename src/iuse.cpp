@@ -310,30 +310,33 @@ int iuse::royal_jelly(player *p, item *it, bool, const tripoint& )
     return it->type->charges_to_use();
 }
 
-static hp_part pick_part_to_heal( player *p, const std::string &menu_header,
+static hp_part pick_part_to_heal( const player &healer, const player &patient,
+                                  const std::string &menu_header,
                                   int normal_bonus, int head_bonus, int torso_bonus,
                                   int bleed, int bite, int infect, bool force )
 {
-    const bool precise = p->has_trait( "SELFAWARE" );
+    const bool precise = &healer == &patient ?
+        patient.has_trait( "SELFAWARE" ) :
+        (healer.get_skill_level( skill_firstaid ) * 4 + healer.per_cur >= 20);
     while( true ) {
-        hp_part healed_part = p->body_window( menu_header, force, precise,
-                                              normal_bonus, head_bonus, torso_bonus,
-                                              bleed, bite, infect );
+        hp_part healed_part = patient.body_window( menu_header, force, precise,
+                                                   normal_bonus, head_bonus, torso_bonus,
+                                                   bleed, bite, infect );
         if( healed_part == num_hp_parts ) {
             return num_hp_parts;
         }
 
         body_part bp = player::hp_to_bp( healed_part );
-        if( ( infect > 0 && p->has_effect( "infected", bp ) ) ||
-            ( bite > 0 && p->has_effect( "bite", bp ) ) ||
-            ( bleed > 0 && p->has_effect( "bleed", bp ) ) ) {
+        if( ( infect > 0 && patient.has_effect( "infected", bp ) ) ||
+            ( bite > 0 && patient.has_effect( "bite", bp ) ) ||
+            ( bleed > 0 && patient.has_effect( "bleed", bp ) ) ) {
             return healed_part;
         }
 
-        if( p->hp_cur[healed_part] == 0 ) {
-            if( healed_part == hp_arm_l || healed_part == hp_arm_r ) { 
+        if( patient.hp_cur[healed_part] == 0 ) {
+            if( healed_part == hp_arm_l || healed_part == hp_arm_r ) {
                 add_msg( m_info, _("That arm is broken.  It needs surgical attention or a splint.") );
-            } else if( healed_part == hp_leg_l || healed_part == hp_leg_r ) { 
+            } else if( healed_part == hp_leg_l || healed_part == hp_leg_r ) {
                 add_msg( m_info, _("That leg is broken.  It needs surgical attention or a splint.") );
             } else {
                 add_msg( m_info, "That body part is bugged.  It needs developer's attention." );
@@ -342,7 +345,7 @@ static hp_part pick_part_to_heal( player *p, const std::string &menu_header,
             continue;
         }
 
-        if( force || p->hp_cur[healed_part] < p->hp_max[healed_part] ) {
+        if( force || patient.hp_cur[healed_part] < patient.hp_max[healed_part] ) {
             return healed_part;
         }
     }
@@ -351,13 +354,33 @@ static hp_part pick_part_to_heal( player *p, const std::string &menu_header,
     return num_hp_parts;
 }
 
-// returns true if we want to use the special action
-hp_part use_healing_item(player *p, item *it, int normal_power, int head_power,
-                         int torso_power, int bleed,
-                         int bite, int infect, bool force)
+player &get_patient( player &healer, const tripoint &pos )
+{
+    if( healer.pos() == pos ) {
+        return healer;
+    }
+
+    if( g->u.pos() == pos ) {
+        return g->u;
+    }
+
+    const int npc_index = g->npc_at( pos );
+    if( npc_index == -1 ) {
+        // Default to heal self on failure not to break old functionality
+        add_msg( m_debug, "No heal target at position %d,%d,%d", pos.x, pos.y, pos.z );
+        return healer;
+    }
+
+    return *g->active_npc[npc_index];
+}
+
+hp_part use_healing_item( player &healer, player &patient, item *it,
+                          int normal_power, int head_power,
+                          int torso_power, int bleed,
+                          int bite, int infect, bool force )
 {
     hp_part healed = num_hp_parts;
-    int bonus = p->skillLevel( skill_firstaid );
+    int bonus = healer.get_skill_level( skill_firstaid );
     int head_bonus = 0;
     int normal_bonus = 0;
     int torso_bonus = 0;
@@ -377,25 +400,33 @@ hp_part use_healing_item(player *p, item *it, int normal_power, int head_power,
         torso_bonus = torso_power;
     }
 
-    if (p->is_npc()) { // NPCs heal whichever has sustained the most damage
+    if( healer.is_npc() ) {
+        // NPCs heal whichever has sustained the most damage
         int highest_damage = 0;
         for (int i = 0; i < num_hp_parts; i++) {
-            int damage = p->hp_max[i] - p->hp_cur[i];
+            int damage = patient.hp_max[i] - patient.hp_cur[i];
             if (i == hp_head) {
                 damage *= 1.5;
             }
             if (i == hp_torso) {
                 damage *= 1.2;
             }
+            // Consider states too
+            // Weights are arbitrary, may need balancing
+            const body_part i_bp = player::hp_to_bp( hp_part( i ) );
+            damage += bleed * patient.get_effect_dur( "bleed", i_bp ) / 100 / 50;
+            damage += bite * patient.get_effect_dur( "bite", i_bp ) / 100 / 100;
+            damage += infect * patient.get_effect_dur( "infected", i_bp ) / 100 / 100;
             if (damage > highest_damage) {
                 highest_damage = damage;
                 healed = hp_part(i);
             }
         }
-    } else { // Player--present a menu
-        if (p->activity.type != ACT_FIRSTAID) {
+    } else if( patient.is_player() ) {
+        // Player healing self - let player select
+        if( healer.activity.type != ACT_FIRSTAID ) {
             const std::string menu_header = it->tname();
-            healed = pick_part_to_heal( p, menu_header,
+            healed = pick_part_to_heal( healer, patient, menu_header,
                                         normal_bonus, head_bonus, torso_bonus,
                                         bleed, bite, infect, force );
             if( healed == num_hp_parts ) {
@@ -404,15 +435,26 @@ hp_part use_healing_item(player *p, item *it, int normal_power, int head_power,
         }
         // Brick healing if using a first aid kit for the first time.
         // TODO: Base check on something other than the name.
-        if (it->type->id == "1st_aid" && p->activity.type != ACT_FIRSTAID) {
+        if( it->type->id == "1st_aid" && healer.activity.type != ACT_FIRSTAID ) {
             // Cancel and wait for activity completion.
             return healed;
-        } else if (p->activity.type == ACT_FIRSTAID) {
+        } else if( healer.activity.type == ACT_FIRSTAID ) {
             // Completed activity, extract body part from it.
-            healed = (hp_part)p->activity.values[0];
+            healed = (hp_part)healer.activity.values[0];
+        }
+    } else {
+        // Player healing NPC
+        // TODO: Remove this hack, allow using activities on NPCs
+        const std::string menu_header = it->tname();
+        healed = pick_part_to_heal( healer, patient, menu_header,
+                                    normal_bonus, head_bonus, torso_bonus,
+                                    bleed, bite, infect, force );
+        if( healed == num_hp_parts ) {
+            return num_hp_parts; // canceled
         }
     }
-    p->practice( skill_firstaid, 8);
+
+    healer.practice( skill_firstaid, 8 );
     int dam = 0;
     if (healed == hp_head) {
         dam = head_bonus;
@@ -421,51 +463,81 @@ hp_part use_healing_item(player *p, item *it, int normal_power, int head_power,
     } else {
         dam = normal_bonus;
     }
-    if ((p->hp_cur[healed] >= 1) && (dam > 0)) { // Prevent first-aid from mending limbs
-        p->heal(healed, dam);
-    } else if ((p->hp_cur[healed] >= 1) && (dam < 0)) {
+    if( (patient.hp_cur[healed] >= 1) && (dam > 0)) { // Prevent first-aid from mending limbs
+        patient.heal(healed, dam);
+    } else if ((patient.hp_cur[healed] >= 1) && (dam < 0)) {
         const body_part bp = player::hp_to_bp( healed );
-        p->apply_damage( nullptr, bp, -dam ); //hurt takes + damage
+        patient.apply_damage( nullptr, bp, -dam ); //hurt takes + damage
     }
 
     const body_part bp_healed = player::hp_to_bp( healed );
 
-    if (p->has_effect("bleed", bp_healed)) {
+    const bool u_see = healer.is_player() || patient.is_player() ||
+        g->u.sees( healer ) || g->u.sees( patient );
+    const bool player_healing_player = healer.is_player() && patient.is_player();
+    // Need a helper here - messages are from healer's point of view
+    // but it would be cool if NPCs could use this function too
+    const auto heal_msg = [&]( game_message_type msg_type,
+        const char *player_player_msg, const char *other_msg ) {
+        if( !u_see ) {
+            return;
+        }
+
+        if( player_healing_player ) {
+            add_msg( msg_type, player_player_msg );
+        } else {
+            add_msg( msg_type, other_msg );
+        }
+    };
+
+    if (patient.has_effect("bleed", bp_healed)) {
         if (x_in_y(bleed, 100)) {
-            p->remove_effect("bleed", bp_healed);
-            p->add_msg_if_player(m_good, _("You stop the bleeding."));
+            patient.remove_effect("bleed", bp_healed);
+            heal_msg( m_good, _("You stop the bleeding."), _("The bleeding is stopped.") );
         } else {
-            p->add_msg_if_player(_("You fail to stop the bleeding."));
+            heal_msg( m_warning, _("You fail to stop the bleeding."), _("The wound still bleeds.") );
         }
     }
-    if (p->has_effect("bite", bp_healed)) {
+    if (patient.has_effect("bite", bp_healed)) {
         if (x_in_y(bite, 100)) {
-            p->remove_effect("bite", bp_healed);
-            p->add_msg_if_player(m_good, _("You clean the wound."));
+            patient.remove_effect("bite", bp_healed);
+            heal_msg( m_good, _("You clean the wound."), _("The wound is cleaned.") );
         } else {
-            p->add_msg_if_player(m_warning, _("Your wound still aches."));
+            heal_msg( m_warning, _("Your wound still aches."), _("The wound still looks bad.") );
         }
     }
-    if (p->has_effect("infected", bp_healed)) {
+    if (patient.has_effect("infected", bp_healed)) {
         if (x_in_y(infect, 100)) {
-            int infected_dur = p->get_effect_dur("infected", bp_healed);
-            p->remove_effect("infected", bp_healed);
-            p->add_effect("recover", infected_dur);
-            p->add_msg_if_player(m_good, _("You disinfect the wound."));
+            int infected_dur = patient.get_effect_dur("infected", bp_healed);
+            patient.remove_effect("infected", bp_healed);
+            patient.add_effect("recover", infected_dur);
+            heal_msg( m_good, _("You disinfect the wound."), _("The wound is disinfected.") );
         } else {
-            p->add_msg_if_player(m_warning, _("Your wound still hurts."));
+            heal_msg( m_warning, _("Your wound still hurts."), _("The wound still looks nasty.") );
         }
     }
+
     return healed;
 }
 
-int iuse::bandage(player *p, item *it, bool, const tripoint& )
+hp_part use_healing_item( player *healer, item *it,
+                          int normal_power, int head_power,
+                          int torso_power, int bleed,
+                          int bite, int infect, bool force )
+{
+    return use_healing_item( *healer, *healer, it,
+                             normal_power, head_power, torso_power,
+                             bleed, bite, infect, force );
+}
+
+int iuse::bandage(player *p, item *it, bool, const tripoint &pos )
 {
     if (p->is_underwater()) {
         p->add_msg_if_player(m_info, _("You can't do that while underwater."));
         return false;
     }
-    if (num_hp_parts != use_healing_item(p, it, 3, 1, 4, 90, 0, 0, false)) {
+    player &patient = get_patient( *p, pos );
+    if (num_hp_parts != use_healing_item( *p, patient, it, 3, 1, 4, 90, 0, 0, false)) {
         if (it->type->id != "quikclot" || it->type->id != "bfipowder") {
             // Make bandages and rags take arbitrarily longer than hemostatic/antiseptic powders.
             p->moves -= 100;
@@ -476,21 +548,28 @@ int iuse::bandage(player *p, item *it, bool, const tripoint& )
     return 0;
 }
 
-int iuse::firstaid(player *p, item *it, bool, const tripoint& )
+int iuse::firstaid(player *p, item *it, bool, const tripoint &pos )
 {
     if (p->is_underwater()) {
         p->add_msg_if_player(m_info, _("You can't do that while underwater."));
         return false;
     }
-    // Assign first aid long action.
-    int healed = use_healing_item(p, it, 14, 10, 18, 95, 99, 95, false);
-    if (healed != num_hp_parts) {
-        p->assign_activity(ACT_FIRSTAID, 6000 / (p->skillLevel( skill_firstaid ) + 1), 0,
-                           p->get_item_position(it), it->tname());
-        p->activity.values.push_back(healed);
-        p->moves = 0;
+
+    player &patient = get_patient( *p, pos );
+    hp_part healed = use_healing_item( *p, patient, it, 14, 10, 18, 95, 99, 95, false);
+    if( healed == num_hp_parts ) {
+        return 0;
     }
 
+    if( &patient != p ) {
+        return 1;
+    }
+
+    // Assign first aid long action.
+    p->assign_activity(ACT_FIRSTAID, 6000 / (p->skillLevel( skill_firstaid ) + 1), 0,
+                       p->get_item_position(it), it->tname());
+    p->activity.values.push_back(healed);
+    p->moves = 0;
     return 0;
 }
 
@@ -504,13 +583,14 @@ int iuse::completefirstaid(player *p, item *it, bool, const tripoint& )
     return 0;
 }
 
-int iuse::disinfectant(player *p, item *it, bool, const tripoint& )
+int iuse::disinfectant(player *p, item *it, bool, const tripoint &pos )
 {
     if (p->is_underwater()) {
         p->add_msg_if_player(m_info, _("You can't do that while underwater."));
         return false;
     }
-    if (num_hp_parts != use_healing_item(p, it, 6, 5, 9, 0, 95, 0, false)) {
+    player &patient = get_patient( *p, pos );
+    if (num_hp_parts != use_healing_item( *p, patient, it, 6, 5, 9, 0, 95, 0, false)) {
         return it->type->charges_to_use();
     }
     return 0;
@@ -2390,7 +2470,7 @@ int iuse::sew(player *p, item *it, bool, const tripoint& )
 }
 
 static bool is_firearm(const item &it)
-{ 
+{
     return it.is_gun() && !it.has_flag("PRIMITIVE_RANGED_WEAPON");
 }
 
@@ -3823,10 +3903,10 @@ int iuse::crowbar(player *p, item *it, bool, const tripoint &pos)
         fail_action = _("You pry, but cannot pop open the crate.");
         noisy = true;
         difficulty = 6;
-    } else if (type == t_window_domestic || type == t_curtains) {
+    } else if (type == t_window_domestic || type == t_curtains || type == t_window_no_curtains) {
         succ_action = _("You pry open the window.");
         fail_action = _("You pry, but cannot pry open the window.");
-        new_type = t_window_open;
+        new_type = (type == t_window_no_curtains) ? t_window_no_curtains_open : t_window_open;
         noisy = true;
         difficulty = 6;
     } else if (pry_nails(p, type, dirx, diry)) {
@@ -4124,7 +4204,7 @@ int iuse::jackhammer(player *p, item *it, bool, const tripoint &pos )
     }
 
     if (
-           (g->m.is_bashable(dirx, diry) && g->m.has_flag("SUPPORTS_ROOF", dirx, diry) &&
+           (g->m.is_bashable(dirx, diry) && (g->m.has_flag("SUPPORTS_ROOF", dirx, diry) || g->m.has_flag("MINEABLE", dirx, diry))&&
                 g->m.ter(dirx, diry) != t_tree) ||
            (g->m.move_cost(dirx, diry) == 2 && g->get_levz() != -1 &&
                 g->m.ter(dirx, diry) != t_dirt && g->m.ter(dirx, diry) != t_grass)) {
@@ -4163,7 +4243,7 @@ int iuse::pickaxe(player *p, item *it, bool, const tripoint& )
         return 0;
     }
     int turns;
-    if (g->m.is_bashable(dirx, diry) && g->m.has_flag("SUPPORTS_ROOF", dirx, diry) &&
+    if (g->m.is_bashable(dirx, diry) && (g->m.has_flag("SUPPORTS_ROOF", dirx, diry) || g->m.has_flag("MINEABLE", dirx, diry)) &&
         g->m.ter(dirx, diry) != t_tree) {
         // Takes about 100 minutes (not quite two hours) base time.  Construction skill can speed this: 3 min off per level.
         turns = (100000 - 3000 * p->skillLevel( skill_carpentry ));
@@ -4950,6 +5030,9 @@ int iuse::firecracker_pack_act(player *, item *it, bool, const tripoint &pos)
         }
         it->charges -= ex;
     }
+    if (it->charges == 0) {
+        it->charges = -1;
+    }
     return 0;
 }
 
@@ -5062,13 +5145,14 @@ int iuse::portal(player *p, item *it, bool, const tripoint& )
     return it->type->charges_to_use();
 }
 
-int iuse::tazer(player *p, item *it, bool, const tripoint& )
+int iuse::tazer(player *p, item *it, bool, const tripoint &pos )
 {
-    if (it->charges < it->type->charges_to_use()) {
+    if( it->charges < it->type->charges_to_use() ) {
         return 0;
     }
-    tripoint dirp;
-    if (!choose_adjacent(_("Shock where?"), dirp)) {
+
+    tripoint dirp = pos;
+    if( p->pos() == pos && !choose_adjacent( _("Shock where?"), dirp ) ) {
         return 0;
     }
 
@@ -5076,160 +5160,64 @@ int iuse::tazer(player *p, item *it, bool, const tripoint& )
         p->add_msg_if_player(m_info, _("Umm.  No."));
         return 0;
     }
-    int mondex = g->mon_at( dirp, true );
-    int npcdex = g->npc_at(dirp);
-    if (mondex == -1 && npcdex == -1) {
-        p->add_msg_if_player(_("Electricity crackles in the air."));
-        return it->type->charges_to_use();
+
+    Creature *target = g->critter_at( dirp, true );
+    if( target == nullptr ) {
+        p->add_msg_if_player(_("There's nothing to zap there!"));
+        return 0;
+    }
+
+    // Hacky, there should be a method doing all that when the player willingly hurts someone
+    npc *foe = dynamic_cast<npc *>( target );
+    if( foe != nullptr && foe->attitude != NPCATT_KILL && foe->attitude != NPCATT_FLEE ) {
+        if( !query_yn( _("Really shock %s"), target->disp_name().c_str() ) ) {
+            return 0;
+        }
+
+        foe->attitude = NPCATT_KILL;
+        foe->hit_by_player = true;
     }
 
     int numdice = 3 + (p->dex_cur / 2.5) + p->skillLevel( skill_melee ) * 2;
     p->moves -= 100;
-
-    if (mondex != -1) {
-        monster *z = &(g->zombie(mondex));
-        switch (z->type->size) {
-            case MS_TINY:
-                numdice -= 2;
-                break;
-            case MS_SMALL:
-                numdice -= 1;
-                break;
-            case MS_MEDIUM:
-                break;
-            case MS_LARGE:
-                numdice += 2;
-                break;
-            case MS_HUGE:
-                numdice += 4;
-                break;
-        }
-        int mondice = z->get_dodge();
-        if (dice(numdice, 10) < dice(mondice, 10)) { // A miss!
-            p->add_msg_if_player(_("You attempt to shock the %s, but miss."), z->name().c_str());
-            return it->type->charges_to_use();
-        }
-        p->add_msg_if_player(m_good, _("You shock the %s!"), z->name().c_str());
-        int shock = rng(5, 25);
-        z->moves -= shock * 100;
-        z->apply_damage( p, bp_torso, shock );
+    
+    int target_dice = target->get_dodge();
+    if( dice( numdice, 10 ) < dice( target_dice, 10 ) ) {
+        // A miss!
+        p->add_msg_player_or_npc( _("You attempt to shock %s, but miss."),
+                                  _("<npcname> attempts to shock %s, but misses."),
+                                  target->disp_name().c_str() );
         return it->type->charges_to_use();
     }
 
-    if (npcdex != -1) {
-        npc *foe = g->active_npc[npcdex];
-        if (foe->attitude != NPCATT_FLEE) {
-            foe->attitude = NPCATT_KILL;
-        }
-        if (foe->str_max >= 17) {
-            numdice++;    // Minor bonus against huge people
-        } else if (foe->str_max <= 5) {
-            numdice--;    // Minor penalty against tiny people
-        }
-        if (dice(numdice, 10) <= dice(foe->get_dodge(), 6)) {
-            p->add_msg_if_player(_("You attempt to shock %s, but miss."), foe->name.c_str());
-            return it->type->charges_to_use();
-        }
-        p->add_msg_if_player(m_good, _("You shock %s!"), foe->name.c_str());
-        int shock = rng(5, 20);
-        foe->moves -= shock * 100;
-        foe->hurtall( shock, p );
-        foe->check_dead_state();
+    // Maybe-TODO: Execute an attack and maybe zap something other than torso
+    // Maybe, because it's torso (heart) that fails when zapped with electricity
+    int dam = target->deal_damage( p, bp_torso, damage_instance( DT_ELECTRIC, rng( 5, 25 ) ) ).total_damage();
+    if( dam > 0 ) {
+        p->add_msg_player_or_npc( m_good,
+                                  _("You shock %s!"),
+                                  _("<npcname> shocks %s!"),
+                                  target->disp_name().c_str() );
+    } else {
+        p->add_msg_player_or_npc( m_warning,
+                                  _("You unsuccessfully attempt to shock %s!"),
+                                  _("<npcname> unsuccessfully attempts to shock %s!"),
+                                  target->disp_name().c_str() );
     }
+
     return it->type->charges_to_use();
 }
 
-int iuse::tazer2(player *p, item *it, bool, const tripoint& )
+int iuse::tazer2(player *p, item *it, bool b, const tripoint &pos )
 {
-    if (it->charges >= 100) {
-        tripoint dirp;
-        if (!choose_adjacent(_("Shock where?"), dirp)) {
-            return 0;
-        }
-
-        if( dirp == p->pos() ) {
-            p->add_msg_if_player(m_info, _("Umm.  No."));
-            return 0;
-        }
-        int mondex = g->mon_at( dirp, true );
-        int npcdex = g->npc_at(dirp);
-
-        if (mondex == -1 && npcdex == -1) {
-            p->add_msg_if_player(_("Electricity crackles in the air."));
-            return 100;
-        }
-
-        int numdice = 3 + (p->dex_cur / 2.5) + p->skillLevel( skill_melee ) * 2;
-        p->moves -= 100;
-
-        if (mondex != -1) {
-            monster *z = &(g->zombie(mondex));
-
-            switch (z->type->size) {
-                case MS_TINY:
-                    numdice -= 2;
-                    break;
-
-                case MS_SMALL:
-                    numdice -= 1;
-                    break;
-
-                case MS_MEDIUM:
-                    break;
-
-                case MS_LARGE:
-                    numdice += 2;
-                    break;
-
-                case MS_HUGE:
-                    numdice += 4;
-                    break;
-            }
-
-            int mondice = z->get_dodge();
-
-            if (dice(numdice, 10) < dice(mondice, 10)) { // A miss!
-                p->add_msg_if_player(_("You attempt to shock the %s, but miss."),
-                                     z->name().c_str());
-                return 100;
-            }
-
-            p->add_msg_if_player(m_good, _("You shock the %s!"), z->name().c_str());
-            int shock = rng(5, 25);
-            z->moves -= shock * 100;
-            z->apply_damage( p, bp_torso, shock );
-
-            return 100;
-        }
-
-        if (npcdex != -1) {
-            npc *foe = g->active_npc[npcdex];
-
-            if (foe->attitude != NPCATT_FLEE) {
-                foe->attitude = NPCATT_KILL;
-            }
-
-            if (foe->str_max >= 17) {
-                numdice++;    // Minor bonus against huge people
-            } else if (foe->str_max <= 5) {
-                numdice--;    // Minor penalty against tiny people
-            }
-
-            if (dice(numdice, 10) <= dice(foe->get_dodge(), 6)) {
-                p->add_msg_if_player(_("You attempt to shock %s, but miss."), foe->name.c_str());
-                return it->charges -= 100;
-            }
-
-            p->add_msg_if_player(m_good, _("You shock %s!"), foe->name.c_str());
-            int shock = rng(5, 20);
-            foe->moves -= shock * 100;
-            foe->hurtall( shock, p );
-            foe->check_dead_state();
-        }
-
-        return 100;
+    if( it->charges >= 100 ) {
+        // Instead of having a ctrl+c+v of the function above, spawn a fake tazer and use it
+        // Ugly, but less so than copied blocks
+        item fake( "tazer", 0 );
+        fake.charges = 100;
+        return tazer( p, &fake, b, pos );
     } else {
-        p->add_msg_if_player(m_info, _("Insufficient power"));
+        p->add_msg_if_player( m_info, _("Insufficient power") );
     }
 
     return 0;
@@ -6615,16 +6603,12 @@ int iuse::holster_gun(player *p, item *it, bool, const tripoint& )
 {
     // if holster is empty, pull up menu asking what to holster
     if (it->contents.empty()) {
-        int maxvol = 0;
-        // TODO: extract into an item function
-        const auto iter = it->type->properties.find( "holster_size" );
-        if( iter != it->type->properties.end() && iter->second != "0" ) {
-            maxvol = std::atoi( iter->second.c_str() );
-        }
+        int maxvol = it->get_property_long("holster_size", 0);
         int minvol = maxvol / 3;
 
         auto filter = [maxvol, minvol]( const item &it ) {
-            return it.is_gun() && it.volume() <= maxvol && it.volume() >= minvol && (it.skill() != skill_archery);
+            return it.is_gun() && it.volume() <= maxvol && it.volume() >= minvol &&
+                it.skill() != skill_archery;
         };
         int const inventory_index = g->inv_for_filter( _("Holster what?"), filter );
         item &put = p->i_at( inventory_index );
@@ -6929,6 +6913,65 @@ int iuse::holster_ankle(player *p, item *it, bool b, const tripoint &pos)
             }
         }
     }
+    return it->type->charges_to_use();
+}
+
+int iuse::belt_loop (player *p, item *it, bool, const tripoint&)
+{
+    // if belt loop empty offer to attach an item otherwise detach the current one
+    if (it->contents.empty()) {
+        // display menu showing only show BELT_CLIP items
+        item& put = p->i_at(g->inv_for_flag("BELT_CLIP", _("Attach what to belt loop?"), false));
+        if (put.is_null()) {
+            p->add_msg_if_player(_("Never mind."));
+            return 0;
+        }
+
+        // check the player selected an appropriate item
+        if (! put.has_flag("BELT_CLIP")) {
+            p->add_msg_if_player(m_info, _("You can't attach your %s to your %s!"),
+                                           put.tname().c_str(), it->tname().c_str());
+            return 0;
+        }
+
+        // only allow items smaller than a certain size
+        if( put.volume() > it->get_property_long( "max_volume", 2 ) ) {
+            p->add_msg_if_player(m_info, _("Your %s is too large to fit in your %s!"),
+                                           put.tname().c_str(), it->tname().c_str());
+            return 0;
+        }
+
+        // only allow items less than a certain weight
+        if( put.weight() > it->get_property_long( "max_weight", 600 ) ) {
+            p->add_msg_if_player(m_info, _("Your %s is too heavy to attach to your %s!"),
+                                           put.tname().c_str(), it->tname().c_str());
+            return 0;
+        }
+
+        p->add_msg_if_player(m_info, _("You attach your %s to your %s!"),
+                             put.tname().c_str(), it->tname().c_str());
+
+        p->moves -= put.volume() * 10;
+        it->put_in(p->i_rem(&put));
+
+    } else if (&p->weapon == it) {
+        p->add_msg_if_player( _( "You need to unwield the %s before using it." ), it->tname().c_str() );
+        return 0;
+
+    } else {
+        if (! p->is_armed() || p->wield(NULL)) {
+            item& get = it->contents[0];
+            p->inv.assign_empty_invlet(get, true);
+
+            p->add_msg_if_player(m_info, _("You unclip your %s from your %s!"),
+                                 get.tname().c_str(), it->tname().c_str());
+
+            p->moves -= get.volume() * 10;
+            p->wield(&(p->i_add(get)));
+            it->contents.erase(it->contents.begin());
+        }
+    }
+
     return it->type->charges_to_use();
 }
 
@@ -9390,12 +9433,18 @@ int iuse::capture_monster_act( player *p, item *it, bool, const tripoint &pos )
         int mon_dex = g->mon_at( target );
         if( mon_dex != -1 ) {
             monster f = g->zombie( mon_dex );
-            const auto iter = it->type->properties.find( "monster_size_capacity" );
-            if( iter == it->type->properties.end() ) {
-                debugmsg( _("%s has no monster_size_capacity."), it->tname().c_str() );
-            }
 
-            if( f.get_size() > Creature::size_map.at(iter->second) ) {
+            if( !it->has_property("monster_size_capacity") ) {
+                debugmsg( "%s has no monster_size_capacity.", it->tname().c_str() );
+                return 0;
+            }
+            const std::string capacity = it->get_property_string( "monster_size_capacity" );
+            if( Creature::size_map.count( capacity ) == 0 ) {
+                debugmsg( "%s has invalid monster_size_capacity %s.",
+                          it->tname().c_str(), capacity.c_str() );
+                return 0;
+            }
+            if( f.get_size() > Creature::size_map.find( capacity )->second ) {
                 p->add_msg_if_player( m_info, _("The %1$s is too big to put in your %2$s."),
                                       f.type->nname().c_str(), it->tname().c_str() );
                 return 0;

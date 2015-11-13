@@ -198,14 +198,26 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int  swim_speed() const;
         /** Maintains body wetness and handles the rate at which the player dries */
         void update_body_wetness( const w_point &weather );
-        /** Increases hunger, thirst, fatigue, stimms wearing off, dying from hunger and dying from overdose */
-        void update_needs();
-        /** Handles passive regeneration of pain and maybe hp, except sleep regeneration.
+        /** Updates all "biology" by one turn. Should be called once every turn. */
+        void update_body();
+        /** Updates all "biology" as if time between `from` and `to` passed. */
+        void update_body( int from, int to );
+        /** Increases hunger, thirst, fatigue and stimms wearing off. `rate_multiplier` is for retroactive updates. */
+        void update_needs( int rate_multiplier );
+        /**
+          * Handles passive regeneration of pain and maybe hp, except sleep regeneration.
           * Updates health and checks for sickness.
           */
-        void regen();
+        void regen( int rate_multiplier );
         /** Regenerates stamina */
-        void update_stamina();
+        void update_stamina( int turns );
+        /** Kills the player if too hungry, stimmed up etc., forces tired player to sleep and prints warnings. */
+        void check_needs_extremes();
+        /** Handles hp regen during sleep. */
+        void sleep_hp_regen( int rate_multiplier );
+
+        /** Returns if the player has hibernation mutation and is asleep and well fed */
+        bool is_hibernating() const;
 
         /** Returns true if the player has a conflicting trait to the entered trait
          *  Uses has_opposite_trait(), has_lower_trait(), and has_higher_trait() to determine conflicts.
@@ -637,7 +649,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Handles a large number of timers decrementing and other randomized effects */
         void suffer();
         /** Handles the chance for broken limbs to spontaneously heal to 1 HP */
-        void mend();
+        void mend( int rate_multiplier );
         /** Handles player vomiting effects */
         void vomit();
 
@@ -672,6 +684,9 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool wear(int pos, bool interactive = true);
         /** Wear item; returns false on fail. If interactive is false, don't alert the player or drain moves on completion. */
         bool wear_item( const item &to_wear, bool interactive = true );
+        /** Swap side on which item is worn; returns false on fail. If interactive is false, don't alert player or drain moves */
+        bool change_side (item *target, bool interactive = true);
+        bool change_side (int pos, bool interactive = true);
         /** Takes off an item, returning false on fail, if an item vector
          *  is given, stores the items in that vector and not in the inventory */
         bool takeoff( item *target, bool autodrop = false, std::vector<item> *items = nullptr );
@@ -692,8 +707,11 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          * Returns true if it destroys the item. Consumes charges from the item.
          * Multi-use items are ONLY supported when all use_methods are iuse_actor!
          */
-        bool invoke_item( item* );
+        bool invoke_item( item*, const tripoint &pt );
         /** As above, but with a pre-selected method. Debugmsg if this item doesn't have this method. */
+        bool invoke_item( item*, const std::string&, const tripoint &pt );
+        /** As above two, but with position equal to current position */
+        bool invoke_item( item* );
         bool invoke_item( item*, const std::string& );
         /** Consumes charges from a tool or does nothing with a non-tool. Returns true if it destroys the item. */
         bool consume_charges(item *used, long charges_used);
@@ -728,6 +746,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          *  rates usability lower for non-tools (books, etc.) */
         hint_rating rate_action_use( const item &it ) const;
         hint_rating rate_action_wear( const item &it ) const;
+        hint_rating rate_action_change_side( const item &it ) const;
         hint_rating rate_action_eat( const item &it ) const;
         hint_rating rate_action_read( const item &it ) const;
         hint_rating rate_action_takeoff( const item &it ) const;
@@ -741,6 +760,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int bonus_warmth(body_part bp) const;
         /** Returns ENC provided by armor, etc. */
         int encumb(body_part bp) const;
+        /** Returns encumbrance that would apply for a body part if `new_item` was also worn */
+        int encumb( body_part bp, const item &new_item ) const;
         /** Returns encumbrance caused by armor, etc., factoring in layering */
         int encumb(body_part bp, double &layers, int &armorenc) const;
         /** As above, but also treats the `new_item` as worn for encumbrance penalty purposes */
@@ -761,6 +782,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int get_env_resist(body_part bp) const override;
         /** Returns true if the player is wearing something on the entered body_part */
         bool wearing_something_on(body_part bp) const;
+        /** Returns true if the player is wearing the given item */
+        bool is_wearing_item (const item& it) const;
         /** Returns true if the player is wearing something on their feet that is not SKINTIGHT */
         bool is_wearing_shoes(std::string side = "both") const;
         /** Returns 1 if the player is wearing something on both feet, .5 if on one, and 0 if on neither */

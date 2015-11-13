@@ -315,8 +315,12 @@ class game
         /** Returns the next available mission id. */
         int assign_mission_id();
         npc *find_npc(int id);
-        /** Makes any nearby NPC's on the overmap active. */
+        /** Makes any nearby NPCs on the overmap active. */
         void load_npcs();
+        /** Unloads all NPCs */
+        void unload_npcs();
+        /** Unloads, then loads the NPCs */
+        void reload_npcs();
         /** Pulls the NPCs that were dumped into the world map on save back into mission_npcs */
         void load_mission_npcs();
         /** Returns the number of kills of the given mon_id by the player. */
@@ -666,6 +670,7 @@ class game
         void use_wielded_item();
         void wear(int pos = INT_MIN); // Wear armor  'W' (or 'a')
         void takeoff(int pos = INT_MIN); // Remove armor  'T'
+        void change_side(int pos = INT_MIN); // Change the side on which an item is worn 'c'
         void reload(); // Reload a wielded gun/tool  'r'
         void reload(int pos);
         void unload(item &it); // Unload a gun/tool  'U'

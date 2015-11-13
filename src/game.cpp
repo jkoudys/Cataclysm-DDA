@@ -744,6 +744,7 @@ void game::load_npcs()
     const int radius = int(MAPSIZE / 2) - 1;
     // uses submap coordinates
     std::vector<npc *> npcs = overmap_buffer.get_npcs_near_player(radius);
+    std::vector<npc *> just_added;
     for( auto temp : npcs ) {
         if( temp->is_active() ) {
             continue;
@@ -763,9 +764,31 @@ void game::load_npcs()
         } else {
             if (temp->my_fac != NULL)
                 temp->my_fac->known_by_u = true;
-            active_npc.push_back(temp);
+            active_npc.push_back( temp );
+            just_added.push_back( temp );
         }
     }
+
+    for( auto npc : just_added ) {
+        npc->on_load();
+    }
+}
+
+void game::unload_npcs()
+{
+    for( auto npc : active_npc ) {
+        npc->on_unload();
+    }
+
+    active_npc.clear();
+}
+
+void game::reload_npcs()
+{
+    // TODO: Make it not invoke the "on_unload" command for the NPCs that will be loaded anyway
+    // and not invoke "on_load" for those NPCs that avoided unloading this way.
+    unload_npcs();
+    load_npcs();
 }
 
 //Pulls the NPCs that were dumped into the world map on save back into mission_npcs
@@ -780,8 +803,8 @@ void game::load_mission_npcs()
             overmap_buffer.hide_npc( temp->getID() );
         }
     }
-    active_npc.clear();
-    load_npcs();
+
+    reload_npcs();
 }
 
 void game::create_starting_npcs()
@@ -1064,6 +1087,14 @@ bool game::cleanup_at_end()
             gamemode = new special_game; // null gamemode or something..
         }
     }
+
+    //clear all sound channels
+    sfx::fade_audio_channel( -1, 300 );
+    sfx::fade_audio_group(1, 300);
+    sfx::fade_audio_group(2, 300);
+    sfx::fade_audio_group(3, 300);
+    sfx::fade_audio_group(4, 300);
+
     MAPBUFFER.reset();
     overmap_buffer.clear();
     return true;
@@ -1214,9 +1245,7 @@ bool game::do_turn()
         m.spawn_monsters( false );
     }
 
-    u.update_needs();
-    u.regen();
-    u.update_stamina();
+    u.update_body();
 
     // Auto-save if autosave is enabled
     if (OPTIONS["AUTOSAVE"] &&
@@ -1627,18 +1656,19 @@ int game::inventory_item_menu(int pos, int iStartX, int iWidth, const inventory_
             }
             max_text_length = std::max( max_text_length, utf8_width( text ) );
         };
-        addentry( 'a', _("activate"), u.rate_action_use( oThisItem ) );
-        addentry( 'R', _("read"), u.rate_action_read( oThisItem ) );
-        addentry( 'E', _("eat"), u.rate_action_eat( oThisItem ) );
-        addentry( 'W', _("wear"), u.rate_action_wear( oThisItem ) );
-        addentry( 'w', _("wield"), HINT_GOOD );
-        addentry( 't', _("throw"), HINT_GOOD );
-        addentry( 'T', _("take off"), u.rate_action_takeoff( oThisItem ) );
-        addentry( 'd', _("drop"), rate_drop_item );
-        addentry( 'U', _("unload"), u.rate_action_unload( oThisItem ) );
-        addentry( 'r', _("reload"), u.rate_action_reload( oThisItem ) );
-        addentry( 'D', _("disassemble"), u.rate_action_disassemble( oThisItem ) );
-        addentry( '=', _("reassign"), HINT_GOOD );
+        addentry( 'a', pgettext("action", "activate"), u.rate_action_use( oThisItem ) );
+        addentry( 'R', pgettext("action", "read"), u.rate_action_read( oThisItem ) );
+        addentry( 'E', pgettext("action", "eat"), u.rate_action_eat( oThisItem ) );
+        addentry( 'W', pgettext("action", "wear"), u.rate_action_wear( oThisItem ) );
+        addentry( 'w', pgettext("action", "wield"), HINT_GOOD );
+        addentry( 't', pgettext("action", "throw"), HINT_GOOD );
+        addentry( 'c', pgettext("action", "change side"), u.rate_action_change_side( oThisItem ) );
+        addentry( 'T', pgettext("action", "take off"), u.rate_action_takeoff( oThisItem ) );
+        addentry( 'd', pgettext("action", "drop"), rate_drop_item );
+        addentry( 'U', pgettext("action", "unload"), u.rate_action_unload( oThisItem ) );
+        addentry( 'r', pgettext("action", "reload"), u.rate_action_reload( oThisItem ) );
+        addentry( 'D', pgettext("action", "disassemble"), u.rate_action_disassemble( oThisItem ) );
+        addentry( '=', pgettext("action", "reassign"), HINT_GOOD );
         if( bHPR ) {
             addentry( '-', _("Autopickup"), HINT_IFFY );
         } else {
@@ -1708,6 +1738,9 @@ int game::inventory_item_menu(int pos, int iStartX, int iWidth, const inventory_
                 break;
             case 't':
                 plthrow(pos);
+                break;
+            case 'c':
+                change_side(pos);
                 break;
             case 'T':
                 takeoff(pos);
@@ -2295,21 +2328,17 @@ bool game::handle_action()
 
     int before_action_moves = u.moves;
 
-    // Use to track if auto-move should be canceled due to a failed
-    // move or obstacle
-    bool continue_auto_move = false;
-
     // quit prompt check (ACTION_QUIT only grabs 'Q')
     if(uquit == QUIT_WATCH && action == "QUIT") {
         uquit = QUIT_DIED;
         return false;
     }
 
-    // I have split the switch(act) into two, so one can be done
-    // for the deathcam as well. It will still be run if you are
-    // alive, so no worries there. KA101 suggested (quite aptly)
-    // that the user should be able to look around, so this
-    // allows that. -Davek
+    // Use to track if auto-move should be canceled due to a failed
+    // move or obstacle
+    bool continue_auto_move = true;
+
+    // These actions are allowed while deathcam is active.
     if( uquit == QUIT_WATCH || !u.is_dead_state() ) {
         switch(act) {
         case ACTION_CENTER:
@@ -2948,7 +2977,6 @@ bool game::handle_action()
                 break;    //don't do anything when sharing and not debugger
             }
             debug();
-            continue_auto_move = true; // A small hack to help with route testing
             refresh_all();
             break;
 
@@ -2994,8 +3022,7 @@ bool game::handle_action()
             break;
         }
     }
-
-    if (!continue_auto_move) {
+    if( !continue_auto_move ) {
         u.clear_destination();
     }
 
@@ -3717,7 +3744,7 @@ void game::debug()
         tripoint tmp = overmap::draw_overmap();
         if( tmp != overmap::invalid_tripoint ) {
             //First offload the active npcs.
-            active_npc.clear();
+            unload_npcs();
             while( num_zombies() > 0 ) {
                 despawn_monster( 0 );
             }
@@ -4293,7 +4320,7 @@ void game::debug()
                 set_turn( calendar::turn.hours(), HOURS(1), _("Set hour to?") );
                 break;
             case 4:
-                set_turn( calendar::turn.hours(), MINUTES(1), _("Set minute to?") );
+                set_turn( calendar::turn.minutes(), MINUTES(1), _("Set minute to?") );
                 break;
             case 5:
                 set_turn( calendar::turn.get_turn(), 1,
@@ -5950,9 +5977,10 @@ void game::monmove()
             int xdir = rng(1, 2) * 2 - 3, ydir = rng(1, 2) * 2 - 3; // -1 or 1
             int startx = critter.posx() - 3 * xdir, endx = critter.posx() + 3 * xdir;
             int starty = critter.posy() - 3 * ydir, endy = critter.posy() + 3 * ydir;
+            int z = critter.posz();
             for (int x = startx; x != endx && !okay; x += xdir) {
                 for (int y = starty; y != endy && !okay; y += ydir) {
-                    tripoint dest( x, y, get_levz() );
+                    tripoint dest( x, y, z );
                     if (critter.can_move_to( dest ) && is_empty( dest )) {
                         critter.setpos( dest );
                         okay = true;
@@ -6038,9 +6066,7 @@ void game::monmove()
 
         if( !np->is_dead() ) {
             np->process_active_items();
-            np->update_needs();
-            np->regen();
-            np->update_stamina();
+            np->update_body();
         }
     }
     cleanup_dead();
@@ -6905,7 +6931,7 @@ Creature const* game::critter_at( const tripoint &p, bool allow_hallucination ) 
 bool game::summon_mon( const mtype_id& id, const tripoint &p )
 {
     monster mon( id );
-    mon.spawn(p);
+    mon.spawn( p );
     return add_zombie(mon, true);
 }
 
@@ -6922,7 +6948,13 @@ bool game::add_zombie(monster &critter, bool pin_upgrade)
                        << critter.posx() << "," << critter.posy() << ","  << critter.posz()
                        << " - " << critter.disp_name();
     }
+
     critter.try_upgrade(pin_upgrade);
+    if( !pin_upgrade ) {
+        critter.on_load();
+    }
+
+    critter.last_updated = calendar::turn;
     return critter_tracker->add(critter);
 }
 
@@ -8017,6 +8049,7 @@ bool npc_menu( npc &who )
         swap_pos,
         push,
         examine_wounds,
+        use_item,
         attack
     };
 
@@ -8030,6 +8063,7 @@ bool npc_menu( npc &who )
     amenu.addentry( swap_pos, obeys, 's', _("Swap positions") );
     amenu.addentry( push, obeys, 'p', _("Push away") );
     amenu.addentry( examine_wounds, true, 'w', _("Examine wounds") );
+    amenu.addentry( use_item, true, 'i', _("Use item on") );
     amenu.addentry( attack, true, 'a', _("Attack") );
 
     amenu.query();
@@ -8058,6 +8092,23 @@ bool npc_menu( npc &who )
     } else if( choice == examine_wounds ) {
         const bool precise = g->u.get_skill_level( skill_firstaid ) * 4 + g->u.per_cur >= 20;
         who.body_window( precise );
+    } else if( choice == use_item ) {
+        static const std::string npc_use_flag( "USE_ON_NPC" );
+        const int pos = g->inv_for_filter( _("Use which item:"),[]( const item &it ) {
+            return it.has_flag( npc_use_flag );
+        } );
+
+        item &used = g->u.i_at( pos );
+        if( !used.has_flag( npc_use_flag ) ) {
+            add_msg( _("Never mind") );
+            return false;
+        }
+
+        bool did_use = g->u.invoke_item( &used, who.pos() );
+        if( did_use ) {
+            // Note: exiting a body part selection menu counts as use here
+            g->u.mod_moves( -300 );
+        }
     } else if( choice == attack ) {
         //The NPC knows we started the fight, used for morale penalty.
         if( !who.is_enemy() ) {
@@ -8631,8 +8682,8 @@ void game::zones_manager()
 
             calcStartPos(start_index, active_index, max_rows, zone_num);
 
-            //Draw Scrollbar
             draw_scrollbar(w_zones_border, active_index, max_rows, zone_num, 1);
+            wrefresh(w_zones_border);
 
             int iNum = 0;
 
@@ -8810,6 +8861,8 @@ tripoint game::look_around( WINDOW *w_info, const tripoint &start_point,
     ctxt.register_action("LIST_ITEMS");
     ctxt.register_action( "LEVEL_UP" );
     ctxt.register_action( "LEVEL_DOWN" );
+    ctxt.register_action( "TRAVEL_TO" );
+    ctxt.register_action( "HELP_KEYBINDINGS" );
 
     const int old_levz = get_levz();
 
@@ -8981,6 +9034,20 @@ tripoint game::look_around( WINDOW *w_info, const tripoint &start_point,
                 lp.z = new_levz;
                 refresh_all();
                 draw_ter( lp, true );
+            } else if( action == "TRAVEL_TO" ) {
+                if( !u.sees( lp ) ) {
+                    add_msg(_("You can't see that destination."));
+                    continue;
+                }
+                auto route = m.route( u.pos3(), lp, 0, 1000 );
+                if( route.size() > 1 ) {
+                    route.pop_back();
+                    u.set_destination( route );
+                } else {
+                    add_msg(m_info, _("You can't travel there."));
+                    continue;
+                }
+                return { INT_MIN, INT_MIN, INT_MIN };
             } else if (!ctxt.get_coordinates(w_terrain, lx, ly)) {
                 int dx, dy;
                 ctxt.get_direction(dx, dy, action);
@@ -9570,6 +9637,7 @@ int game::list_items(const int iLastState)
     ctxt.register_action("PRIORITY_INCREASE");
     ctxt.register_action("PRIORITY_DECREASE");
     ctxt.register_action("SORT");
+    ctxt.register_action("TRAVEL_TO");
 
     do {
         if (!ground_items.empty() || iLastState == 1) {
@@ -9651,6 +9719,18 @@ int game::list_items(const int iLastState)
                 refilter = true;
                 reset = true;
 
+            } else if( action == "TRAVEL_TO" ) {
+                if( !u.sees( u.pos3() + active_pos ) ) {
+                    add_msg(_("You can't see that destination."));
+                }
+                auto route = m.route( u.pos3(), u.pos3() + active_pos, 0, 1000 );
+                if( route.size() > 1 ) {
+                    route.pop_back();
+                    u.set_destination( route );
+                    break;
+                } else {
+                    add_msg(m_info, _("You can't travel there."));
+                }
             }
 
             if ( uistate.list_item_sort == 1 ) {
@@ -9863,8 +9943,8 @@ int game::list_items(const int iLastState)
                     }
                 }
 
-                //Draw Scrollbar
                 draw_scrollbar(w_items_border, iActive, iMaxRows, iItemNum, 1);
+                wrefresh(w_items_border);
             }
 
             bool bDrawLeft = (ground_items.empty() && iLastState == 1) || filtered_items.empty();
@@ -10077,8 +10157,9 @@ int game::list_monsters(const int iLastState)
                     centerlistview( iActivePos );
                     draw_trail_to_square( iActivePos, false );
                 }
-                //Draw Scrollbar
+
                 draw_scrollbar(w_monsters_border, iActive, iMaxRows, iMonsterNum, 1);
+                wrefresh(w_monsters_border);
             }
 
             for (int j = 0; j < iInfoHeight - 1; j++) {
@@ -10681,6 +10762,10 @@ void game::plthrow(int pos)
         return;
     }
 
+    if (u.is_wearing_item(u.i_at(pos))) {
+        thrown.on_takeoff(u);
+    }
+
     // Throw a single charge of a stacking object.
     if( thrown.count_by_charges() && thrown.charges > 1 ) {
         u.i_at( pos ).charges--;
@@ -11280,6 +11365,23 @@ void game::takeoff(int pos)
     }
 }
 
+void game::change_side(int pos)
+{
+    if (pos == INT_MIN) {
+        pos = inv_for_filter(_("Change side for item:"),
+                             [&](const item &it) { return u.is_wearing_item(it) && it.is_sided(); });
+    }
+
+    if (pos == INT_MIN) {
+        add_msg(_("Never mind."));
+        return;
+    }
+
+    if (!u.change_side(pos)) {
+        add_msg(m_info, _("Invalid selection."));
+    }
+}
+
 void game::reload(int pos)
 {
     item *it = &u.i_at(pos);
@@ -11473,13 +11575,6 @@ void game::unload(item &it)
                 unload( gunmod );
                 return;
             }
-        }
-        // If neither the mods nor the gun itself are loaded, try to remove the mods instead.
-        if( it.charges <= 0 ) {
-            while( !it.contents.empty() ) {
-                u.remove_gunmod( &it, 0 );
-            }
-            return;
         }
     }
 
@@ -13023,6 +13118,41 @@ void game::fling_creature(Creature *c, const int &dir, float flvel, bool control
     }
 }
 
+tripoint point_selection_menu( const std::vector<tripoint> &pts )
+{
+    if( pts.empty() ) {
+        debugmsg( "point_selection_menu called with empty point set" );
+        return tripoint_min;
+    }
+
+    if( pts.size() == 1 ) {
+        return pts[0];
+    }
+
+    const tripoint &upos = g->u.pos();
+    uimenu pmenu;
+    pmenu.title = _("Climb where?");
+    int num = 0;
+    for( const tripoint &pt : pts ) {
+        // TODO: Sort the menu so that it can be used with numpad directions
+        const std::string &direction = direction_name( direction_from( upos.x, upos.y, pt.x, pt.y ) );
+        // TODO: Inform player what is on said tile
+        // But don't just print terrain name (in many cases it will be "open air")
+        pmenu.addentry( num++, true, MENU_AUTOASSIGN, _("Climb %s"), direction.c_str() );
+    }
+
+    pmenu.addentry( num, true, 'q', "%s", _("Cancel") );
+
+    pmenu.selected = num;
+    pmenu.query();
+    const int ret = pmenu.ret;
+    if( ret < 0 || ret >= num ) {
+        return tripoint_min;
+    }
+
+    return pts[ret];
+}
+
 void game::vertical_move(int movez, bool force)
 {
     // Check if there are monsters are using the stairs.
@@ -13109,16 +13239,19 @@ void game::vertical_move(int movez, bool force)
             }
         }
 
-        if( cost > 0 && !pts.empty() ) {
-            climbing = true;
-            move_cost = cost;
-            // TODO: Allow picking this instead of forcing a random one
-            stairs = random_entry( pts );
-        } else {
+        if( cost <= 0 || pts.empty() ) {
             add_msg( m_info, _("You can't climb here - there is no terrain above you that would support your weight") );
             return;
+        } else if( cost > 0 && !pts.empty() ) {
+            // TODO: Make it an extended action
+            climbing = true;
+            move_cost = cost;
+
+            stairs = point_selection_menu( pts );
+            if( stairs == tripoint_min ) {
+                return;
+            }
         }
-        // TODO: Make it an extended action
     }
 
     if( !force && movez == -1 && !m.has_flag( "GOES_DOWN", u.pos() ) ) {
@@ -13190,6 +13323,7 @@ void game::vertical_move(int movez, bool force)
             if( turns < 10 && coming_to_stairs.size() < 8 && critter.will_reach( to_x, to_y )
                 && !slippedpast) {
                 critter.staircount = 10 + turns;
+                critter.on_unload();
                 coming_to_stairs.push_back(critter);
                 remove_zombie( i );
             } else {
@@ -13358,9 +13492,7 @@ void game::vertical_shift( const int z_after )
         m.set_outside_cache_dirty( z_before );
         m.load( get_levx(), get_levy(), z_after, true );
         shift_monsters( 0, 0, z_after - z_before );
-        // Clear currently active npcs and reload them
-        active_npc.clear();
-        load_npcs();
+        reload_npcs();
     } else {
         // Shift the map itself
         m.vertical_shift( z_after );
@@ -13464,6 +13596,7 @@ void game::update_map(int &x, int &y)
         if( (*it)->posx() < 0 - SEEX * 2 || (*it)->posy() < 0 - SEEX * 2 ||
             (*it)->posx() > SEEX * (MAPSIZE + 2) || (*it)->posy() > SEEY * (MAPSIZE + 2) ) {
             //Remove the npc from the active list. It remains in the overmap list.
+            (*it)->on_unload();
             it = active_npc.erase(it);
         } else {
             it++;
@@ -13772,6 +13905,8 @@ void game::despawn_monster(int mondex)
         // hallucinations aren't stored, they come and go as they like,
         overmap_buffer.despawn_monster( critter );
     }
+
+    critter.on_unload();
     remove_zombie( mondex );
 }
 

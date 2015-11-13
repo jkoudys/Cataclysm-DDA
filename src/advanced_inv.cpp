@@ -1180,6 +1180,12 @@ bool advanced_inventory::move_all_items(bool nested_call)
     auto &sarea = squares[spane.get_area()];
     auto &darea = squares[dpane.get_area()];
 
+    // Make sure source and destination are different, otherwise items will disappear
+    // Need to check actual position to account for dragged vehicles
+    if(sarea.pos == darea.pos && spane.in_vehicle() == dpane.in_vehicle()){
+        return false;
+    }
+
     if( nested_call || !OPTIONS["CLOSE_ADV_INV"] ) {
         // Why is this here? It's because the activity backlog can act
         // like a stack instead of a single deferred activity in order to

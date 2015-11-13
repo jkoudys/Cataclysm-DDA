@@ -480,7 +480,6 @@ void iexamine::vending(player * const p, map * const m, const tripoint &examp)
             trim_and_print(w, first_item_offset + line, 1, w_items_w-3, color, "%c %s", c, elem->first.c_str());
         }
 
-        //Draw Scrollbar
         draw_scrollbar(w, cur_pos, list_lines, num_items, first_item_offset);
         wrefresh(w);
 
@@ -2671,7 +2670,7 @@ void iexamine::curtains(player *p, map *m, const tripoint &examp)
         p->add_msg_if_player( _("You carefully peek through the curtains.") );
     } else if( choice == 2 ) {
         // Mr. Gorbachev, tear down those curtains!
-        m->ter_set( examp, "t_window" );
+        m->ter_set( examp, "t_window_no_curtains" );
         m->spawn_item( p->pos(), "nail", 1, 4 );
         m->spawn_item( p->pos(), "sheet", 2 );
         m->spawn_item( p->pos(), "stick" );

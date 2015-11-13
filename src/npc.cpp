@@ -1701,6 +1701,11 @@ void npc::update_worst_item_value()
 
 int npc::value(const item &it)
 {
+    if( it.is_dangerous() ) {
+        // Live grenade or something similar
+        return -1000;
+    }
+
     int ret = it.price() / 50;
     int weapon_val = weapon_value( it ) - weapon_value( weapon );
     if( weapon_val > 0 ) {
@@ -2012,6 +2017,16 @@ nc_color npc::basic_symbol_color() const
         return c_ltgreen;
     }
     return c_pink;
+}
+
+nc_color npc::symbol_color() const
+{
+    nc_color basic = basic_symbol_color();
+    if( in_sleep_state() ) {
+        return hilite( basic );
+    }
+
+    return basic;
 }
 
 int npc::print_info(WINDOW* w, int line, int vLines, int column) const
@@ -2449,6 +2464,33 @@ void npc::add_msg_player_or_npc(game_message_type type, const char *, const char
 void npc::add_new_mission( class mission *miss )
 {
     chatbin.add_new_mission( miss );
+}
+
+void npc::on_unload()
+{
+    last_updated = calendar::turn;
+}
+
+void npc::on_load()
+{
+    const int now = calendar::turn;
+    // TODO: Sleeping, healing etc.
+    int dt = now - last_updated;
+    last_updated = calendar::turn;
+    // Cap at some reasonable number, say 2 days (2 * 48 * 30 minutes)
+    dt = std::min( dt, 2 * 48 * MINUTES(30) );
+    int cur = now - dt;
+    add_msg( m_debug, "on_load() by %s, %d turns", name.c_str(), dt );
+    // First update with 30 minute granularity, then 5 minutes, then turns
+    for( ; cur < now - MINUTES(30); cur += MINUTES(30) + 1 ) {
+        update_body( cur, cur + MINUTES(30) );
+    }
+    for( ; cur < now - MINUTES(5); cur += MINUTES(5) + 1 ) {
+        update_body( cur, cur + MINUTES(5) );
+    }
+    for( ; cur < now; cur++ ) {
+        update_body( cur, cur + 1 );
+    }
 }
 
 void npc_chatbin::add_new_mission( mission *miss )

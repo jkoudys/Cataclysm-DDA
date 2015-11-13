@@ -258,6 +258,13 @@ bool options_manager::cOpt::is_hidden()
         return true;
 #endif
 
+    case COPT_NO_SOUND_HIDE:
+#ifndef SDL_SOUND // If not defined, we have no sound support.
+        return true;
+#else
+        return false;
+#endif
+
     default:
         return false; // No hide on default
     }
@@ -1001,9 +1008,11 @@ void options_manager::init()
 
     mOptionsSort["graphics"]++;
 
+    optionNames["fullscreen"] = _("Fullscreen");
+    optionNames["windowedbl"] = _("Windowed borderless");
     OPTIONS["FULLSCREEN"] = cOpt("graphics", _("Fullscreen"),
-                                 _("Starts Cataclysm in fullscreen-mode. Requires restart."),
-                                 false, COPT_CURSES_HIDE
+                                 _("Starts Cataclysm in one of the fullscreen modes. Requires restart."),
+                                 "no,fullscreen,windowedbl", "no", COPT_CURSES_HIDE
                                 );
 
     OPTIONS["SOFTWARE_RENDERING"] = cOpt("graphics", _("Software rendering"),
@@ -1011,15 +1020,26 @@ void options_manager::init()
                                          false, COPT_CURSES_HIDE
                                         );
 
+    //~ Do not scale the game image to the window size.
+    optionNames["none"] = _("No scaling");
+    //~ An algorithm for image scaling.
+    optionNames["nearest"] = _("Nearest neighbor");
+    //~ An algorithm for image scaling.
+    optionNames["linear"] = _("Linear filtering");
+    OPTIONS["SCALING_MODE"] = cOpt("graphics", _("Scaling mode"),
+                                   _("Sets the scaling mode, 'none' (default) displays at the game's native resolution, 'nearest'  uses low-quality but fast scaling, and 'linear' provides high-quality scaling."),
+                                   "none,nearest,linear", "none", COPT_CURSES_HIDE
+        );
+
     mOptionsSort["graphics"]++;
 
     OPTIONS["MUSIC_VOLUME"] = cOpt("graphics", _("Music Volume"),
                                    _("Adjust the volume of the music being played in the background."),
-                                   0, 200, 100, COPT_CURSES_HIDE
+                                   0, 200, 100, COPT_NO_SOUND_HIDE
                                   );
     OPTIONS["SOUND_EFFECT_VOLUME"] = cOpt("graphics", _("Sound Effect Volume"),
                                    _("Adjust the volume of sound effects being played by the game."),
-                                   0, 200, 0, COPT_CURSES_HIDE
+                                   0, 200, 100, COPT_NO_SOUND_HIDE
                                   );
 
     ////////////////////////////DEBUG////////////////////////////
@@ -1357,9 +1377,9 @@ void options_manager::show(bool ingame)
                       cLineColor, "%s", value.c_str());
         }
 
-        //Draw Scrollbar
         draw_scrollbar(w_options_border, iCurrentLine, iContentHeight,
                        mPageItems[iCurrentPage].size(), iTooltipHeight + 2, 0, BORDER_COLOR);
+        wrefresh(w_options_border);
 
         //Draw Tabs
         mvwprintz(w_options_header, 0, 7, c_white, "");
@@ -1614,6 +1634,11 @@ bool options_manager::save(bool ingame)
     bIngame = ingame;
     const auto savefile = FILENAMES["options"];
 
+    trigdist = OPTIONS["CIRCLEDIST"]; // update trigdist as well
+    use_tiles = OPTIONS["USE_TILES"]; // and use_tiles
+    log_from_top = OPTIONS["SIDEBAR_LOG_FLOW"] == "new_top"; // cache to global due to heavy usage.
+    fov_3d = false; // OPTIONS["FOV_3D"];
+
     try {
         std::ofstream fout;
         fout.exceptions(std::ios::badbit | std::ios::failbit);
@@ -1647,13 +1672,8 @@ void options_manager::load()
     if( !fin.good() ) {
         if (load_legacy()) {
             if (save()) {
-                if(file_exist(FILENAMES["legacy_options"])) {
-                    remove_file(FILENAMES["legacy_options"]);
-                }
-
-                if(file_exist(FILENAMES["legacy_options2"])) {
-                    remove_file(FILENAMES["legacy_options2"]);
-                }
+                remove_file(FILENAMES["legacy_options"]);
+                remove_file(FILENAMES["legacy_options2"]);
             }
         }
 

@@ -19,9 +19,20 @@
       ["offering_chalice", 2],
       ["offering_chalice_used", 2],
       ["book_sacrifice", 1],
+      ["spear_pestilence", 2],
+      ["robe_shadow", 1],
       ["thunder_sigil", 1],
-      ["gauntlets_necro", 1]
+      ["gauntlets_necro", 2]
     ]
+  },{
+        "type" : "item_group",
+        "subtype": "collection",
+        "id": "cult_sacrifice",
+        "entries":
+        [
+            { "item": "essence_blood", "prob": 25},
+            { "item": "corpse"}
+        ]
   },{
         "type" : "item_group",
         "subtype": "collection",
@@ -85,14 +96,14 @@
             " ": "t_rock_floor",
             "B": "t_rock_floor",
             "P": "t_little_column",
-            "^": "t_pit",
+            "^": "t_pit_shallow",
             "<": "t_stairs_up"
             },
-            "add": [
-                { "item": "corpse", "x": 8, "y": 8, "amount":1},
-                { "item": "corpse", "x": 15, "y": 8, "amount":1},
-                { "item": "corpse", "x": 8, "y": 15, "amount":1 },
-                { "item": "corpse",  "x": 15, "y": 15, "amount":1 }
+            "place_items": [
+                { "item": "cult_sacrifice", "chance": 100, "x": 8, "y": 8 },
+                { "item": "cult_sacrifice", "chance": 100, "x": 15, "y": 8 },
+                { "item": "cult_sacrifice", "chance": 100, "x": 8, "y": 15 },
+                { "item": "cult_sacrifice", "chance": 100, "x": 15, "y": 15 }
             ],
             "set": [
                 { "point": "trap", "id": "tr_brazier", "x": 8, "y": 8},

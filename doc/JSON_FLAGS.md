@@ -53,6 +53,7 @@ List of known flags, used in both terrain.json and furniture.json
 - ```CONSOLE``` Used as a computer.
 - ```ALARMED``` Sets off an alarm if smashed.
 - ```SUPPORTS_ROOF``` Used as a boundary for roof construction.
+- ```MINEABLE``` Can be mined with a pickaxe/jackhammer
 - ```INDOORS``` Has a roof over it; blocks rain, sunlight, etc.
 - ```THIN_OBSTACLE``` Passable by players and monsters; vehicles destroy it.
 - ```COLLAPSES``` Has a roof that can collapse.
@@ -601,7 +602,6 @@ Some armor flags, such as `WATCH` and `ALARMCLOCK` are compatible with other ite
 - ```leather_padded``` - This gear has certain parts padded with leather to increase protection without increasing encumbrance.
 - ```OUTER```  Outer garment layer.
 - ```OVERSIZE``` Can always be worn no matter encumbrance/mutations/bionics/etc., but prevents any other clothing being worn over this.
-- ```PAIRED``` - Item usually comes in two, one for the left side and one for the right side.
 - ```POCKETS``` Increases warmth for hands if the player's hands are cold and the player is wielding nothing.
 - ```RAD_PROOF``` - This piece of clothing completely protects you from radiation.
 - ```RAD_RESIST``` - This piece of clothing partially protects you from radiation.
@@ -715,6 +715,7 @@ Some armor flags, such as `WATCH` and `ALARMCLOCK` are compatible with other ite
 - ```BREW``` ... Can be put into fermenting vat.
 - ```HIDDEN_POISON``` ... Food is poisonous, visible only with a certain survival skill level.
 - ```HIDDEN_HALLU``` ... Food causes hallucinations, visible only with a certain survival skill level.
+- ```USE_ON_NPC``` Can be used on NPCs (not necessarily by them).
 
 ## Melee
 
@@ -791,6 +792,7 @@ Melee flags are fully compatible with tool flags, and vice versa.
 - ```RADIO_MODABLE``` Indicates the item can be made into a radio-activated item.
 - ```RADIO_MOD``` The item has been made into a radio-activated item.
 - ```ACT_ON_RANGED_HIT```  The item should activate when thrown or fired, then immediately get processed if it spawns on the ground.
+- ```BELT_CLIP``` The item can be clipped or hooked on to a belt loop of the appropriate size (belt loops are limited by their max_volume and max_weight properties)
 
 ### Flags that apply to items, not to item types.
 Those flags are added by the game code to specific items (that specific welder, not *all* welders).
@@ -804,7 +806,6 @@ Those flags are added by the game code to specific items (that specific welder, 
 - ```LITCIG``` Marks a lit smoking item (cigarette, joint etc.).
 - ```WET``` Item is wet and will slowly dry off (e.g. towel).
 - ```REVIVE_SPECIAL``` ... Corpses revives when the player is nearby.
-- ```RIGHT``` or ```LEFT``` Item is handed, the flag indicates which side it is for.
 
 ## Books
 
