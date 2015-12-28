@@ -219,12 +219,15 @@ bool computer::hack_attempt(player *p, int Security)
 
     p->moves -= 10 * (5 + Security * 2) / std::max( 1, hack_skill + 1 );
     int player_roll = hack_skill;
+    ///\EFFECT_INT <8 randomly penalizes hack attempts, 50% of the time
     if (p->int_cur < 8 && one_in(2)) {
         player_roll -= rng(0, 8 - p->int_cur);
+    ///\EFFECT_INT >8 randomly benefits hack attempts, 33% of the time
     } else if (p->int_cur > 8 && one_in(3)) {
         player_roll += rng(0, p->int_cur - 8);
     }
 
+    ///\EFFECT_COMPUTER increases chance of successful hack attempt, vs Security level
     bool successful_attempt = (dice(player_roll, 6) >= dice(Security, 6));
     p->practice( skill_computer, (successful_attempt ? (15 + Security * 3) : 7));
     return successful_attempt;
@@ -1292,16 +1295,16 @@ void computer::activate_failure(computer_failure fail)
                     int leak_size = rng(4, 10);
                     for (int i = 0; i < leak_size; i++) {
                         std::vector<point> next_move;
-                        if (g->m.move_cost(p.x, p.y - 1) > 0) {
+                        if (g->m.passable(p.x, p.y - 1)) {
                             next_move.push_back( point(p.x, p.y - 1) );
                         }
-                        if (g->m.move_cost(p.x + 1, p.y) > 0) {
+                        if (g->m.passable(p.x + 1, p.y)) {
                             next_move.push_back( point(p.x + 1, p.y) );
                         }
-                        if (g->m.move_cost(p.x, p.y + 1) > 0) {
+                        if (g->m.passable(p.x, p.y + 1)) {
                             next_move.push_back( point(p.x, p.y + 1) );
                         }
-                        if (g->m.move_cost(p.x - 1, p.y) > 0) {
+                        if (g->m.passable(p.x - 1, p.y)) {
                             next_move.push_back( point(p.x - 1, p.y) );
                         }
 

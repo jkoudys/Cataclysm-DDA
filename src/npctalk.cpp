@@ -1554,6 +1554,9 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
         }
 
     } else if( topic == "TALK_SIZE_UP" ) {
+        ///\EFFECT_PER affects whether player can size up NPCs
+
+        ///\EFFECT_INT slightly affects whether player can size up NPCs
         int ability = g->u.per_cur * 3 + g->u.int_cur;
         if (ability <= 10) {
             return "&You can't make anything out.";
@@ -1652,13 +1655,20 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
 
         return status.str();
 
-    } else if( topic == "TALK_GIVE_ITEM" ) {
+    } else if( topic == "TALK_USE_ITEM" || topic == "TALK_GIVE_ITEM" ) {
+        // TODO: Clean it up and break it apart, it is huge now
         const int inv_pos = g->inv( _("Offer what?") );
         item &given = g->u.i_at( inv_pos );
         if( given.is_null() ) {
             return _("Changed your mind?");
         }
 
+        if( &given == &g->u.weapon && given.has_flag( "NO_UNWIELD" ) ) {
+            // Bio weapon or shackles
+            return _("How?");
+        }
+
+        const bool allow_carry = topic == "TALK_GIVE_ITEM";
         if( given.is_dangerous() ) {
             return _("Are you <swear> insane!?");
         }
@@ -1676,10 +1686,11 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
         add_msg( m_debug, "NPC evaluates own %s (%d ammo): %0.1f",
                  p->weapon.tname().c_str(), our_ammo, cur_weapon_value );
         bool taken = false;
-        const double new_melee = p->melee_value( given );
+        const double new_melee_value = p->melee_value( given );
+        double new_weapon_value = new_melee_value;
         add_msg( m_debug, "NPC evaluates your %s as melee weapon: %0.1f",
-                 given.tname().c_str(), new_melee );
-        if( new_melee > cur_weapon_value ) {
+                 given.tname().c_str(), new_melee_value );
+        if( new_melee_value > cur_weapon_value ) {
             p->wield( &given );
             taken = true;
         }
@@ -1692,21 +1703,22 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
                 ammo_count += amm->charges;
             }
             // TODO: Flamethrowers (why would player give a NPC one anyway?) and other multi-charge guns
-            double new_any = p->weapon_value( given, ammo_count );
+            new_weapon_value = p->weapon_value( given, ammo_count );
 
             add_msg( m_debug, "NPC evaluates your %s (%d ammo): %0.1f",
-                     given.tname().c_str(), ammo_count, new_any );
-            if( new_any > cur_weapon_value ) {
+                     given.tname().c_str(), ammo_count, new_weapon_value );
+            if( new_weapon_value > cur_weapon_value ) {
                 p->wield( &given );
                 taken = true;
             }
         }
 
-        if( !taken && p->wear_if_wanted( given ) ) {
+        // is_gun here is a hack to prevent NPCs wearing guns if they don't want to use them
+        if( !taken && !given.is_gun() && p->wear_if_wanted( given ) ) {
             taken = true;
         }
 
-        if( !taken &&
+        if( !taken && allow_carry &&
             p->can_pickVolume( given.volume() ) &&
             p->can_pickWeight( given.weight() ) ) {
             taken = true;
@@ -1719,7 +1731,37 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
             g->u.moves -= 100;
             return _("Thanks!");
         } else {
-            return _("Nope...");
+            std::stringstream reason;
+            reason << _("Nope.");
+            reason << std::endl;
+            reason << _("My current weapon is better than this.");
+            reason << std::endl;
+            reason << string_format( _("(new weapon value: %.1f vs %.1f)."),
+                new_weapon_value, cur_weapon_value );
+            if( !given.is_gun() && given.is_armor() ) {
+                reason << std::endl;
+                reason << string_format( _("It's too encumbering to wear.") );
+            }
+            if( allow_carry ) {
+                if( !p->can_pickVolume( given.volume() ) ) {
+                    const int free_space = p->volume_capacity() - p->volume_carried();
+                    reason << std::endl;
+                    reason << string_format( _("I have no space to store it.") );
+                    reason << std::endl;
+                    if( free_space > 0 ) {
+                        reason << string_format( _("I can only store %.2f liters more."),
+                            free_space / 4.0f );
+                    } else {
+                        reason << string_format( _("...or to store anything else for that matter.") );
+                    }
+                }
+                if( !p->can_pickWeight( given.weight() ) ) {
+                    reason << std::endl;
+                    reason << string_format( _("It is too heavy for me to carry.") );
+                }
+            }
+
+            return reason.str();
         }
     } else if( topic == "TALK_MIND_CONTROL" ) {
         p->attitude = NPCATT_FOLLOW;
@@ -1969,6 +2011,7 @@ void dialogue::gen_responses( const std::string &topic )
     } else if( topic == "TALK_EVAC_MERCHANT_PLANS" ) {
         add_response( _("It's just as bad out here, if not worse."), "TALK_EVAC_MERCHANT_PLANS2" );
     } else if( topic == "TALK_EVAC_MERCHANT_PLANS2" ) {
+        ///\EFFECT_INT >11 adds useful dialog option in TALK_EVAC_MERCHANT
         if (g->u.int_cur >= 12){
             add_response( _("[INT 12] Wait, six buses and refugees... how many people do you still have crammed in here?"),
                               "TALK_EVAC_MERCHANT_PLANS3" );
@@ -1986,10 +2029,14 @@ void dialogue::gen_responses( const std::string &topic )
         add_response( _("Fine... *coughupyourscough*"), "TALK_EVAC_MERCHANT" );
 
     } else if( topic == "TALK_EVAC_MERCHANT_ASK_JOIN" ) {
+            ///\EFFECT_INT >10 adds bad dialog option in TALK_EVAC_MERCHANT (NEGATIVE)
             if (g->u.int_cur > 10){
                 add_response( _("[INT 11] I'm sure I can organize salvage operations to increase the bounty scavengers bring in!"),
                                   "TALK_EVAC_MERCHANT_NO" );
             }
+            ///\EFFECT_INT <7 allows bad dialog option in TALK_EVAC_MERCHANT
+
+            ///\EFFECT_STR >10 allows bad dialog option in TALK_EVAC_MERCHANT
             if (g->u.int_cur <= 6 && g->u.str_cur > 10){
                 add_response( _("[STR 11] I punch things in face real good!"), "TALK_EVAC_MERCHANT_NO" );
             }
@@ -2741,9 +2788,11 @@ void dialogue::gen_responses( const std::string &topic )
                 }
             }
             if( p->is_following() ) {
-                add_response( _("I want you to use this item"), "TALK_GIVE_ITEM" );
+                add_response( _("I want you to use this item"), "TALK_USE_ITEM" );
+                add_response( _("Hold on to this item"), "TALK_GIVE_ITEM" );
+                add_response( _("Miscellaneous rules..."), "TALK_MISC_RULES" );
             }
-            add_response( _("Miscellaneous rules..."), "TALK_MISC_RULES" );
+
             add_response( _("I'm going to go my own way for a while."), "TALK_LEAVE" );
             add_response_done( _("Let's go.") );
 
@@ -4075,6 +4124,9 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
 
     // Adjust the prices based on your barter skill.
     // cap adjustment so nothing is ever sold below value
+    ///\EFFECT_INT_NPC slightly increases bartering price changes, relative to your INT
+
+    ///\EFFECT_BARTER_NPC increases bartering price changes, relative to your BARTER
     double their_adjust = (price_adjustment(p->skillLevel( skill_barter ) - g->u.skillLevel( skill_barter )) +
                               (p->int_cur - g->u.int_cur) / 20.0);
     if (their_adjust < 1)
@@ -4082,6 +4134,9 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
     for( item_pricing &p : theirs ) {
         p.price *= their_adjust;
     }
+    ///\EFFECT_INT slightly increases bartering price changes, relative to NPC INT
+
+    ///\EFFECT_BARTER increases bartering price changes, relative to NPC BARTER
     double your_adjust = (price_adjustment(g->u.skillLevel( skill_barter ) - p->skillLevel( skill_barter )) +
                              (g->u.int_cur - p->int_cur) / 20.0);
     if (your_adjust < 1)

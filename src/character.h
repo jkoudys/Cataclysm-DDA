@@ -93,7 +93,7 @@ class Character : public Creature
 
         /** Modifiers for health values exclusive to characters */
         virtual void mod_healthy(int nhealthy);
-        virtual void mod_healthy_mod(int nhealthy_mod);
+        virtual void mod_healthy_mod(int nhealthy_mod, int cap);
 
         /** Setters for health values exclusive to characters */
         virtual void set_healthy(int nhealthy);
@@ -121,7 +121,7 @@ class Character : public Creature
         virtual int get_hit_base() const override;
 
         /** Handles health fluctuations over time */
-        virtual void update_health(int base_threshold = 0);
+        virtual void update_health(int external_modifiers = 0);
 
         /** Resets the value of all bonus fields to 0. */
         virtual void reset_bonuses() override;
@@ -188,7 +188,7 @@ class Character : public Creature
         hp_part body_window( const std::string &menu_header,
                              bool show_all, bool precise,
                              int normal_bonus, int head_bonus, int torso_bonus,
-                             int bleed, int bite, int infect ) const;
+                             bool bleed, bool bite, bool infect ) const;
 
         // Returns color which this limb would have in healing menus
         nc_color limb_color( body_part bp, bool bleed, bool bite, bool infect ) const;

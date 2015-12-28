@@ -5,6 +5,7 @@
 #include "translations.h"
 #include "item_group.h"
 #include "crafting.h"
+#include "recipe_dictionary.h"
 #include "iuse_actor.h"
 #include "item.h"
 #include "mapdata.h"
@@ -73,17 +74,9 @@ void Item_factory::finialize_item_blacklist()
         for( auto &elem : m_template_groups ) {
             elem.second->remove_item( itm );
         }
-        for( auto &recipes_b : recipes ) {
-            for( size_t c = 0; c < recipes_b.second.size(); c++ ) {
-                recipe *r = recipes_b.second[c];
-                if( r->result == itm || r->requirements.remove_item(itm) ) {
-                    delete r;
-                    recipes_b.second.erase( recipes_b.second.begin() + c );
-                    c--;
-                    continue;
-                }
-            }
-        }
+        recipe_dict.delete_if( [&]( recipe &r ) {
+            return r.result == itm || r.requirements.remove_item( itm );
+        } );
 
         remove_construction_if([&](construction &c) {
             return c.requirements.remove_item(itm);
@@ -140,9 +133,6 @@ void Item_factory::init()
     iuse_function_list["SEWAGE"] = &iuse::sewage;
     iuse_function_list["HONEYCOMB"] = &iuse::honeycomb;
     iuse_function_list["ROYAL_JELLY"] = &iuse::royal_jelly;
-    iuse_function_list["BANDAGE"] = &iuse::bandage;
-    iuse_function_list["FIRSTAID"] = &iuse::firstaid;
-    iuse_function_list["DISINFECTANT"] = &iuse::disinfectant;
     iuse_function_list["CAFF"] = &iuse::caff;
     iuse_function_list["ATOMIC_CAFF"] = &iuse::atomic_caff;
     iuse_function_list["ALCOHOL"] = &iuse::alcohol_medium;
@@ -191,7 +181,6 @@ void Item_factory::init()
     iuse_function_list["CATFOOD"] = &iuse::catfood;
     iuse_function_list["CAPTURE_MONSTER_ACT"] = &iuse::capture_monster_act;
     // TOOLS
-    iuse_function_list["SEW"] = &iuse::sew;
     iuse_function_list["SEW_ADVANCED"] = &iuse::sew_advanced;
     iuse_function_list["EXTRA_BATTERY"] = &iuse::extra_battery;
     iuse_function_list["DOUBLE_REACTOR"] = &iuse::double_reactor;
@@ -199,7 +188,6 @@ void Item_factory::init()
     iuse_function_list["EXTINGUISHER"] = &iuse::extinguisher;
     iuse_function_list["HAMMER"] = &iuse::hammer;
     iuse_function_list["DIRECTIONAL_ANTENNA"] = &iuse::directional_antenna;
-    iuse_function_list["SOLDER_WELD"] = &iuse::solder_weld;
     iuse_function_list["WATER_PURIFIER"] = &iuse::water_purifier;
     iuse_function_list["TWO_WAY_RADIO"] = &iuse::two_way_radio;
     iuse_function_list["RADIO_OFF"] = &iuse::radio_off;
@@ -238,7 +226,6 @@ void Item_factory::init()
     iuse_function_list["ACIDBOMB_ACT"] = &iuse::acidbomb_act;
     iuse_function_list["GRENADE_INC_ACT"] = &iuse::grenade_inc_act;
     iuse_function_list["ARROW_FLAMABLE"] = &iuse::arrow_flamable;
-    iuse_function_list["MOLOTOV"] = &iuse::molotov;
     iuse_function_list["MOLOTOV_LIT"] = &iuse::molotov_lit;
     iuse_function_list["FIRECRACKER_PACK"] = &iuse::firecracker_pack;
     iuse_function_list["FIRECRACKER_PACK_ACT"] = &iuse::firecracker_pack_act;
@@ -268,16 +255,9 @@ void Item_factory::init()
     iuse_function_list["BOLTCUTTERS"] = &iuse::boltcutters;
     iuse_function_list["MOP"] = &iuse::mop;
     iuse_function_list["SPRAY_CAN"] = &iuse::spray_can;
-    iuse_function_list["RAG"] = &iuse::rag;
     iuse_function_list["LAW"] = &iuse::LAW;
     iuse_function_list["HEATPACK"] = &iuse::heatpack;
-    iuse_function_list["BOOTS"] = &iuse::boots;
     iuse_function_list["QUIVER"] = &iuse::quiver;
-    iuse_function_list["SHEATH_SWORD"] = &iuse::sheath_sword;
-    iuse_function_list["SHEATH_KNIFE"] = &iuse::sheath_knife;
-    iuse_function_list["HOLSTER_GUN"] = &iuse::holster_gun;
-    iuse_function_list["HOLSTER_ANKLE"] = &iuse::holster_ankle;
-    iuse_function_list["BELT_LOOP"] = &iuse::belt_loop;
     iuse_function_list["TOWEL"] = &iuse::towel;
     iuse_function_list["UNFOLD_GENERIC"] = &iuse::unfold_generic;
     iuse_function_list["ADRENALINE_INJECTOR"] = &iuse::adrenaline_injector;
@@ -828,15 +808,7 @@ void Item_factory::load_comestible(JsonObject &jo)
         comest_template->stack_size = comest_template->def_charges;
     }
     comest_template->stim = jo.get_int("stim", 0);
-    // TODO: sometimes in the future: remove this if clause and accept
-    // only "healthy" and not "heal".
-    if (jo.has_member("heal")) {
-        debugmsg("the item property \"heal\" has been renamed to \"healthy\"\n"
-                 "please change the json data for item %d", comest_template->id.c_str());
-        comest_template->healthy = jo.get_int("heal");
-    } else {
-        comest_template->healthy = jo.get_int("healthy", 0);
-    }
+    comest_template->healthy = jo.get_int("healthy", 0);
     comest_template->fun = jo.get_int("fun", 0);
 
     comest_template->add = addiction_type(jo.get_string("addiction_type"));
@@ -986,8 +958,19 @@ void Item_factory::load_basic_info(JsonObject &jo, itype *new_item_template)
     new_item_template->volume = jo.get_int("volume");
     new_item_template->weight = jo.get_int("weight");
     new_item_template->melee_dam = jo.get_int("bashing");
-    new_item_template->melee_cut = jo.get_int("cutting");
+    new_item_template->melee_cut = jo.get_int("cutting", 0);
     new_item_template->m_to_hit = jo.get_int("to_hit");
+
+    new_item_template->min_str = jo.get_int( "min_strength",     0 );
+    new_item_template->min_dex = jo.get_int( "min_dexterity",    0 );
+    new_item_template->min_int = jo.get_int( "min_intelligence", 0 );
+    new_item_template->min_per = jo.get_int( "min_perception",   0 );
+
+    JsonArray jarr = jo.get_array( "min_skills" );
+    while( jarr.has_more() ) {
+        JsonArray cur = jarr.next_array();
+        new_item_template->min_skills[skill_id( cur.get_string( 0 ) )] = cur.get_int( 1 );
+    }
 
     if (jo.has_member("explode_in_fire")) {
         JsonObject je = jo.get_object("explode_in_fire");
@@ -1493,6 +1476,12 @@ void Item_factory::set_uses_from_object(JsonObject obj, std::vector<use_function
         newfun = load_actor<manualnoise_actor>( obj );
     } else if( type == "musical_instrument" ) {
         newfun = load_actor<musical_instrument_actor>( obj );
+    } else if( type == "holster" ) {
+        newfun = load_actor<holster_actor>( obj );
+    } else if( type == "repair_item" ) {
+        newfun = load_actor<repair_item_actor>( obj );
+    } else if( type == "heal" ) {
+        newfun = load_actor<heal_actor>( obj );
     } else if( type == "knife" ) {
         use_methods.push_back( load_actor<salvage_actor>( obj, "salvage" ) );
         use_methods.push_back( load_actor<inscribe_actor>( obj, "inscribe" ) );

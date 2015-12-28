@@ -2,10 +2,13 @@
 #define PLAYER_H
 
 #include "character.h"
+#include "crafting.h"
+#include "craft_command.h"
 #include "item.h"
 #include "player_activity.h"
-#include "weighted_list.h"
 #include "morale.h"
+#include "weighted_list.h"
+#include "game_constants.h"
 
 #include <unordered_set>
 #include <bitset>
@@ -631,7 +634,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Handles the chance to be infected by random diseases */
         void get_sick();
         /** Handles health fluctuations over time, redirects into Creature::update_health */
-        void update_health(int base_threshold = 0) override;
+        void update_health(int external_modifiers = 0) override;
         /** Returns list of rc items in player inventory. **/
         std::list<item *> get_radio_items();
 
@@ -676,10 +679,24 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Handles rooting effects */
         void rooted_message() const;
         void rooted();
+        /** Check if player capable of wielding item. If interactive is false dont display messages if item is not wieldable */
+        bool can_wield(const item& it, bool interactive = true) const;
         /** Wields an item, returns false on failed wield */
         virtual bool wield(item *it, bool autodrop = false);
         /** Creates the UI and handles player input for picking martial arts styles */
         bool pick_style();
+        /**
+         * Checks if player stats and skills meet minimum requirements for the item
+         * @param interactive controls whether informative messages are printed if item requirements not met
+         */
+        bool can_use( const item& it, bool interactive = true ) const;
+        /**
+         * Calculate (but do not deduct) the number of moves required when handling (eg. storing, drawing etc.) an item
+         * @param effects whether temporary player effects should be considered (eg. GRABBED, DOWNED)
+         * @param factor base move cost per unit volume before considering any other modifiers
+         * @return cost in moves ranging from 0 to MAX_HANDLING_COST
+         */
+        int item_handling_cost( const item& it, bool effects = true, int factor = VOLUME_MOVE_COST) const;
         /** Wear item; returns false on fail. If interactive is false, don't alert the player or drain moves on completion. */
         bool wear(int pos, bool interactive = true);
         /** Wear item; returns false on fail. If interactive is false, don't alert the player or drain moves on completion. */
@@ -691,9 +708,10 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          *  is given, stores the items in that vector and not in the inventory */
         bool takeoff( item *target, bool autodrop = false, std::vector<item> *items = nullptr );
         bool takeoff( int pos, bool autodrop = false, std::vector<item> *items = nullptr );
-        /** Removes the first item in the container's contents and wields it,
-         * taking moves based on skill and volume of item being wielded. */
-        void wield_contents(item *container, bool force_invlet, const skill_id &skill_used, int volume_factor);
+        /** Try to wield a contained item consuming moves proportional to weapon skill and volume.
+         *  @param pos index of contained item to wield. Set to -1 to show menu if container has more than one item
+         *  @param factor scales moves cost and can be set to zero if item should be wielded without any delay */
+        bool wield_contents(item *container, int pos = 0, int factor = VOLUME_MOVE_COST);
         /** Stores an item inside another item, taking moves based on skill and volume of item being stored. */
         void store(item *container, item *put, const skill_id &skill_used, int volume_factor);
         /** Draws the UI and handles player input for the armor re-ordering window */
@@ -719,8 +737,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         void remove_gunmod(item *weapon, unsigned id);
         /** Attempts to install bionics, returns false if the player cancels prior to installation */
         bool install_bionics(const itype &type, int skill_level = -1);
-        /** Handles reading effects */
-        void read(int pos);
+        /** Handles reading effects and returns true if activity started */
+        bool read(int pos);
         /** Completes book reading action. **/
         void do_read( item *book );
         /** Note that we've read a book at least once. **/
@@ -740,7 +758,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Returns a value from 1.0 to 5.0 that acts as a multiplier
          * for the time taken to perform tasks that require detail vision,
          * above 4.0 means these activities cannot be performed. */
-        float fine_detail_vision_mod();
+        float fine_detail_vision_mod() const;
 
         /** Used to determine player feedback on item use for the inventory code.
          *  rates usability lower for non-tools (books, etc.) */
@@ -782,8 +800,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int get_env_resist(body_part bp) const override;
         /** Returns true if the player is wearing something on the entered body_part */
         bool wearing_something_on(body_part bp) const;
-        /** Returns true if the player is wearing the given item */
-        bool is_wearing_item (const item& it) const;
+        /** Returns true if the player is wearing something on the entered body_part, ignoring items with the ALLOWS_NATURAL_ATTACKS flag */
+        bool natural_attack_restricted_on(body_part bp) const;
         /** Returns true if the player is wearing something on their feet that is not SKINTIGHT */
         bool is_wearing_shoes(std::string side = "both") const;
         /** Returns 1 if the player is wearing something on both feet, .5 if on one, and 0 if on neither */
@@ -806,7 +824,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool has_activity(const activity_type type) const;
         void cancel_activity();
 
-        double convert_weight(int weight) const;
         int net_morale(morale_point effect) const;
         int morale_level() const; // Modified by traits, &c
         void add_morale(morale_type type, int bonus, int max_bonus = 0,
@@ -859,7 +876,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
 
         // has_amount works ONLY for quantity.
         // has_charges works ONLY for charges.
-        std::list<item> use_amount(itype_id it, int quantity, bool use_container = false);
+        std::list<item> use_amount(itype_id it, int quantity);
         bool use_charges_if_avail(itype_id it, long quantity);// Uses up charges
         std::list<item> use_charges(itype_id it, long quantity);// Uses up charges
         bool has_amount(const itype_id &it, int quantity) const;
@@ -891,22 +908,20 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool has_gun_for_ammo( const ammotype &at ) const;
 
         bool has_weapon() const override;
-        // Check if the player can pickup stuff (fails if wielding
-        // certain bionic weapons).
-        // Print a message if print_msg is true and this isn't a NPC
-        bool can_pickup(bool print_msg) const;
 
         // Checks crafting inventory for books providing the requested recipe.
         // Returns -1 to indicate recipe not found, otherwise difficulty to learn.
         int has_recipe( const recipe *r, const inventory &crafting_inv ) const;
         bool knows_recipe( const recipe *rec ) const;
-        void learn_recipe( const recipe *rec );
+        void learn_recipe( const recipe *rec, bool force = false );
+        bool has_recipe_requirements(const recipe *rec) const;
 
         bool studied_all_recipes(const itype &book) const;
 
         // crafting.cpp
-        bool crafting_allowed(); // is morale high enough to craft?
-        bool crafting_can_see(); // can player see well enough to craft?
+        bool crafting_allowed(); // can_see_to_craft() && has_morale_to_craft()
+        bool can_see_to_craft();
+        bool has_moral_to_craft();
         bool can_make(const recipe *r, int batch_size = 1); // have components?
         bool making_would_work(const std::string &id_to_make, int batch_size);
         void craft();
@@ -937,8 +952,18 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         const inventory &crafting_inventory(); // includes nearby items
         void invalidate_crafting_inventory();
         std::vector<item> get_eligible_containers_for_crafting();
-        std::list<item> consume_items(const std::vector<item_comp> &components, int batch = 1);
-        void consume_tools(const std::vector<tool_comp> &tools, int batch = 1, const std::string &hotkeys = DEFAULT_HOTKEYS);
+        comp_selection<item_comp>
+            select_item_component( const std::vector<item_comp> &components,
+                                   int batch, inventory &map_inv, bool can_cancel = false );
+        std::list<item> consume_items( const comp_selection<item_comp> &cs, int batch );
+        std::list<item> consume_items( const std::vector<item_comp> &components, int batch = 1 );
+        comp_selection<tool_comp>
+            select_tool_component( const std::vector<tool_comp> &tools, int batch, inventory &map_inv,
+                                   const std::string &hotkeys = DEFAULT_HOTKEYS,
+                                   bool can_cancel = false );
+        void consume_tools( const comp_selection<tool_comp> &tool, int batch );
+        void consume_tools( const std::vector<tool_comp> &tools, int batch = 1,
+                            const std::string &hotkeys = DEFAULT_HOTKEYS );
 
         // Auto move methods
         void set_destination(const std::vector<tripoint> &route);
@@ -947,10 +972,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         std::vector<tripoint> &get_auto_move_route();
         action_id get_next_auto_move_direction();
         void shift_destination(int shiftx, int shifty);
-
-        // Library functions
-        double logistic(double t) const;
-        double logistic_range(int min, int max, int pos) const;
 
         /**
          * Global position, expressed in map square coordinate system
@@ -1059,6 +1080,9 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool keep_hands_free;
 
         std::vector <addiction> addictions;
+
+        void make_craft_with_command( const std::string &id_to_make, int batch_size, bool is_long = false );
+        craft_command last_craft;
 
         std::string lastrecipe;
         int last_batch;
@@ -1186,6 +1210,19 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          * are included.
          */
         bool is_visible_in_range( const Creature &critter, int range ) const;
+
+        /** Calculate bonus warmth from furniture, items, and mutations for sleeping player **/
+        int warmth_in_sleep();
+        /** Correction factor of the body temperature due to fire **/
+        int bodytemp_modifier_fire();
+        /** Correction factor of the body temperature due to traits and mutations **/
+        int bodytemp_modifier_traits( bool overheated );
+        /** Correction factor of the body temperature due to traits and mutations for sleeping player **/
+        int bodytemp_modifier_traits_sleep();
+        /** Value of the body temperature corrected by climate control **/
+        int temp_corrected_by_climate_control( int temperature );
+        /** Define blood loss (in percents) */
+        int blood_loss( body_part bp );
 
         // Trigger and disable mutations that can be so toggled.
         void activate_mutation( const std::string &mutation );
