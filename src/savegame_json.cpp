@@ -369,21 +369,21 @@ void player::load(JsonObject &data)
     if( has_bionic( "bio_ears" ) && !has_bionic( "bio_earplugs" ) ) {
         add_bionic("bio_earplugs");
     }
-	
+
     // Add the blindfold.
     if( has_bionic( "bio_sunglasses" ) && !has_bionic( "bio_blindfold" ) ) {
         add_bionic( "bio_blindfold" );
     }
-    
+
     // Fixes bugged characters for telescopic eyes CBM.
     if( has_bionic( "bio_eye_optic" ) && has_trait( "HYPEROPIC" ) ) {
         remove_mutation( "HYPEROPIC" );
     }
-    
+
     if( has_bionic( "bio_eye_optic" ) && has_trait( "MYOPIC" ) ) {
         remove_mutation( "MYOPIC" );
     }
-    
+
 
 }
 
@@ -575,8 +575,8 @@ void player::deserialize(JsonIn &jsin)
     // contain get_object(), load()
 
     std::string prof_ident = "(null)";
-    if ( data.read("profession", prof_ident) && profession::exists(prof_ident) ) {
-        prof = profession::prof(prof_ident);
+    if ( data.read("profession", prof_ident) && string_id<profession>( prof_ident ).is_valid() ) {
+        prof = &string_id<profession>( prof_ident ).obj();
     } else {
         debugmsg("Tried to use non-existent profession '%s'", prof_ident.c_str());
     }
@@ -616,11 +616,11 @@ void player::deserialize(JsonIn &jsin)
     set_highest_cat_level();
     drench_mut_calc();
     std::string scen_ident="(null)";
-    if ( data.read("scenario",scen_ident) && scenario::exists(scen_ident) ) {
-        g->scen = scenario::scen(scen_ident);
+    if ( data.read("scenario",scen_ident) && string_id<scenario>( scen_ident ).is_valid() ) {
+        g->scen = &string_id<scenario>( scen_ident ).obj();
         start_location = g->scen->start_location();
     } else {
-        scenario *generic_scenario = scenario::generic();
+        const scenario *generic_scenario = scenario::generic();
         // Only display error message if from a game file after scenarios existed.
         if (savegame_loading_version > 20) {
             debugmsg("Tried to use non-existent scenario '%s'. Setting to generic '%s'.",
@@ -719,6 +719,7 @@ void npc_follower_rules::serialize(JsonOut &json) const
     json.member( "allow_pick_up", allow_pick_up );
     json.member( "allow_bash", allow_bash );
     json.member( "allow_sleep", allow_sleep );
+    json.member( "allow_complain", allow_complain );
     json.end_object();
 }
 
@@ -959,6 +960,9 @@ void npc::load(JsonObject &data)
     }
 
     last_updated = data.get_int( "last_updated", calendar::turn );
+    if( data.has_object( "complaints" ) ) {
+        data.read( "complaints", complaints );
+    }
 }
 
 /*
@@ -1021,6 +1025,7 @@ void npc::store(JsonOut &json) const
     json.member("restock", restock);
 
     json.member("last_updated", last_updated);
+    json.member("complaints", complaints);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1768,7 +1773,7 @@ void Creature::store( JsonOut &jsout ) const
         for (auto i : maps.second) {
             std::ostringstream convert;
             convert << i.first;
-            tmp_map[maps.first][convert.str()] = i.second;
+            tmp_map[maps.first.str()][convert.str()] = i.second;
         }
     }
     jsout.member( "effects", tmp_map );
@@ -1819,15 +1824,16 @@ void Creature::load( JsonObject &jsin )
             jsin.read( "effects", tmp_map );
             int key_num;
             for (auto maps : tmp_map) {
-                if (effect_types.find(maps.first) == effect_types.end()) {
-                    debugmsg("Invalid effect: %s", maps.first.c_str());
+                const efftype_id id( maps.first );
+                if( !id.is_valid() ) {
+                    debugmsg( "Invalid effect: %s", id.c_str() );
                     continue;
                 }
                 for (auto i : maps.second) {
                     if ( !(std::istringstream(i.first) >> key_num) ) {
                         key_num = 0;
                     }
-                    effects[maps.first][(body_part)key_num] = i.second;
+                    effects[id][(body_part)key_num] = i.second;
                 }
             }
         }

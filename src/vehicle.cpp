@@ -51,6 +51,9 @@ static const std::string part_location_structure("structure");
 
 const skill_id skill_mechanics( "mechanics" );
 
+const efftype_id effect_on_roof( "on_roof" );
+const efftype_id effect_stunned( "stunned" );
+
 const std::array<fuel_type, 7> &get_fuel_types()
 {
 
@@ -954,7 +957,6 @@ void vehicle::use_controls(const tripoint &pos)
     bool has_overhead_lights = false;
     bool has_horn = false;
     bool has_turrets = false;
-    bool has_tracker = false;
     bool has_reactor = false;
     bool has_engine = false;
     bool has_mult_engine = false;
@@ -992,9 +994,6 @@ void vehicle::use_controls(const tripoint &pos)
         }
         else if (part_flag(p, "HORN")) {
             has_horn = true;
-        }
-        else if (part_flag(p, "TRACK")) {
-            has_tracker = true;
         }
         else if (part_flag(p, "STEREO")) {
             has_stereo = true;
@@ -1107,10 +1106,8 @@ void vehicle::use_controls(const tripoint &pos)
     }
 
     // Tracking on the overmap
-    if (has_tracker) {
-        menu.addentry( toggle_tracker, true, 'g', tracking_on ?
-                       _("Disable tracking device") : _("Enable tracking device") );
-    }
+    menu.addentry( toggle_tracker, true, 'g', tracking_on ?
+                   _("Forget vehicle position") : _("Remember vehicle position") );
 
     const bool can_be_folded = is_foldable();
     const bool is_convertible = (tags.count("convertible") > 0);
@@ -1313,18 +1310,14 @@ void vehicle::use_controls(const tripoint &pos)
         }
         break;
     case toggle_tracker:
-        if (tracking_on)
-        {
+        if( tracking_on ) {
             overmap_buffer.remove_vehicle( this );
             tracking_on = false;
-            add_msg(_("tracking device disabled"));
-        } else if (fuel_left(fuel_type_battery, true))
-        {
+            add_msg( _( "You stop keeping track of the vehicle position." ) );
+        } else {
             overmap_buffer.add_vehicle( this );
             tracking_on = true;
-            add_msg(_("tracking device enabled"));
-        } else {
-            add_msg(_("tracking device won't turn on"));
+            add_msg( _( "You start keeping track of this vehicle's position." ) );
         }
         break;
     case toggle_doors:
@@ -1496,7 +1489,7 @@ bool vehicle::start_engine( const int e )
         if( einfo.fuel_type == fuel_type_gasoline && dmg > 0.75 && one_in( 20 ) ) {
             backfire( e );
         } else {
-            const tripoint pos = global_pos3() + parts[engines[e]].precalc[0];
+            const tripoint pos = global_part_pos3( engines[e] );
             sounds::ambient_sound( pos, engine_start_time( e ) / 10, "" );
         }
     }
@@ -1553,8 +1546,9 @@ void vehicle::start_engines( const bool take_control )
 void vehicle::backfire( const int e )
 {
     const int power = part_power( engines[e], true );
-    const tripoint pos = global_pos3() + parts[engines[e]].precalc[0];
-    sounds::ambient_sound( pos, 40 + (power / 30), "BANG!" );
+    const tripoint pos = global_part_pos3( engines[e] );
+    //~ backfire sound
+    sounds::ambient_sound( pos, 40 + (power / 30), _( "BANG!" ) );
 }
 
 void vehicle::honk_horn()
@@ -1576,13 +1570,16 @@ void vehicle::honk_horn()
             honked = true;
         }
         //Get global position of horn
-        const auto horn_pos = global_pos3() + parts[p].precalc[0];
+        const auto horn_pos = global_part_pos3( p );
         //Determine sound
         if( horn_type.bonus >= 40 ) {
+            //~ Loud horn sound
             sounds::sound( horn_pos, horn_type.bonus, _("HOOOOORNK!") );
         } else if( horn_type.bonus >= 20 ) {
+            //~ Moderate horn sound
             sounds::sound( horn_pos, horn_type.bonus, _("BEEEP!") );
         } else {
+            //~ Weak horn sound
             sounds::sound( horn_pos, horn_type.bonus, _("honk.") );
         }
     }
@@ -1610,10 +1607,8 @@ void vehicle::beeper_sound()
         }
 
         const vpart_info &beeper_type = part_info( p );
-        //Get global position of backup beeper
-        const tripoint beeper_pos = global_pos3() + parts[p].precalc[0];
-        //Determine sound
-        sounds::sound( beeper_pos, beeper_type.bonus, _("beep!") );
+        //~ Beeper sound
+        sounds::sound( global_part_pos3( p ), beeper_type.bonus, _( "beep!" ) );
     }
 }
 
@@ -2150,23 +2145,6 @@ bool vehicle::remove_part (int p)
          * depending on presence of window and seatbelt depending on presence of seat.
          */
         return false;
-    }
-    if (part_flag(p, "TRACK")) {
-        // disable tracking if there are no other trackers installed.
-        if (tracking_on)
-        {
-            bool has_tracker = false;
-            for (int i = 0; i != (int)parts.size(); i++){
-                if (i != p && part_flag(i, "TRACK")){
-                    has_tracker = true;
-                    break;
-                }
-            }
-            if (!has_tracker){ // disable tracking
-                overmap_buffer.remove_vehicle( this );
-                tracking_on = false;
-            }
-        }
     }
 
     if (part_flag(p, "ATOMIC_LIGHT")) {
@@ -2972,6 +2950,11 @@ tripoint vehicle::global_pos3() const
     return tripoint( smx * SEEX + posx, smy * SEEY + posy, smz );
 }
 
+tripoint vehicle::global_part_pos3( const int &index ) const
+{
+    return global_pos3() + parts[index].precalc[0];
+}
+
 point vehicle::real_global_pos() const
 {
     return g->m.getabs( global_x(), global_y() );
@@ -3655,7 +3638,6 @@ void vehicle::power_parts()
     // Consumers of epower
     if( lights_on ) epower += lights_epower;
     if( overhead_lights_on ) epower += overhead_epower;
-    if( tracking_on ) epower += tracking_epower;
     if( fridge_on ) epower += fridge_epower;
     if( recharger_on ) epower += recharger_epower;
     if( is_alarm_on ) epower += alarm_epower;
@@ -3746,10 +3728,6 @@ void vehicle::power_parts()
     if( battery_deficit != 0 ) {
         is_alarm_on = false;
         lights_on = false;
-        if( tracking_on ) {
-            overmap_buffer.remove_vehicle( this );
-            tracking_on = false;
-        }
         overhead_lights_on = false;
         fridge_on = false;
         stereo_on = false;
@@ -4108,7 +4086,7 @@ void vehicle::operate_scoop()
             if( !that_item_there ) {
                 continue;
             }
-            if( one_in( chance_to_damage_item ) && that_item_there->damage < 4 ) {
+            if( one_in( chance_to_damage_item ) && that_item_there->damage < MAX_ITEM_DAMAGE ) {
                 //The scoop will not destroy the item, but it may damage it a bit.
                 that_item_there->damage++;
                 //The scoop gets a lot louder when breaking an item.
@@ -4708,7 +4686,7 @@ veh_collision vehicle::part_collision( int part, const tripoint &p,
 
             turns_stunned = ( rng( 0, dam ) > 10 ) + ( rng( 0, dam ) > 40 );
             if( turns_stunned > 0 ) {
-                critter->add_effect( "stunned", turns_stunned );
+                critter->add_effect( effect_stunned, turns_stunned );
             }
 
             const int angle = (100 - degree) * 2 * ( one_in( 2 ) ? 1 : -1 );
@@ -6355,7 +6333,7 @@ void vehicle::turret_ammo_data::consume( vehicle &veh, int const part, long cons
     }
 }
 
-bool vehicle::automatic_fire_turret( int p, const itype &gun, const itype &ammo, long &charges )
+bool vehicle::automatic_fire_turret( int p, const itype &guntype, const itype &ammotype, long &charges )
 {
     tripoint pos = global_pos3();
     pos.x += parts[p].precalc[0].x;
@@ -6364,9 +6342,9 @@ bool vehicle::automatic_fire_turret( int p, const itype &gun, const itype &ammo,
 
     npc tmp;
     tmp.set_fake( true );
-    tmp.add_effect( "on_roof", 1 );
+    tmp.add_effect( effect_on_roof, 1 );
     tmp.name = rmp_format(_("<veh_player>The %s"), part_info(p).name.c_str());
-    tmp.skillLevel(gun.gun->skill_used).level(8);
+    tmp.skillLevel( guntype.gun->skill_used ).level( 8 );
     tmp.skillLevel( skill_id( "gun" ) ).level(4);
     tmp.recoil = abs(velocity) / 100 / 4;
     tmp.setpos( pos );
@@ -6375,13 +6353,14 @@ bool vehicle::automatic_fire_turret( int p, const itype &gun, const itype &ammo,
     tmp.per_cur = 12;
     // Assume vehicle turrets are defending the player.
     tmp.attitude = NPCATT_DEFEND;
-    tmp.weapon = item(gun.id, 0);
-    tmp.weapon.set_curammo( ammo.id );
-    tmp.weapon.charges = charges;
-    tmp.weapon.update_charger_gun_ammo();
 
-    int area = std::max( aoe_size( tmp.weapon.get_curammo()->ammo->ammo_effects ),
-                         aoe_size( tmp.weapon.type->gun->ammo_effects ) );
+    item gun( guntype.id, calendar::turn );
+    gun.set_curammo( ammotype.id );
+    gun.charges = charges;
+    gun.update_charger_gun_ammo();
+
+    int area = std::max( aoe_size( gun.ammo_data()->ammo->ammo_effects ),
+                         aoe_size( gun.type->gun->ammo_effects ) );
     if( area > 0 ) {
         area += area == 1 ? 1 : 2; // Pad a bit for less friendly fire
     }
@@ -6422,7 +6401,7 @@ bool vehicle::automatic_fire_turret( int p, const itype &gun, const itype &ammo,
     }
 
     // Move the charger gun "whoosh" here - no need to pass it from above
-    if( tmp.weapon.is_charger_gun() && charges > 20 ) {
+    if( gun.is_charger_gun() && charges > 20 ) {
         sounds::sound( targ, 20, _("whoosh!") );
     }
     // notify player if player can see the shot
@@ -6434,10 +6413,12 @@ bool vehicle::automatic_fire_turret( int p, const itype &gun, const itype &ammo,
     // Drain a ton of power
     tmp_ups.charges = drain( fuel_type_battery, 1000 );
     tmp.worn.insert( tmp.worn.end(), tmp_ups );
-    tmp.fire_gun( targ, (long)abs( parts[p].mode ) );
+
+    tmp.fire_gun( targ, (long)abs( parts[p].mode ), gun );
+
     // Return whatever is left.
     refill( fuel_type_battery, tmp.worn.back().charges );
-    charges = tmp.weapon.charges; // Return real ammo, in case of burst ending early
+    charges = gun.charges; // Return real ammo, in case of burst ending early
 
     return true;
 }
@@ -6457,10 +6438,6 @@ bool vehicle::manual_fire_turret( int p, player &shooter, const itype &guntype,
     gun.set_curammo( ammotype.id );
     gun.charges = charges;
 
-    // Give shooter fake weapon
-    item old_weapon = shooter.weapon;
-    shooter.weapon = gun;
-
     // Spawn a fake UPS to power any turreted weapons that need electricity.
     item tmp_ups( "fake_UPS", 0 );
     // Drain a ton of power
@@ -6468,21 +6445,21 @@ bool vehicle::manual_fire_turret( int p, player &shooter, const itype &guntype,
     // Fire_gun expects that the fake UPS is a last worn item
     shooter.worn.insert( shooter.worn.end(), tmp_ups );
 
-    const int range = shooter.weapon.gun_range( &shooter );
+    const int range = gun.gun_range( &shooter );
     auto mons = shooter.get_visible_creatures( range );
     constexpr target_mode tmode = TARGET_MODE_TURRET_MANUAL; // No aiming yet!
     tripoint shooter_pos = shooter.pos();
-    auto trajectory = g->pl_target_ui( shooter_pos, range, &shooter.weapon, tmode );
+    auto trajectory = g->pl_target_ui( shooter_pos, range, &gun, tmode );
     shooter.recoil = abs(velocity) / 100 / 4;
     if( !trajectory.empty() ) {
         // Need to redraw before shooting
         g->draw_ter();
         const tripoint &targ = trajectory.back();
         // Put our shooter on the roof of the vehicle
-        shooter.add_effect( "on_roof", 1 );
-        shooter.fire_gun( targ, (long)abs( parts[p].mode ) );
+        shooter.add_effect( effect_on_roof, 1 );
+        shooter.fire_gun( targ, (long)abs( parts[p].mode ), gun );
         // And now back - we don't want to get any weird behavior
-        shooter.remove_effect( "on_roof" );
+        shooter.remove_effect( effect_on_roof );
     }
 
     // Done shooting, clean up
@@ -6501,12 +6478,10 @@ bool vehicle::manual_fire_turret( int p, player &shooter, const itype &guntype,
         }
     }
 
-    charges = shooter.weapon.charges;
+    charges = gun.charges;
 
     // Place the shooter back where we took them from
     shooter.setpos( oldpos );
-    // Give back old weapon
-    shooter.weapon = old_weapon;
 
     // Deactivate automatic aiming
     if( parts[p].mode > 0 ) {

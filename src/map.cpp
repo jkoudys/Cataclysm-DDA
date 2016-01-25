@@ -44,6 +44,11 @@ const skill_id skill_traps( "traps" );
 
 const species_id FUNGUS( "FUNGUS" );
 
+const efftype_id effect_boomered( "boomered" );
+const efftype_id effect_crushed( "crushed" );
+const efftype_id effect_spores( "spores" );
+const efftype_id effect_stunned( "stunned" );
+
 extern bool is_valid_in_w_terrain(int,int);
 
 #include "overmapbuffer.h"
@@ -340,6 +345,7 @@ void map::destroy_vehicle (vehicle *veh)
 void map::on_vehicle_moved( const int smz ) {
     set_outside_cache_dirty( smz );
     set_transparency_cache_dirty( smz );
+    set_floor_cache_dirty( smz );
 }
 
 void map::vehmove()
@@ -1601,6 +1607,10 @@ void map::furn_set( const tripoint &p, const furn_id new_furniture )
         set_outside_cache_dirty( p.z );
     }
 
+    if( old_t.has_flag( TFLAG_NO_FLOOR ) != new_t.has_flag( TFLAG_NO_FLOOR ) ) {
+        set_floor_cache_dirty( p.z );
+    }
+
     // Make sure the furniture falls if it needs to
     support_dirty( p );
     tripoint above( p.x, p.y, p.z + 1 );
@@ -1807,6 +1817,7 @@ void map::ter_set( const tripoint &p, const ter_id new_terrain )
     }
 
     if( new_t.has_flag( TFLAG_NO_FLOOR ) && !old_t.has_flag( TFLAG_NO_FLOOR ) ) {
+        set_floor_cache_dirty( p.z );
         // It's a set, not a flag
         support_cache_dirty.insert( p );
     }
@@ -2117,9 +2128,15 @@ int map::climb_difficulty( const tripoint &p ) const
 
 bool map::has_floor( const tripoint &p ) const
 {
-    return !zlevels ||
-           p.z < -OVERMAP_DEPTH + 1 || p.z > OVERMAP_HEIGHT ||
-           !has_flag( TFLAG_NO_FLOOR, p );
+    if( !zlevels || p.z < -OVERMAP_DEPTH + 1 || p.z > OVERMAP_HEIGHT ) {
+        return true;
+    }
+
+    if( !inbounds( p.x, p.y ) ) {
+        return true;
+    }
+
+    return get_cache_ref( p.z ).floor_cache[p.x][p.y];
 }
 
 bool map::supports_above( const tripoint &p ) const
@@ -3092,7 +3109,7 @@ void map::fungalize( const tripoint &sporep, Creature *origin, double spore_chan
         monster &critter = g->zombie( mondex );
         if( !critter.make_fungus() ) {
             // Don't insta-kill non-fungables. Jabberwocks, for example
-            critter.add_effect( "stunned", rng( 1, 3 ) );
+            critter.add_effect( effect_stunned, rng( 1, 3 ) );
             critter.apply_damage( origin, bp_torso, rng( 25, 50 ) );
         }
     } else if( g->u.pos() == sporep ) {
@@ -3107,12 +3124,12 @@ void map::fungalize( const tripoint &sporep, Creature *origin, double spore_chan
         }
         // Spores hit the player--is there any hope?
         bool hit = false;
-        hit |= one_in(4) && pl.add_env_effect("spores", bp_head, 3, 90, bp_head);
-        hit |= one_in(2) && pl.add_env_effect("spores", bp_torso, 3, 90, bp_torso);
-        hit |= one_in(4) && pl.add_env_effect("spores", bp_arm_l, 3, 90, bp_arm_l);
-        hit |= one_in(4) && pl.add_env_effect("spores", bp_arm_r, 3, 90, bp_arm_r);
-        hit |= one_in(4) && pl.add_env_effect("spores", bp_leg_l, 3, 90, bp_leg_l);
-        hit |= one_in(4) && pl.add_env_effect("spores", bp_leg_r, 3, 90, bp_leg_r);
+        hit |= one_in(4) && pl.add_env_effect( effect_spores, bp_head, 3, 90, bp_head );
+        hit |= one_in(2) && pl.add_env_effect( effect_spores, bp_torso, 3, 90, bp_torso );
+        hit |= one_in(4) && pl.add_env_effect( effect_spores, bp_arm_l, 3, 90, bp_arm_l );
+        hit |= one_in(4) && pl.add_env_effect( effect_spores, bp_arm_r, 3, 90, bp_arm_r );
+        hit |= one_in(4) && pl.add_env_effect( effect_spores, bp_leg_l, 3, 90, bp_leg_l );
+        hit |= one_in(4) && pl.add_env_effect( effect_spores, bp_leg_r, 3, 90, bp_leg_r );
         if( hit ) {
             add_msg(m_warning, _("You're covered in tiny spores!"));
         }
@@ -3248,7 +3265,7 @@ void map::smash_items(const tripoint &p, const int power)
         } else {
             while( ( damage_chance > material_factor ||
                      x_in_y( damage_chance, material_factor ) ) &&
-                   i->damage < 4 ) {
+                   i->damage < MAX_ITEM_DAMAGE ) {
                 i->damage++;
                 if( type_blood != fd_null ) {
                     for( const tripoint &pt : points_in_radius( p, 1 ) ) {
@@ -3261,7 +3278,7 @@ void map::smash_items(const tripoint &p, const int power)
             }
         }
         // Remove them if they were damaged too much
-        if( i->damage >= 4 || ( by_charges && i->charges == 0 ) ) {
+        if( i->damage >= MAX_ITEM_DAMAGE || ( by_charges && i->charges == 0 ) ) {
             // But save the contents
             for( auto &elem : i->contents ) {
                 contents.push_back( elem );
@@ -3738,7 +3755,7 @@ void map::crush( const tripoint &p )
             crushed_player->deal_damage( nullptr, hit, damage_instance( DT_BASH, dam * .05 ) );
 
             // Pin whoever got hit
-            crushed_player->add_effect("crushed", 1, num_bp, true);
+            crushed_player->add_effect( effect_crushed, 1, num_bp, true);
             crushed_player->check_dead_state();
         }
     }
@@ -3750,7 +3767,7 @@ void map::crush( const tripoint &p )
         monhit->deal_damage(nullptr, bp_torso, damage_instance(DT_BASH, rng(0,25)));
 
         // Pin whoever got hit
-        monhit->add_effect("crushed", 1, num_bp, true);
+        monhit->add_effect( effect_crushed, 1, num_bp, true);
         monhit->check_dead_state();
     }
 
@@ -4470,14 +4487,8 @@ item &map::spawn_an_item(const tripoint &p, item new_item,
         has_flag("DESTROY_ITEM", p) ) {
         return nulitem;
     }
-    // bounds checking for damage level
-    if( damlevel < -1 ) {
-        new_item.damage = -1;
-    } else if( damlevel > 4 ) {
-        new_item.damage = 4;
-    } else {
-        new_item.damage = damlevel;
-    }
+
+    new_item.damage = std::min( std::max( damlevel, MIN_ITEM_DAMAGE ), MAX_ITEM_DAMAGE );
 
     return add_item_or_charges(p, new_item);
 }
@@ -5675,7 +5686,7 @@ void map::update_visibility_cache( visibility_variables &cache, const int zlev )
 
     cache.u_clairvoyance = g->u.clairvoyance();
     cache.u_sight_impaired = g->u.sight_impaired();
-    cache.u_is_boomered = g->u.has_effect("boomered");
+    cache.u_is_boomered = g->u.has_effect( effect_boomered);
 
     int sm_squares_seen[MAPSIZE][MAPSIZE];
     std::memset(sm_squares_seen, 0, sizeof(sm_squares_seen));
@@ -5707,7 +5718,7 @@ void map::update_visibility_cache( visibility_variables &cache, const int zlev )
 }
 
 lit_level map::apparent_light_at( const tripoint &p, const visibility_variables &cache ) const {
-    const int dist = rl_dist(g->u.posx(), g->u.posy(), p.x, p.y);
+    const int dist = rl_dist( g->u.pos(), p );
 
     // Clairvoyance overrides everything.
     if( dist <= cache.u_clairvoyance ) {
@@ -5895,7 +5906,7 @@ void map::draw( WINDOW* w, const tripoint &center )
 void map::drawsq( WINDOW* w, player &u, const tripoint &p,
                   const bool invert, const bool show_items ) const
 {
-    drawsq( w, u, p, invert, show_items, u.pos(), false, false, false );
+    drawsq( w, u, p, invert, show_items, u.pos() + u.view_offset, false, false, false );
 }
 
 void map::drawsq( WINDOW* w, player &u, const tripoint &p, const bool invert_arg,
@@ -6174,7 +6185,7 @@ bool map::sees( const tripoint &F, const tripoint &T, const int range, int &bres
     bool visible = true;
 
     // Ugly `if` for now
-    if( !fov_3d ) {
+    if( !fov_3d || F.z == T.z ) {
         bresenham( F.x, F.y, T.x, T.y, bresenham_slope,
                    [this, &visible, &T]( const point &new_point ) {
                        // Exit before checking the last square, it's still visible even if opaque.
@@ -6190,18 +6201,34 @@ bool map::sees( const tripoint &F, const tripoint &T, const int range, int &bres
         return visible;
     }
 
+    tripoint last_point = F;
     bresenham( F, T, bresenham_slope, 0,
-                [this, &visible, &T]( const tripoint &new_point ) {
-               // Exit before checking the last square, it's still visible even if opaque.
-               if( new_point == T ) {
-                   return false;
-               }
-               if( !this->trans( new_point ) ) {
-                   visible = false;
-                   return false;
-               }
-               return true;
-           });
+                [this, &visible, &T, &last_point]( const tripoint &new_point ) {
+                    // Exit before checking the last square, it's still visible even if opaque.
+                    if( new_point == T ) {
+                        return false;
+                    }
+
+                    // TODO: Allow transparent floors (and cache them!)
+                    if( new_point.z == last_point.z ) {
+                        if( !this->trans( new_point ) ) {
+                            visible = false;
+                            return false;
+                        }
+                    } else {
+                        const int max_z = std::max( new_point.z, last_point.z );
+                        if( ( has_floor_or_support({new_point.x, new_point.y, max_z}) ||
+                              !trans({new_point.x, new_point.y, last_point.z}) ) &&
+                            ( has_floor_or_support({last_point.x, last_point.y, max_z}) ||
+                              !trans({last_point.x, last_point.y, new_point.z}) ) ) {
+                            visible = false;
+                            return false;
+                        }
+                    }
+
+                    last_point = new_point;
+                    return true;
+                });
     return visible;
 }
 
@@ -6235,11 +6262,11 @@ bool map::clear_path( const tripoint &f, const tripoint &t, const int range,
                       const int cost_min, const int cost_max ) const
 {
     // Ugly `if` for now
-    if( !fov_3d ) {
-        if( f.z != t.z ) {
-            return false;
-        }
+    if( !fov_3d && f.z != t.z ) {
+        return false;
+    }
 
+    if( f.z == t.z ) {
         if( (range >= 0 && range < rl_dist(f.x, f.y, t.x, t.y)) ||
             !INBOUNDS(t.x, t.y) ) {
             return false; // Out of range!
@@ -6267,20 +6294,47 @@ bool map::clear_path( const tripoint &f, const tripoint &t, const int range,
         return false; // Out of range!
     }
     bool is_clear = true;
+    tripoint last_point = f;
     bresenham( f, t, 0, 0,
-               [this, &is_clear, cost_min, cost_max, t](const tripoint &new_point ) {
-                   // Exit before checking the last square, it's still reachable even if it is an obstacle.
-                   if( new_point == t ) {
-                       return false;
-                   }
+        [this, &is_clear, cost_min, cost_max, t, &last_point](const tripoint &new_point ) {
+        // Exit before checking the last square, it's still reachable even if it is an obstacle.
+        if( new_point == t ) {
+            return false;
+        }
 
-                   const int cost = this->move_cost( new_point );
-                   if( cost < cost_min || cost > cost_max ) {
-                       is_clear = false;
-                       return false;
-                   }
-                   return true;
-               } );
+        // We have to check a weird case where the move is both vertical and horizontal
+        if( new_point.z == last_point.z ) {
+            const int cost = move_cost( new_point );
+            if( cost < cost_min || cost > cost_max ) {
+                is_clear = false;
+                return false;
+            }
+        } else {
+            bool this_clear = false;
+            const int max_z = std::max( new_point.z, last_point.z );
+            if( !has_floor_or_support({new_point.x, new_point.y, max_z}) ) {
+                const int cost = move_cost( {new_point.x, new_point.y, last_point.z} );
+                if( cost > cost_min && cost < cost_max ) {
+                    this_clear = true;
+                }
+            }
+
+            if( !this_clear && has_floor_or_support({last_point.x, last_point.y, max_z}) ) {
+                const int cost = move_cost( {last_point.x, last_point.y, new_point.z} );
+                if( cost > cost_min && cost < cost_max ) {
+                    this_clear = true;
+                }
+            }
+
+            if( !this_clear ) {
+                is_clear = false;
+                return false;
+            }
+        }
+
+        last_point = new_point;
+        return true;
+    } );
     return is_clear;
 }
 
@@ -6650,6 +6704,7 @@ void map::loadn( const int gridx, const int gridy, const int gridz, const bool u
     // New submap changes the content of the map and all caches must be recalculated
     set_transparency_cache_dirty( gridz );
     set_outside_cache_dirty( gridz );
+    set_floor_cache_dirty( gridz );
     setsubmap( gridn, tmpsub );
 
     for( auto it : tmpsub->vehicles ) {
@@ -7126,10 +7181,11 @@ bool map::has_graffiti_at( const tripoint &p ) const
 long map::determine_wall_corner( const tripoint &p ) const
 {
     // This could be cached nicely
-    const bool above_connects = has_flag_ter( TFLAG_CONNECT_TO_WALL, tripoint( p.x, p.y - 1, p.z ) );
-    const bool below_connects = has_flag_ter( TFLAG_CONNECT_TO_WALL, tripoint( p.x, p.y + 1, p.z ) );
-    const bool left_connects  = has_flag_ter( TFLAG_CONNECT_TO_WALL, tripoint( p.x - 1, p.y, p.z ) );
-    const bool right_connects = has_flag_ter( TFLAG_CONNECT_TO_WALL, tripoint( p.x + 1, p.y, p.z ) );
+    int test_connect_group = ter_at( tripoint ( p.x, p.y, p.z ) ).connect_group;
+    const bool above_connects = ter_at( tripoint( p.x, p.y - 1, p.z ) ).connects_to( test_connect_group );
+    const bool below_connects = ter_at( tripoint( p.x, p.y + 1, p.z ) ).connects_to( test_connect_group );
+    const bool left_connects  = ter_at( tripoint( p.x - 1, p.y, p.z ) ).connects_to( test_connect_group );
+    const bool right_connects = ter_at( tripoint( p.x + 1, p.y, p.z ) ).connects_to( test_connect_group );
     const auto bits = ( above_connects ? 1 : 0 ) +
                       ( right_connects ? 2 : 0 ) +
                       ( below_connects ? 4 : 0 ) +
@@ -7219,32 +7275,85 @@ void map::build_outside_cache( const int zlev )
     ch.outside_cache_dirty = false;
 }
 
+void map::build_floor_cache( const int zlev )
+{
+    auto &ch = get_cache( zlev );
+    if( !ch.floor_cache_dirty ) {
+        return;
+    }
+
+    auto &floor_cache = ch.floor_cache;
+    std::uninitialized_fill_n(
+            &floor_cache[0][0], ( MAPSIZE * SEEX ) * ( MAPSIZE * SEEY ), true );
+
+    for( int smx = 0; smx < my_MAPSIZE; ++smx ) {
+        for( int smy = 0; smy < my_MAPSIZE; ++smy ) {
+            auto const cur_submap = get_submap_at_grid( smx, smy, zlev );
+
+            for( int sx = 0; sx < SEEX; ++sx ) {
+                for( int sy = 0; sy < SEEY; ++sy ) {
+                    // Note: furniture currently can't affect existence of floor
+                    if( cur_submap->get_ter( sx, sy ).obj().has_flag( TFLAG_NO_FLOOR ) ) {
+                        const int x = sx + ( smx * SEEX );
+                        const int y = sy + ( smy * SEEY );
+                        floor_cache[x][y] = false;
+                    }
+                }
+            }
+        }
+    }
+
+    ch.floor_cache_dirty = false;
+}
+
+void map::build_floor_caches()
+{
+    const int minz = zlevels ? -OVERMAP_DEPTH : abs_sub.z;
+    const int maxz = zlevels ? OVERMAP_HEIGHT : abs_sub.z;
+    for( int z = minz; z <= maxz; z++ ) {
+        build_floor_cache( z );
+    }
+}
+
 void map::build_map_cache( const int zlev, bool skip_lightmap )
 {
-    build_outside_cache( zlev );
-    build_transparency_cache( zlev );
+    const int minz = zlevels ? -OVERMAP_DEPTH : zlev;
+    const int maxz = zlevels ? OVERMAP_HEIGHT : zlev;
+    for( int z = minz; z <= maxz; z++ ) {
+        build_outside_cache( z );
+        build_transparency_cache( z );
+        build_floor_cache( z );
+    }
 
-    tripoint start( 0, 0, zlev );
-    tripoint end( my_MAPSIZE * SEEX, my_MAPSIZE * SEEY, zlev );
-
+    tripoint start( 0, 0, minz );
+    tripoint end( my_MAPSIZE * SEEX, my_MAPSIZE * SEEY, maxz );
     VehicleList vehs = get_vehicles( start, end );
-    auto &outside_cache = get_cache( zlev ).outside_cache;
-    auto &transparency_cache = get_cache( zlev ).transparency_cache;
     // Cache all the vehicle stuff in one loop
     for( auto &v : vehs ) {
+        auto &ch = get_cache( v.z );
+        auto &outside_cache = ch.outside_cache;
+        auto &transparency_cache = ch.transparency_cache;
+        auto &floor_cache = ch.floor_cache;
         for( size_t part = 0; part < v.v->parts.size(); part++ ) {
             int px = v.x + v.v->parts[part].precalc[0].x;
             int py = v.y + v.v->parts[part].precalc[0].y;
-            if(INBOUNDS(px, py)) {
-                if (v.v->is_inside(part)) {
-                    outside_cache[px][py] = false;
+            if( !INBOUNDS( px, py ) ) {
+                continue;
+            }
+
+            if( v.v->is_inside( part ) ) {
+                outside_cache[px][py] = false;
+            }
+
+            if( v.v->part_flag(part, VPFLAG_OPAQUE) && v.v->parts[part].hp > 0 ) {
+                int dpart = v.v->part_with_feature( part, VPFLAG_OPENABLE );
+                if (dpart < 0 || !v.v->parts[dpart].open) {
+                    transparency_cache[px][py] = LIGHT_TRANSPARENCY_SOLID;
                 }
-                if (v.v->part_flag(part, VPFLAG_OPAQUE) && v.v->parts[part].hp > 0) {
-                    int dpart = v.v->part_with_feature( part, VPFLAG_OPENABLE );
-                    if (dpart < 0 || !v.v->parts[dpart].open) {
-                        transparency_cache[px][py] = LIGHT_TRANSPARENCY_SOLID;
-                    }
-                }
+            }
+
+            if( v.v->part_flag( part, VPFLAG_BOARDABLE ) && v.v->parts[part].hp > 0 ) {
+                floor_cache[px][py] = true;
             }
         }
     }

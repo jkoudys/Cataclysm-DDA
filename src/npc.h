@@ -253,6 +253,7 @@ struct npc_follower_rules : public JsonSerializer, public JsonDeserializer
     bool allow_pick_up;
     bool allow_bash;
     bool allow_sleep;
+    bool allow_complain;
 
     npc_follower_rules()
     {
@@ -264,6 +265,7 @@ struct npc_follower_rules : public JsonSerializer, public JsonDeserializer
         allow_pick_up = true;
         allow_bash = true;
         allow_sleep = false;
+        allow_complain = true;
     };
 
     using JsonSerializer::serialize;
@@ -683,8 +685,7 @@ public:
  void update_worst_item_value(); // Find the worst value in our inventory
  int  value(const item &it);
     bool wear_if_wanted( const item &it );
- virtual bool wield(item* it, bool) override;
- virtual bool wield(item* it);
+    virtual bool wield( item& it ) override;
  bool has_healing_item();
  bool has_painkiller();
  bool took_painkiller() const;
@@ -697,11 +698,12 @@ public:
     bool bravery_check(int diff);
     bool emergency(int danger);
     bool is_active() const;
-    void say(std::string line, ...) const;
+    void say( const std::string line, ...) const;
     void decide_needs();
     void die(Creature* killer) override;
     bool is_dead() const;
     int smash_ability() const; // How well we smash terrain (not corpses!)
+    bool complain(); // Finds something to complain about and complains. Returns if complained.
 /* shift() works much like monster::shift(), and is called when the player moves
  * from one submap to an adjacent submap.  It updates our position (shifting by
  * 12 tiles), as well as our plans.
@@ -725,7 +727,7 @@ public:
  int choose_escape_item(); // Returns item position of our best escape aid
 
 // Helper functions for ranged combat
- int  confident_range(int position = -1); // >= 50% chance to hit
+ int confident_range( int position = -1 );
  /**
   * Check if this NPC is blocking movement from the given position
   */
@@ -777,8 +779,12 @@ public:
  virtual void add_msg_if_player(game_message_type, const char *, ...) const override{};
  virtual void add_memorial_log(const char*, const char*, ...) override {};
  virtual void add_miss_reason(const char *, unsigned int) {};
+    virtual void add_msg_player_or_say( const char *, const char *, ... ) const override;
+    virtual void add_msg_player_or_say( game_message_type, const char *, const char *, ... ) const override;
 
 // The preceding are in npcmove.cpp
+
+    bool query_yn( const char *mes, ... ) const override;
 
 
 
@@ -799,6 +805,8 @@ private:
      * (mapx,mapy) defines the overmap the npc is stored on.
      */
     int mapx, mapy;
+    // Type of complaint->last time we complainted about this type
+    std::map<std::string, int> complaints;
 public:
 
     static npc_map _all_npc;

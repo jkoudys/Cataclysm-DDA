@@ -33,6 +33,8 @@ struct recipe;
 struct item_comp;
 struct tool_comp;
 class vehicle;
+class start_location;
+using start_location_id = string_id<start_location>;
 struct it_comest;
 struct w_point;
 
@@ -174,7 +176,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Provides the window and detailed morale data */
         void disp_morale();
         /** Print the bars indicating how well the player is currently aiming.**/
-        int print_aim_bars( WINDOW *w, int line_number, item *weapon, Creature *target);
+        int print_aim_bars( WINDOW *w, int line_number, item *weapon, Creature *target, int predicted_recoil);
         /** Returns the gun mode indicator, ready to be printed, contains color-tags. **/
         std::string print_gun_mode() const;
         /** Returns the colored recoil indicator (contains color-tags). **/
@@ -328,8 +330,9 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool has_two_arms() const;
         /** Returns true if the player is wielding something, including bionic weapons */
         bool is_armed() const;
-        /** Calculates melee weapon wear-and-tear through use, returns true */
-        bool handle_melee_wear();
+        /** Calculates melee weapon wear-and-tear through use, returns true if item is destroyed. */
+        bool handle_melee_wear( float wear_multiplier = 1.0f );
+        bool handle_melee_wear( item &shield, float wear_multiplier = 1.0f );
         /** True if unarmed or wielding a weapon with the UNARMED_WEAPON flag */
         bool unarmed_attack() const;
         /** Called when a player triggers a trap, returns true if they don't set it off */
@@ -337,8 +340,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Picks a random body part, adjusting for mutations, broken body parts etc. */
         body_part get_random_body_part( bool main ) const override;
 
-        /** Returns true if the player has a pda */
-        bool has_pda();
         /** Returns true if the player or their vehicle has an alarm clock */
         bool has_alarm_clock() const;
         /** Returns true if the player or their vehicle has a watch */
@@ -475,7 +476,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool handle_gun_damage( const itype &firing, const std::set<std::string> &curammo_effects );
         /** Handles gun firing effects and functions */
         void fire_gun( const tripoint &target, bool burst );
-        void fire_gun( const tripoint &target, long burst_size );
+        void fire_gun( const tripoint &target, bool burst, item& gun );
         /** Handles reach melee attacks */
         void reach_attack( const tripoint &target );
 
@@ -496,8 +497,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Handles effects that happen when the player is damaged and aware of the fact. */
         void on_hurt( Creature *source, bool disturb = true );
 
-        /** Returns the base damage the player deals based on their stats */
-        int base_damage(bool real_life = true, int stat = -999) const;
+        /** Returns the bonus bashing damage the player deals based on their stats */
+        float bonus_damage( bool random ) const;
         /** Returns Creature::get_hit_base() modified by weapon skill */
         int get_hit_base() const override;
         /** Returns the player's basic hit roll that is compared to the target's dodge roll */
@@ -592,6 +593,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int ranged_per_mod() const;
         /** Returns the throwing attack dexterity mod */
         int throw_dex_mod(bool return_stat_effect = true) const;
+        int aim_per_time( item *gun, int predicted_recoil ) const;
         int aim_per_time( item *gun ) const;
 
         // Mental skills and stats
@@ -689,10 +691,18 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Handles rooting effects */
         void rooted_message() const;
         void rooted();
-        /** Check if player capable of wielding item. If interactive is false dont display messages if item is not wieldable */
-        bool can_wield(const item& it, bool interactive = true) const;
-        /** Wields an item, returns false on failed wield */
-        virtual bool wield(item *it, bool autodrop = false);
+        /** Check player capable of wielding an item.
+          * @param alert display reason for any failure */
+        bool can_wield( const item& it, bool alert = true ) const;
+        /** Check player capable of unwielding an item.
+          * @param alert display reason for any failure */
+        bool can_unwield( const item& it, bool alert = true ) const;
+        /**
+         * Removes currently wielded item (if any) and replaces it with the target item
+         * @param target replacement item to wield or null item to remove existing weapon without replacing it
+         * @return whether both removal and replacement were successful (they are performed atomically)
+         */
+        virtual bool wield( item& target );
         /** Creates the UI and handles player input for picking martial arts styles */
         bool pick_style();
         /**
@@ -720,10 +730,13 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool takeoff( int pos, bool autodrop = false, std::vector<item> *items = nullptr );
         /** Try to wield a contained item consuming moves proportional to weapon skill and volume.
          *  @param pos index of contained item to wield. Set to -1 to show menu if container has more than one item
-         *  @param factor scales moves cost and can be set to zero if item should be wielded without any delay */
-        bool wield_contents(item *container, int pos = 0, int factor = VOLUME_MOVE_COST);
-        /** Stores an item inside another item, taking moves based on skill and volume of item being stored. */
-        void store(item *container, item *put, const skill_id &skill_used, int volume_factor);
+         *  @param factor scales moves cost and can be set to zero if item should be wielded without any delay
+         *  @param effects whether temporary player effects such (eg. GRABBED) are considered when consuming moves */
+        bool wield_contents( item *container, int pos = 0, int factor = VOLUME_MOVE_COST, bool effects = true );
+        /** Stores an item inside another consuming moves proportional to weapon skill and volume
+         *  @param factor scales moves cost and can be set to zero if item should be stored without any delay
+         *  @param effects whether temporary player effects such (eg. GRABBED) are considered when consuming moves */
+        void store( item *container, item *put, int factor = VOLUME_MOVE_COST, bool effects = true );
         /** Draws the UI and handles player input for the armor re-ordering window */
         void sort_armor();
         /** Uses a tool */
@@ -848,7 +861,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int has_morale( morale_type type ) const;
         void rem_morale(morale_type type, const itype *item_type = NULL);
 
-        std::string weapname(bool charges = true) const;
+        /** Get the formatted name of the currently wielded item (if any) */
+        std::string weapname() const;
 
         virtual float power_rating() const override;
 
@@ -882,7 +896,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         const martialart &get_combat_style() const; // Returns the combat style object
         std::vector<item *> inv_dump(); // Inventory + weapon + worn (for death, etc)
         void place_corpse(); // put corpse+inventory on map at the place where this is.
-        int butcher_factor() const; // Automatically picks our best butchering tool
         item  *pick_usb(); // Pick a usb drive, interactively if it matters
 
         bool covered_with_flag( const std::string &flag, const std::bitset<num_bp> &parts ) const;
@@ -910,6 +923,9 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool has_item_with_flag( std::string flag ) const;
         // Has amount (or more) items with at least the required quality level.
         bool has_items_with_quality( const std::string &quality_id, int level, int amount ) const;
+        // Returns max required quality in player's items, INT_MIN if player has no such items
+        int max_quality( const std::string &quality_id ) const;
+
         bool has_item(int position);
         /**
          * Check whether a specific item is in the players possession.
@@ -962,9 +978,13 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
                               bool print_msg ) const;
         bool can_disassemble( const item &dis_item, const recipe *cur_recipe,
                               const inventory &crafting_inv, bool print_msg ) const;
-        void disassemble(int pos = INT_MAX);
-        void disassemble(item &dis_item, int dis_pos, bool ground);
+        bool disassemble(int pos = INT_MAX);
+        bool disassemble( item &dis_item, int dis_pos,
+            bool ground, bool msg_and_query = true );
+        void disassemble_all( bool one_pass ); // Disassemble all items on the tile
         void complete_disassemble();
+        void complete_disassemble( int item_pos, const tripoint &loc,
+            bool from_ground, const recipe &dis );
 
         // yet more crafting.cpp
         const inventory &crafting_inventory(); // includes nearby items
@@ -1044,9 +1064,9 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         std::list<player_activity> backlog;
         int volume;
 
-        profession *prof;
+        const profession *prof;
 
-        std::string start_location;
+        start_location_id start_location;
 
         std::map<std::string, int> mutation_category_level;
 
@@ -1067,7 +1087,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int movecounter;
         std::array<int, num_bp> temp_cur, frostbite_timer, temp_conv;
         void temp_equalizer(body_part bp1, body_part bp2); // Equalizes heat between body parts
-        bool pda_cached;
 
         // Drench cache
         enum water_tolerance {
@@ -1153,6 +1172,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         virtual void add_msg_player_or_npc(const char *player_str, const char *npc_str, ...) const override;
         virtual void add_msg_player_or_npc(game_message_type type, const char *player_str,
                                            const char *npc_str, ...) const override;
+        virtual void add_msg_player_or_say( const char *, const char *, ... ) const override;
+        virtual void add_msg_player_or_say( game_message_type, const char *, const char *, ... ) const override;
 
         typedef std::map<tripoint, std::string> trap_map;
         bool knows_trap( const tripoint &pos ) const;
@@ -1207,6 +1228,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
 
         // Prints message(s) about current health
         void print_health() const;
+
+        bool query_yn( const char *mes, ... ) const override;
 
     protected:
         // The player's position on the local map.

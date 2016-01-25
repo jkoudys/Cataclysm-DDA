@@ -33,6 +33,8 @@ struct mtype;
 using mtype_id = string_id<mtype>;
 using mfaction_id = int_id<monfaction>;
 using species_id = string_id<species_type>;
+class effect_type;
+using efftype_id = string_id<effect_type>;
 
 typedef std::string itype_id;
 
@@ -115,7 +117,7 @@ enum m_flag : int {
     MF_HUMAN,               // It's a live human, as long as it's alive
     MF_NO_BREATHE,          // Creature can't drown and is unharmed by gas, smoke, or poison
     MF_REGENERATES_50,      // Monster regenerates very quickly over time
-    MF_REGENERATES_10,      // Monster regenerates very quickly over time
+    MF_REGENERATES_10,      // Monster regenerates quickly over time
     MF_FLAMMABLE,           // Monster catches fire, burns, and spreads fire to nearby objects
     MF_REVIVES,             // Monster corpse will revive after a short period of time
     MF_CHITIN,              // May produce chitin when butchered
@@ -148,13 +150,13 @@ enum m_flag : int {
 /** Used to store monster effects placed on attack */
 struct mon_effect_data
 {
-    std::string id;
+    efftype_id id;
     int duration;
     body_part bp;
     bool permanent;
     int chance;
 
-    mon_effect_data(std::string nid, int dur, body_part nbp, bool perm, int nchance) :
+    mon_effect_data(const efftype_id &nid, int dur, body_part nbp, bool perm, int nchance) :
                     id(nid), duration(dur), bp(nbp), permanent(perm), chance(nchance) {};
 };
 

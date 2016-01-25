@@ -243,11 +243,6 @@ public:
  char symbol() const;
  int price() const;
 
-    /**
-     * Return the butcher factor (BUTCHER tool quality).
-     * If the item can not be used for butchering it returns INT_MIN.
-     */
-    int butcher_factor() const;
 
         bool stacks_with( const item &rhs ) const;
         /**
@@ -399,11 +394,12 @@ public:
     void add_rain_to_container(bool acid, int charges = 1);
     /*@}*/
 
- bool has_quality(std::string quality_id) const;
- bool has_quality(std::string quality_id, int quality_value) const;
- bool count_by_charges() const;
- bool craft_has_charges();
- long num_charges();
+    int get_quality( const std::string &quality_id ) const;
+    bool has_quality( std::string quality_id ) const;
+    bool has_quality( std::string quality_id, int quality_value ) const;
+    bool count_by_charges() const;
+    bool craft_has_charges();
+    long num_charges();
 
     /**
      * Reduce the charges of this item, only use for items counted by charges!
@@ -635,6 +631,7 @@ public:
  bool is_food_container() const;      // Ignoring the ability to eat batteries, etc.
  bool is_ammo_container() const;
  bool is_bionic() const;
+ bool is_magazine() const;
  bool is_ammo() const;
  bool is_armor() const;
  bool is_book() const;
@@ -684,8 +681,16 @@ public:
          * or VisitResponse::Abort to skip further processing of any nodes.
          * @return This method itself only ever returns VisitResponse::Next or VisitResponse::Abort.
          */
-        VisitResponse visit( const std::function<VisitResponse(item&)>& func );
-        VisitResponse visit( const std::function<VisitResponse(const item&)>& func ) const;
+        VisitResponse visit_items( const std::function<VisitResponse(item&)>& func );
+        VisitResponse visit_items( const std::function<VisitResponse(const item&)>& func ) const;
+
+        /** Check if this item contains one or more items matching filter */
+        bool contains( const std::function<bool(const item&)>& filter ) const;
+
+        /** Check if this item contains the specified item */
+        bool contains( const item* it ) const {
+            return contains( [&it]( const item& e ){ return &e == it; } );
+        }
 
         /** Checks if item is a holster and currently capable of storing obj */
         bool can_holster ( const item& obj ) const;
@@ -696,11 +701,6 @@ public:
          * @code itm.get_curammo()->ammo->damage @endcode will work.
          */
         const itype* get_curammo() const;
-        /**
-         * Returns the item type id of the currently loaded ammo.
-         * Returns "null" if the item is not loaded.
-         */
-        itype_id get_curammo_id() const;
         /**
          * Whether the item is currently loaded (which implies it has some non-null pointer
          * as @ref curammo).
@@ -1076,12 +1076,32 @@ public:
         long ammo_required() const;
         /** If sufficient ammo available consume it, otherwise do nothing and return false */
         bool ammo_consume( int qty );
-        /**
-         * The id of the ammo type (@ref ammunition_type) that can be used by this item.
-         * Will return "NULL" if the item does not use a specific ammo type. Items without
-         * ammo type can not be reloaded.
+        /** Specific ammo data, returns nullptr if item is neither ammo nor loaded with any */
+        const itype * ammo_data() const;
+        /** Specific ammo type, returns "null" if item is neither ammo nor loaded with any */
+        itype_id ammo_current() const;
+        /** Ammo type (@ref ammunition_type) used by item
+         *  @param conversion whether to include the effect of any flags or mods which convert the type
+         *  @return NULL if item does not use a specific ammo type (and is consequently not reloadable) */
+        ammotype ammo_type( bool conversion = true ) const;
+
+        /** Does item have an integral magazine (as opposed to allowing detachable magazines) */
+        bool magazine_integral() const;
+
+        /** Get compatible magazines (if any) for this item
+         *  @param conversion whether to include the effect of any flags or mods which convert the type
+         *  @return magazine compatibility which is always empty if item has integral magazine
+         *  @see item::magazine_integral
          */
-        ammotype ammo_type() const;
+        std::set<itype_id> magazine_compatible( bool conversion = true ) const;
+
+        /** Currently loaded magazine (if any)
+         *  @return current magazine or nullptr if either no magazine loaded or item has integral magazine
+         *  @see item::magazine_integral
+         */
+        item * magazine_current();
+        const item * magazine_current() const;
+
         /**
          * Number of charges this gun can hold. Includes effects from installed gunmods.
          * This does use the auxiliary gunmod (if any).
@@ -1285,7 +1305,14 @@ public:
  char invlet;             // Inventory letter
  long charges;
  bool active;             // If true, it has active effects to be processed
- signed char damage;      // How much damage it's sustained; generally, max is 5
+
+    /**
+     * How much damage the item has sustained
+     * @see MIN_ITEM_DAMAGE
+     * @see MAX_ITEM_DAMAGE
+     */
+    int damage;
+
  int burnt;               // How badly we're burnt
  int bday;                // The turn on which it was created
  union{

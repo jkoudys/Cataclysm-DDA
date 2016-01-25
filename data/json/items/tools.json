@@ -131,8 +131,6 @@
    "material": "steel",
    "weight": 14,
    "volume": 1,
-   "bashing": 0,
-   "cutting": 0,
    "to_hit": 0,
    "max_charges": 100,
    "initial_charges": 0,
@@ -260,7 +258,7 @@
     "id": "survivor_scope",
     "type": "TOOL",
     "symbol": "o",
-    "color": "dark_green",
+    "color": "green",
     "name": "survivor telescope",
     "name_plural": "survivor telescopes",
     "description": "A homemade collapsible telescope.  Too large and inaccurate to use as a weapon scope, but carrying this item in your inventory will double the distance that is mapped around you during your travels.",
@@ -1967,7 +1965,8 @@
     "ammo": "NULL",
     "revert_to": "null",
     "flags": ["BELT_CLIP"],
-    "use_action": "CROWBAR"
+    "use_action": "CROWBAR",
+    "qualities": [["PRY", 2]]
   },
 
   {
@@ -1992,7 +1991,8 @@
     "turns_per_charge": 0,
     "ammo": "NULL",
     "revert_to": "null",
-    "use_action": "CROWBAR"
+    "use_action": "CROWBAR",
+    "qualities": [["PRY", 4], ["HAMMER", 2], ["DIG", 1]]
   },
 
   {
@@ -2016,7 +2016,8 @@
     "ammo": "NULL",
     "revert_to": "null",
     "flags": ["BELT_CLIP"],
-    "use_action": "CROWBAR"
+    "use_action": "CROWBAR",
+    "qualities": [["PRY", 1]]
   },
 
   {
@@ -5099,7 +5100,7 @@
     "color": "light_gray",
     "name": "Rising Sun (off)",
     "name_plural": "Rising Suns (off)",
-    "description": "This is a katana with a nozzle just behind the cutting edge of the blade.  People love fire, and people love katanas, so why not put them together? The gas burners attached to this blade can really turn up the heat on your foes.  Use to ignite.",
+    "description": "This is a katana with a nozzle just behind the cutting edge of the blade.  People love fire, and people love katanas, so why not put them together?  The gas burners attached to this blade can really turn up the heat on your foes.  Use to ignite.",
     "price": 98000,
     "material": "steel",
     "flags": ["FIRE", "SLICE", "DURABLE_MELEE", "SHEATH_SWORD", "IAIJUTSU"],
@@ -5586,7 +5587,7 @@
   {
     "comment": "Name changed to glaive, but changing the id would break e.g.  tilesets.",
     "id": "makeshift_halberd",
-    "type": "TOOL",
+    "type": "GENERIC",
     "symbol": "/",
     "color": "light_gray",
     "name": "makeshift glaive",
@@ -5599,17 +5600,8 @@
     "volume": 12,
     "bashing": 6,
     "cutting": 20,
-    "to_hit": 2,
-    "max_charges": 0,
-    "initial_charges": 0,
-    "charges_per_use": 0,
-    "turns_per_charge": 0,
-    "ammo": "NULL",
-    "revert_to": "null",
-    "category" : "weapons",
-    "use_action": { "type": "knife" }
+    "to_hit": 2
   },
-
   {
     "id": "knife_steak",
     "type": "TOOL",
@@ -6363,28 +6355,28 @@
     }
   },
 
-    {
-        "id": "pseuso_bio_picklock",
-        "type": "TOOL",
-        "symbol": ";",
-        "color": "light_gray",
-        "name": "bio lockpick",
-        "description": "this a pseudo item",
-        "price": 0,
-        "weight": 0,
-        "volume": 0,
-        "to_hit": 0,
-        "max_charges": 1,
-        "initial_charges": 1,
-        "charges_per_use": 1,
-        "turns_per_charge": 0,
-        "ammo": "NULL",
-        "revert_to": "null",
-        "use_action": {
-            "type": "picklock",
-            "pick_quality": 40
-        }
-    },
+  {
+    "id": "pseuso_bio_picklock",
+    "type": "TOOL",
+    "symbol": ";",
+    "color": "light_gray",
+    "name": "bio lockpick",
+    "description": "this a pseudo item",
+    "price": 0,
+    "weight": 0,
+    "volume": 0,
+    "to_hit": 0,
+    "max_charges": 1,
+    "initial_charges": 1,
+    "charges_per_use": 1,
+    "turns_per_charge": 0,
+    "ammo": "NULL",
+    "revert_to": "null",
+    "use_action": {
+        "type": "picklock",
+        "pick_quality": 40
+    }
+  },
 
   {
     "id": "safe_box",
@@ -7977,7 +7969,21 @@
     "revert_to": "null",
     "ammo": "NULL"
   },
-
+  {
+    "id": "chemistry_set_basic",
+    "type": "GENERIC",
+    "color": "light_gray",
+    "symbol": ";",
+    "name": "basic chemistry set",
+    "description": "This is a basic chemistry set which includes glass containers, hoses and safety glasses.  It might be used to craft some chemistry projects if you're so inclined, but you'll need a source of heat.",
+    "price": 3200,
+    "material": ["glass", "cotton"],
+    "weight": 1884,
+    "volume": 11,
+    "to_hit": -5,
+    "bashing": -8,
+    "qualities":[["BREW", 1], ["CHEM", 2]]
+  },
   {
     "id": "chemistry_set",
     "sub": "hotplate",
@@ -9395,8 +9401,6 @@
     "material": ["plastic", "aluminum"],
     "weight": 142,
     "volume": 1,
-    "bashing": 0,
-    "cutting": 0,
     "to_hit": -2,
     "max_charges": 0,
     "initial_charges": 0,
@@ -9563,9 +9567,10 @@
     "turns_per_charge": 0,
     "ammo": "NULL",
     "revert_to": "null",
-    "use_action": [ "HAMMER", "HACKSAW", "LUMBER", "REMOVE_ALL_MODS", { "type": "knife" } ],
-    "qualities": [["HAMMER", 3], ["HAMMER_FINE", 1], ["CUT", 1], ["SAW_W", 1], ["SAW_M", 1],
+    "use_action": [ "HAMMER", "HACKSAW", "LUMBER", "CROWBAR", "REMOVE_ALL_MODS", { "type": "knife" } ],
+    "qualities": [["HAMMER", 3], ["HAMMER_FINE", 1], ["CUT", 2], ["SAW_W", 1], ["SAW_M", 1],
      ["SAW_M_FINE", 1], ["WRENCH", 1], ["WRENCH_FINE", 1], ["SCREW", 1], ["SCREW_FINE", 1],
+     ["PRY", 1], ["DRILL", 1],
      ["BUTCHER", -100]]
   },
   {
@@ -9979,8 +9984,8 @@
     "weight": 7600,
     "volume": 16,
     "to_hit": 0,
-    "max_charges": 1000,
-    "initial_charges": 1000,
+    "max_charges": 240,
+    "initial_charges": 240,
     "charges_per_use": 4,
     "turns_per_charge": 0,
     "ammo": "NULL",
@@ -11111,7 +11116,7 @@
     "ammo": "NULL",
     "revert_to": "null",
     "use_action": "CROWBAR",
-    "qualities": [["HAMMER", 2], ["HAMMER_FINE", 1]]
+    "qualities": [["HAMMER", 2], ["HAMMER_FINE", 1], ["PRY", 2]]
   },
   {
     "id": "l-stick",
@@ -11152,7 +11157,7 @@
     "color": "blue",
     "name": "L-stick (on)",
     "name_plural": "L-sticks (on)",
-    "description": "Produced by the Light corporation, this stylish staff not only functions as a light source, but doubles as a light-weight weapon, due to the superalloy materials it is made of.  Due to proprietary efficiency improvements over standard light sources, the l-stick or light stick as it is commonly called, batteries last longer than other light sources.  The staff is glowing brightly, which is slowly draining the batteries",
+    "description": "Produced by the Light corporation, this stylish staff not only functions as a light source, but doubles as a light-weight weapon, due to the superalloy materials it is made of.  Due to proprietary efficiency improvements over standard light sources, the l-stick or light stick as it is commonly called, batteries last longer than other light sources.  The staff is glowing brightly, which is slowly draining the batteries.",
     "price": 8000,
     "material": ["superalloy", "steel"],
     "techniques" : ["WBLOCK_1", "RAPID"],
@@ -11170,7 +11175,7 @@
     "revert_to": "l-stick",
     "use_action": {
         "type": "transform",
-        "msg": "The l-stick(tm)'s light fades away",
+        "msg": "The l-stick(tm)'s light fades away.",
         "target": "l-stick"
     }
   }

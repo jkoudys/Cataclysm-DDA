@@ -134,7 +134,7 @@ class Character : public Creature
          *  Returns false if movement is stopped. */
         virtual bool move_effects(bool attacking) override;
         /** Performs any Character-specific modifications to the arguments before passing to Creature::add_effect(). */
-        virtual void add_effect( efftype_id eff_id, int dur, body_part bp = num_bp, bool permanent = false,
+        virtual void add_effect( const efftype_id &eff_id, int dur, body_part bp = num_bp, bool permanent = false,
                                  int intensity = 0, bool force = false ) override;
         /**
          * Handles end-of-turn processing.
@@ -269,31 +269,9 @@ class Character : public Creature
          * @param filter some object that when invoked with the () operator
          * returns true for item that should be returned.
          */
-        template<typename T>
-        std::vector<const item *> items_with(T filter) const
-        {
-            auto result = inv.items_with( filter );
-            if( !weapon.is_null() ) {
-                inventory::items_with_recursive( result, weapon, filter );
-            }
-            for( auto &w : worn ) {
-                inventory::items_with_recursive( result, w, filter );
-            }
-            return result;
-        }
+        std::vector<item *> items_with( const std::function<bool(const item&)>& filter );
+        std::vector<const item *> items_with( const std::function<bool(const item&)>& filter ) const;
 
-        template<typename T>
-        std::vector<item *> items_with(T filter)
-        {
-            auto result = inv.items_with( filter );
-            if( !weapon.is_null() ) {
-                inventory::items_with_recursive( result, weapon, filter );
-            }
-            for( auto &w : worn ) {
-                inventory::items_with_recursive( result, w, filter );
-            }
-            return result;
-        }
         /**
          * Removes the items that match the given filter.
          * The returned items are a copy of the removed item.
@@ -430,6 +408,11 @@ class Character : public Creature
          */
         virtual void normalize() override;
         virtual void die(Creature *nkiller) override;
+
+        /**
+         * It is supposed to hide the query_yn to simplify player vs. npc code.
+         */
+        virtual bool query_yn( const char *mes, ... ) const = 0;
 
         /** Returns true if the player has some form of night vision */
         bool has_nv();

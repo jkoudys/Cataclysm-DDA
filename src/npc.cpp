@@ -54,6 +54,13 @@ const skill_id skill_smg( "smg" );
 const skill_id skill_launcher( "launcher" );
 const skill_id skill_cutting( "cutting" );
 
+const efftype_id effect_drunk( "drunk" );
+const efftype_id effect_high( "high" );
+const efftype_id effect_pkill1( "pkill1" );
+const efftype_id effect_pkill2( "pkill2" );
+const efftype_id effect_pkill3( "pkill3" );
+const efftype_id effect_pkill_l( "pkill_l" );
+
 std::list<item> starting_clothes(npc_class type, bool male);
 std::list<item> starting_inv(npc *me, npc_class type);
 
@@ -1170,13 +1177,8 @@ bool npc::wear_if_wanted( const item &it )
 
     return false;
 }
-//to placate clang++
-bool npc::wield(item* it, bool)
-{
-    return this->wield(it);
-}
 
-bool npc::wield(item* it)
+bool npc::wield( item& it )
 {
     if( !weapon.is_null() ) {
         if ( volume_carried() + weapon.volume() <= volume_capacity() ) {
@@ -1189,16 +1191,16 @@ bool npc::wield(item* it)
         }
     }
 
-    if( it->is_null() ) {
+    if( it.is_null() ) {
         weapon = ret_null;
         return true;
     }
 
     moves -= 15;
-    if( inv.has_item( it ) ) {
-        weapon = inv.remove_item( it );
+    if( inv.has_item( &it ) ) {
+        weapon = inv.remove_item( &it );
     } else {
-        weapon = *it;
+        weapon = it;
     }
 
     add_msg_if_npc( m_info, _( "<npcname> wields a %s." ),  weapon.tname().c_str() );
@@ -1294,7 +1296,7 @@ void npc::form_opinion(player *u)
  if (u->stim > 20)
   op_of_u.fear++;
 
- if (u->has_effect("drunk"))
+ if (u->has_effect( effect_drunk))
   op_of_u.fear -= 2;
 
 // TRUST
@@ -1308,9 +1310,9 @@ void npc::form_opinion(player *u)
  else if (u->unarmed_attack())
   op_of_u.trust += 2;
 
- if (u->has_effect("high"))
+ if (u->has_effect( effect_high))
   op_of_u.trust -= 1;
- if (u->has_effect("drunk"))
+ if (u->has_effect( effect_drunk))
   op_of_u.trust -= 2;
  if (u->stim > 20 || u->stim < -20)
   op_of_u.trust -= 1;
@@ -1420,7 +1422,7 @@ int npc::player_danger(player *u) const
  if (u->stim > 20)
   ret++;
 
- if (u->has_effect("drunk"))
+ if (u->has_effect( effect_drunk))
   ret -= 2;
 
  return ret;
@@ -1595,7 +1597,7 @@ void npc::decide_needs()
             food = dynamic_cast<const it_comest*>(i->front().contents[0].type);
         }
         if (food != NULL) {
-            needrank[need_food] += food->nutr / 4;
+            needrank[need_food] += food->get_nutrition() / 4;
             needrank[need_drink] += food->quench / 4;
         }
     }
@@ -1626,18 +1628,18 @@ void npc::decide_needs()
     }
 }
 
-void npc::say(std::string line, ...) const
+void npc::say( const std::string line, ... ) const
 {
     va_list ap;
     va_start(ap, line);
-    line = vstring_format(line, ap);
+    std::string formatted_line = vstring_format(line, ap);
     va_end(ap);
-    parse_tags(line, &(g->u), this);
+    parse_tags(formatted_line, &(g->u), this);
     if (g->u.sees( *this )) {
-        add_msg(_("%1$s says: \"%2$s\""), name.c_str(), line.c_str());
+        add_msg(_("%1$s says: \"%2$s\""), name.c_str(), formatted_line.c_str());
         sounds::sound(pos(), 16, "");
     } else {
-        std::string sound = string_format(_("%1$s saying \"%2$s\""), name.c_str(), line.c_str());
+        std::string sound = string_format(_("%1$s saying \"%2$s\""), name.c_str(), formatted_line.c_str());
         sounds::sound(pos(), 16, sound);
     }
 }
@@ -1749,10 +1751,10 @@ int npc::value(const item &it)
 
     if( it.is_food() ) {
         const auto comest = dynamic_cast<const it_comest*>(it.type);
-        if( comest->nutr > 0 || comest->quench > 0 ) {
+        if( comest->get_nutrition() > 0 || comest->quench > 0 ) {
             ret++;
         } if( get_hunger() > 40 ) {
-            ret += (comest->nutr + get_hunger() - 40) / 6;
+            ret += (comest->get_nutrition() + get_hunger() - 40) / 6;
         } if( thirst > 40 ) {
             ret += (comest->quench + thirst - 40) / 4;
         }
@@ -1823,8 +1825,8 @@ bool npc::has_painkiller()
 
 bool npc::took_painkiller() const
 {
- return (has_effect("pkill1") || has_effect("pkill2") ||
-         has_effect("pkill3") || has_effect("pkill_l"));
+ return (has_effect( effect_pkill1 ) || has_effect( effect_pkill2 ) ||
+         has_effect( effect_pkill3 ) || has_effect( effect_pkill_l ));
 }
 
 bool npc::is_friend() const
@@ -2499,6 +2501,24 @@ void npc::add_msg_player_or_npc(game_message_type type, const char *, const char
     va_end(ap);
 }
 
+void npc::add_msg_player_or_say( const char *, const char *npc_str, ... ) const
+{
+    va_list ap;
+    va_start(ap, npc_str);
+    const std::string text = vstring_format( npc_str, ap );
+    say( text );
+    va_end(ap);
+}
+
+void npc::add_msg_player_or_say( game_message_type, const char *, const char *npc_str, ... ) const
+{
+    va_list ap;
+    va_start(ap, npc_str);
+    const std::string text = vstring_format( npc_str, ap );
+    say( text );
+    va_end(ap);
+}
+
 void npc::add_new_mission( class mission *miss )
 {
     chatbin.add_new_mission( miss );
@@ -2638,3 +2658,9 @@ void epilogue::random_by_group(std::string group, std::string name)
 }
 
 const tripoint npc::no_goal_point(INT_MIN, INT_MIN, INT_MIN);
+
+bool npc::query_yn( const char *, ... ) const
+{
+    // NPCs don't like queries - most of them are in the form of "Do you want to get hurt?".
+    return false;
+}

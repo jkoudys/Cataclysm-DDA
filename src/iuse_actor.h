@@ -17,6 +17,8 @@ using mtype_id = string_id<mtype>;
 class JsonObject;
 class Skill;
 using skill_id = string_id<Skill>;
+class effect_type;
+using efftype_id = string_id<effect_type>;
 
 /**
  * Transform an item into a specific type.
@@ -194,12 +196,12 @@ class unfold_vehicle_iuse : public iuse_actor
 /** Used in consume_drug_iuse for storing effect data. */
 struct effect_data
 {
-    std::string id;
+    efftype_id id;
     int duration;
     body_part bp;
     bool permanent;
 
-    effect_data(std::string nid, int dur, body_part nbp, bool perm) :
+    effect_data(const efftype_id &nid, int dur, body_part nbp, bool perm) :
                     id(nid), duration(dur), bp(nbp), permanent(perm) {};
 };
 
@@ -623,6 +625,9 @@ class holster_actor : public iuse_actor
 
         /** Check if obj could be stored in the holster */
         bool can_holster( const item& obj ) const;
+
+        /** Store an object in the holster */
+        bool store( player &p, item& holster, item& obj ) const;
 
         holster_actor() : iuse_actor(), max_weight( -1 ), multi( 1 ), draw_cost( VOLUME_MOVE_COST ) { }
         virtual ~holster_actor() { }

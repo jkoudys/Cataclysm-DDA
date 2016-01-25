@@ -349,8 +349,18 @@ endif
 
 ifdef LUA
   ifeq ($(TARGETSYSTEM),WINDOWS)
-    # Windows expects to have lua unpacked at a specific location
-    LDFLAGS += -llua
+    ifdef MSYS2
+      LUA_CANDIDATES = lua5.2 lua-5.2 lua5.1 lua-5.1 lua
+      LUA_FOUND = $(firstword $(foreach lua,$(LUA_CANDIDATES),\
+          $(shell if $(PKG_CONFIG) --silence-errors --exists $(lua); then echo $(lua);fi)))
+      LUA_PKG += $(if $(LUA_FOUND),$(LUA_FOUND),$(error "Lua not found by $(PKG_CONFIG), install it or make without 'LUA=1'"))
+      LDFLAGS += $(shell $(PKG_CONFIG) --silence-errors --libs $(LUA_PKG))
+      CXXFLAGS += $(shell $(PKG_CONFIG) --silence-errors --cflags $(LUA_PKG))
+      LUA_BINARY = $(LUA_PKG)
+	else
+      # Windows expects to have lua unpacked at a specific location
+      LDFLAGS += -llua
+	endif
   else
     LUA_CANDIDATES = lua5.2 lua-5.2 lua5.1 lua-5.1 lua
     LUA_FOUND = $(firstword $(foreach lua,$(LUA_CANDIDATES),\
@@ -752,14 +762,14 @@ etags: $(SOURCES) $(HEADERS)
 	find data -name "*.json" -print0 | xargs -0 -L 50 etags --append
 
 astyle:
-	$(ASTYLE_BINARY) --options=.astylerc -n $(shell cat data/astyled_whitelist)
+	$(ASTYLE_BINARY) --options=.astylerc -n $(shell cat astyled_whitelist)
 
 astyle-all: $(SOURCES) $(HEADERS)
 	$(ASTYLE_BINARY) --options=.astylerc -n $(SOURCES) $(HEADERS)
 
 # Test whether the system has a version of astyle that supports --dry-run
 ifeq ($(shell if $(ASTYLE_BINARY) -Q -X --dry-run src/game.h > /dev/null; then echo foo; fi),foo)
-ASTYLE_CHECK=$(shell $(ASTYLE_BINARY) --options=.astylerc --dry-run -X -Q $(shell cat data/astyled_whitelist))
+ASTYLE_CHECK=$(shell $(ASTYLE_BINARY) --options=.astylerc --dry-run -X -Q $(shell cat astyled_whitelist))
 endif
 
 astyle-check: $(SOURCES) $(HEADERS)

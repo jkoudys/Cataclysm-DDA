@@ -32,6 +32,14 @@ const skill_id skill_fabrication( "fabrication" );
 
 const species_id ZOMBIE( "ZOMBIE" );
 
+const efftype_id effect_bite( "bite" );
+const efftype_id effect_bleed( "bleed" );
+const efftype_id effect_infected( "infected" );
+const efftype_id effect_music( "music" );
+const efftype_id effect_playing_instrument( "playing_instrument" );
+const efftype_id effect_recover( "recover" );
+const efftype_id effect_sleep( "sleep" );
+
 iuse_transform::~iuse_transform()
 {
 }
@@ -349,7 +357,7 @@ iuse_actor *consume_drug_iuse::clone() const
 
 static effect_data load_effect_data( JsonObject &e )
 {
-    return effect_data( e.get_string( "id", "null" ), e.get_int( "duration", 0 ),
+    return effect_data( efftype_id( e.get_string( "id" ) ), e.get_int( "duration", 0 ),
         get_body_part_token( e.get_string( "bp", "NUM_BP" ) ), e.get_bool( "permanent", false ) );
 }
 
@@ -377,9 +385,10 @@ long consume_drug_iuse::use(player *p, item *it, bool, const tripoint& ) const
     for( auto tool = tools_needed.cbegin(); tool != tools_needed.cend(); ++tool ) {
         // Amount == -1 means need one, but don't consume it.
         if( !p->has_amount( tool->first, 1 ) ) {
-            p->add_msg_if_player( _("You need %1$s to consume %2$s!"),
-                                  item::nname( tool->first ).c_str(),
-                                  it->type_name( 1 ).c_str() );
+            p->add_msg_player_or_say( _("You need %1$s to consume %2$s!"),
+                _("I need a %1$s to consume %2$s!"),
+                item::nname( tool->first ).c_str(),
+                it->type_name( 1 ).c_str() );
             return -1;
         }
     }
@@ -388,18 +397,15 @@ long consume_drug_iuse::use(player *p, item *it, bool, const tripoint& ) const
         // Amount == -1 means need one, but don't consume it.
         if( !p->has_charges( consumable->first, (consumable->second == -1) ?
                              1 : consumable->second ) ) {
-            p->add_msg_if_player( _("You need %1$s to consume %2$s!"),
-                                  item::nname( consumable->first ).c_str(),
-                                  it->type_name( 1 ).c_str() );
+            p->add_msg_player_or_say( _("You need %1$s to consume %2$s!"),
+                _("I need a %1$s to consume %2$s!"),
+                item::nname( consumable->first ).c_str(),
+                it->type_name( 1 ).c_str() );
             return -1;
         }
     }
     // Apply the various effects.
     for( auto eff : effects ) {
-        if (eff.id == "null") {
-            continue;
-        }
-
         int dur = eff.duration;
         if (p->has_trait("TOLERANCE")) {
             dur *= .8;
@@ -702,9 +708,8 @@ long pick_lock_actor::use( player *p, item *it, bool, const tripoint& ) const
         p->practice( skill_mechanics, 1 );
         p->add_msg_if_player( m_good, "%s", open_message.c_str() );
         g->m.ter_set( dirp, new_type );
-    } else if( door_roll > ( 1.5 * pick_roll ) && it->damage < 100 ) {
-        it->damage++;
-        if( it->damage >= 5 ) {
+    } else if( door_roll > ( 1.5 * pick_roll ) ) {
+        if( it->damage++ >= MAX_ITEM_DAMAGE ) {
             p->add_msg_if_player( m_bad, _( "The lock stumps your efforts to pick it, and you destroy your tool." ) );
         } else {
             p->add_msg_if_player( m_bad, _( "The lock stumps your efforts to pick it, and you damage your tool." ) );
@@ -712,17 +717,16 @@ long pick_lock_actor::use( player *p, item *it, bool, const tripoint& ) const
     } else {
         p->add_msg_if_player( m_bad, _( "The lock stumps your efforts to pick it." ) );
     }
-    if( type == t_door_locked_alarm && ( door_roll + dice( 1, 30 ) ) > pick_roll &&
-        it->damage < 100 ) {
+    if( type == t_door_locked_alarm && ( door_roll + dice( 1, 30 ) ) > pick_roll ) {
         sounds::sound( p->pos(), 40, _( "An alarm sounds!" ) );
         if( !g->event_queued( EVENT_WANTED ) ) {
             g->add_event( EVENT_WANTED, int( calendar::turn ) + 300, 0, p->global_sm_location() );
         }
     }
-    if( it->damage >= 5 ) {
-        p->i_rem(it);
+    if( it->damage > MAX_ITEM_DAMAGE ) {
+        p->i_rem( it );
         return 0;
-        }
+    }
     return it->type->charges_to_use();
 }
 
@@ -1339,8 +1343,8 @@ bool cauterize_actor::cauterize_effect( player *p, item *it, bool force )
             p->add_msg_if_player(m_neutral, _("It itches a little."));
         }
         const body_part bp = player::hp_to_bp( hpart );
-        if (p->has_effect("bite", bp)) {
-            p->add_effect("bite", 2600, bp, true);
+        if (p->has_effect( effect_bite, bp)) {
+            p->add_effect( effect_bite, 2600, bp, true);
         }
         return true;
     }
@@ -1354,7 +1358,7 @@ long cauterize_actor::use( player *p, item *it, bool t, const tripoint& ) const
         return 0;
     }
 
-    bool has_disease = p->has_effect("bite") || p->has_effect("bleed");
+    bool has_disease = p->has_effect( effect_bite ) || p->has_effect( effect_bleed );
     bool did_cauterize = false;
     if( flame && !p->has_charges("fire", 4) ) {
         p->add_msg_if_player( m_info, _("You need a source of flame (4 charges worth) before you can cauterize yourself.") );
@@ -1396,7 +1400,7 @@ bool cauterize_actor::can_use( const player *p, const item *it, bool, const trip
         return false;
     } else if( p->is_underwater() ) {
         return false;
-    } else if( p->has_effect( "bite" ) || p->has_effect( "bleed" ) ) {
+    } else if( p->has_effect( effect_bite ) || p->has_effect( effect_bleed ) ) {
         return true;
     } else if( p->has_trait("MASOCHIST") || p->has_trait("MASOCHIST_MED") || p->has_trait("CENOBITE") ) {
         return true;
@@ -1706,7 +1710,7 @@ long musical_instrument_actor::use( player *p, item *it, bool t, const tripoint&
 
     if( !t ) {
         // TODO: Make the player stop playing music when paralyzed/choking
-        if( it->active || p->has_effect("sleep") ) {
+        if( it->active || p->has_effect( effect_sleep) ) {
             p->add_msg_if_player( _("You stop playing your %s"), it->display_name().c_str() );
             it->active = false;
             return 0;
@@ -1735,9 +1739,9 @@ long musical_instrument_actor::use( player *p, item *it, bool t, const tripoint&
         it->active = true;
     }
 
-    if( p->get_effect_int( "playing_instrument" ) <= speed_penalty ) {
+    if( p->get_effect_int( effect_playing_instrument ) <= speed_penalty ) {
         // Only re-apply the effect if it wouldn't lower the intensity
-        p->add_effect( "playing_instrument", 2, num_bp, false, speed_penalty );
+        p->add_effect( effect_playing_instrument, 2, num_bp, false, speed_penalty );
     }
 
     std::string desc = "";
@@ -1754,8 +1758,8 @@ long musical_instrument_actor::use( player *p, item *it, bool t, const tripoint&
 
     sounds::ambient_sound( p->pos(), volume, desc );
 
-    if( !p->has_effect( "music" ) && p->can_hear( p->pos(), volume ) ) {
-        p->add_effect( "music", 1 );
+    if( !p->has_effect( effect_music ) && p->can_hear( p->pos(), volume ) ) {
+        p->add_effect( effect_music, 1 );
         const int sign = morale_effect > 0 ? 1 : -1;
         p->add_morale( MORALE_MUSIC, sign, morale_effect, 5, 2 );
     }
@@ -1809,6 +1813,50 @@ bool holster_actor::can_holster( const item& obj ) const {
            std::find( skills.begin(), skills.end(), obj.gun_skill() ) != skills.end();
 }
 
+bool holster_actor::store( player &p, item& holster, item& obj ) const
+{
+    if( obj.is_null() || holster.is_null() ) {
+        debugmsg( "Null item was passed to holster_actor" );
+        return false;
+    }
+
+    // if selected item is unsuitable inform the player why not
+    if( obj.volume() > max_volume ) {
+        p.add_msg_if_player( m_info, _( "Your %1$s is too big to fit in your %2$s" ),
+                             obj.tname().c_str(), holster.tname().c_str() );
+        return false;
+    }
+
+    if( obj.volume() < min_volume ) {
+        p.add_msg_if_player( m_info, _( "Your %1$s is too small to fit in your %2$s" ),
+                              obj.tname().c_str(), holster.tname().c_str() );
+        return false;
+    }
+
+    if( max_weight > 0 && obj.weight() > max_weight ) {
+        p.add_msg_if_player( m_info, _( "Your %1$s is too heavy to fit in your %2$s" ),
+                             obj.tname().c_str(), holster.tname().c_str() );
+        return false;
+    }
+
+    if( std::none_of( flags.begin(), flags.end(), [&]( const std::string & f ) { return obj.has_flag( f ); } ) &&
+        std::find( skills.begin(), skills.end(), obj.gun_skill() ) == skills.end() )
+    {
+       p.add_msg_if_player( m_info, _( "You can't put your %1$s in your %2$s" ),
+                             obj.tname().c_str(), holster.tname().c_str() );
+        return false;
+    }
+
+
+    p.add_msg_if_player( holster_msg.empty() ? _( "You holster your %s" ) : _( holster_msg.c_str() ),
+                         obj.tname().c_str(), holster.tname().c_str() );
+
+    // holsters ignore penalty effects (eg. GRABBED) when determining number of moves to consume
+    p.store( &holster, &obj, draw_cost, false );
+    return true;
+}
+
+
 long holster_actor::use( player *p, item *it, bool, const tripoint & ) const
 {
     std::string prompt = holster_prompt.empty() ? _( "Holster item" ) : _( holster_prompt.c_str() );
@@ -1836,44 +1884,17 @@ long holster_actor::use( player *p, item *it, bool, const tripoint & ) const
     }
 
     if( pos >= 0 ) {
-        p->wield_contents( it, pos, draw_cost );
+        // holsters ignore penalty effects (eg. GRABBED) when determining number of moves to consume
+        p->wield_contents( it, pos, draw_cost, false );
+
     } else {
         item &obj = p->i_at( g->inv_for_filter( prompt, [&](const item& e) { return can_holster(e); } ) );
-
         if( obj.is_null() ) {
             p->add_msg_if_player( _( "Never mind." ) );
             return 0;
         }
 
-        // if selected item is unsuitable inform the player why not
-        if( obj.volume() > max_volume ) {
-            p->add_msg_if_player( m_info, _( "Your %s is too big to fit in your %s" ),
-                                  obj.tname().c_str(), it->tname().c_str() );
-            return 0;
-        }
-        if( obj.volume() < min_volume ) {
-            p->add_msg_if_player( m_info, _( "Your %s is too small to fit in your %s" ),
-                                  obj.tname().c_str(), it->tname().c_str() );
-            return 0;
-        }
-        if( max_weight > 0 && obj.weight() > max_weight ) {
-            p->add_msg_if_player( m_info, _( "Your %s is too heavy to fit in your %s" ),
-                                  obj.tname().c_str(), it->tname().c_str() );
-            return 0;
-        }
-
-        if( std::none_of( flags.begin(), flags.end(), [&]( const std::string & f ) {
-        return obj.has_flag( f );
-        } ) &&
-        std::find( skills.begin(), skills.end(), obj.gun_skill() ) == skills.end() ) {
-            p->add_msg_if_player( m_info, _( "You can't put your %s in your %s" ),
-                                  obj.tname().c_str(), it->tname().c_str() );
-            return 0;
-        }
-
-        p->add_msg_if_player( holster_msg.empty() ? _( "You holster your %s" ) : _( holster_msg.c_str() ),
-                              obj.tname().c_str(), it->tname().c_str() );
-        p->store( it, &obj, obj.is_gun() ? obj.gun_skill() : obj.weap_skill(), VOLUME_MOVE_COST );
+        store( *p, *it, obj );
     }
 
     return 0;
@@ -1943,7 +1964,7 @@ bool could_repair( const player &p, const item &it, bool print_msg )
     }
     if( p.fine_detail_vision_mod() > 4 ) {
         if( print_msg ) {
-            p.add_msg_if_player(m_info, _("You can't see to solder!"));
+            p.add_msg_if_player(m_info, _("You can't see to do that!"));
         }
         return false;
     }
@@ -2101,7 +2122,7 @@ bool repair_item_actor::can_repair( player &pl, const item &tool, const item &fi
     if( !handle_components( pl, fix, print_msg, true ) ) {
         return false;
     }
-    
+
     if( fix.damage == 0 && fix.has_flag("PRIMITIVE_RANGED_WEAPON") ) {
         if( print_msg ) {
             pl.add_msg_if_player( m_info, _("You cannot improve your %s any more this way."), fix.tname().c_str());
@@ -2327,7 +2348,7 @@ long heal_actor::finish_using( player &healer, player &patient, item &it, hp_par
 {
     healer.practice( skill_firstaid, 8 );
     const int dam = get_heal_value( healer, healed );
-    
+
     if( (patient.hp_cur[healed] >= 1) && (dam > 0)) { // Prevent first-aid from mending limbs
         patient.heal(healed, dam);
     } else if ((patient.hp_cur[healed] >= 1) && (dam < 0)) {
@@ -2355,27 +2376,27 @@ long heal_actor::finish_using( player &healer, player &patient, item &it, hp_par
         }
     };
 
-    if( patient.has_effect( "bleed", bp_healed ) ) {
+    if( patient.has_effect( effect_bleed, bp_healed ) ) {
         if( x_in_y( bleed, 1.0f ) ) {
-            patient.remove_effect("bleed", bp_healed);
+            patient.remove_effect( effect_bleed, bp_healed);
             heal_msg( m_good, _("You stop the bleeding."), _("The bleeding is stopped.") );
         } else {
             heal_msg( m_warning, _("You fail to stop the bleeding."), _("The wound still bleeds.") );
         }
     }
-    if( patient.has_effect( "bite", bp_healed ) ) {
+    if( patient.has_effect( effect_bite, bp_healed ) ) {
         if( x_in_y( bite, 1.0f ) ) {
-            patient.remove_effect("bite", bp_healed);
+            patient.remove_effect( effect_bite, bp_healed);
             heal_msg( m_good, _("You clean the wound."), _("The wound is cleaned.") );
         } else {
             heal_msg( m_warning, _("Your wound still aches."), _("The wound still looks bad.") );
         }
     }
-    if( patient.has_effect( "infected", bp_healed ) ) {
+    if( patient.has_effect( effect_infected, bp_healed ) ) {
         if( x_in_y( infect, 1.0f ) ) {
-            int infected_dur = patient.get_effect_dur("infected", bp_healed);
-            patient.remove_effect("infected", bp_healed);
-            patient.add_effect("recover", infected_dur);
+            int infected_dur = patient.get_effect_dur( effect_infected, bp_healed );
+            patient.remove_effect( effect_infected, bp_healed);
+            patient.add_effect( effect_recover, infected_dur);
             heal_msg( m_good, _("You disinfect the wound."), _("The wound is disinfected.") );
         } else {
             heal_msg( m_warning, _("Your wound still hurts."), _("The wound still looks nasty.") );
@@ -2387,10 +2408,6 @@ long heal_actor::finish_using( player &healer, player &patient, item &it, hp_par
     }
 
     for( auto eff : effects ) {
-        if( eff.id == "null" ) {
-            continue;
-        }
-
         patient.add_effect( eff.id, eff.duration, eff.bp, eff.permanent );
     }
 
@@ -2433,9 +2450,9 @@ hp_part pick_part_to_heal(
         }
 
         body_part bp = player::hp_to_bp( healed_part );
-        if( ( infect && patient.has_effect( "infected", bp ) ) ||
-            ( bite && patient.has_effect( "bite", bp ) ) ||
-            ( bleed && patient.has_effect( "bleed", bp ) ) ) {
+        if( ( infect && patient.has_effect( effect_infected, bp ) ) ||
+            ( bite && patient.has_effect( effect_bite, bp ) ) ||
+            ( bleed && patient.has_effect( effect_bleed, bp ) ) ) {
             return healed_part;
         }
 
@@ -2481,9 +2498,9 @@ hp_part heal_actor::use_healing_item( player &healer, player &patient, item &it,
             // Consider states too
             // Weights are arbitrary, may need balancing
             const body_part i_bp = player::hp_to_bp( hp_part( i ) );
-            damage += bleed * patient.get_effect_dur( "bleed", i_bp ) / 50;
-            damage += bite * patient.get_effect_dur( "bite", i_bp ) / 100;
-            damage += infect * patient.get_effect_dur( "infected", i_bp ) / 100;
+            damage += bleed * patient.get_effect_dur( effect_bleed, i_bp ) / 50;
+            damage += bite * patient.get_effect_dur( effect_bite, i_bp ) / 100;
+            damage += infect * patient.get_effect_dur( effect_infected, i_bp ) / 100;
             if (damage > highest_damage) {
                 highest_damage = damage;
                 healed = hp_part(i);

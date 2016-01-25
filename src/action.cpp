@@ -283,6 +283,8 @@ std::string action_ident( action_id act )
             return "toggle_sidebar_style";
         case ACTION_TOGGLE_FULLSCREEN:
             return "toggle_fullscreen";
+        case ACTION_TOGGLE_PIXEL_MINIMAP:
+            return "toggle_pixel_minimap";
         case ACTION_ACTIONMENU:
             return "action_menu";
         case ACTION_ITEMACTION:
@@ -383,7 +385,7 @@ long hotkey_for_action( action_id action )
 bool can_butcher_at( const tripoint &p )
 {
     // TODO: unify this with game::butcher
-    const int factor = g->u.butcher_factor();
+    const int factor = g->u.max_quality( "BUTCHER" );
     auto items = g->m.i_at( p );
     bool has_item = false;
     bool has_corpse = false;
@@ -649,6 +651,9 @@ action_id handle_action_menu()
 #ifndef TILES
             REGISTER_ACTION( ACTION_TOGGLE_FULLSCREEN );
 #endif
+#ifdef TILES
+            REGISTER_ACTION( ACTION_TOGGLE_PIXEL_MINIMAP );
+#endif // TILES
             REGISTER_ACTION( ACTION_DISPLAY_SCENT );
             REGISTER_ACTION( ACTION_TOGGLE_DEBUG_MODE );
         } else if( category == "interact" ) {
