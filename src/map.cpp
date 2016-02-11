@@ -802,7 +802,7 @@ void map::move_vehicle( vehicle &veh, const tripoint &dp, const tileray &facing 
 
     // Now we're gonna handle traps we're standing on (if we're still moving).
     if( !vertical && can_move ) {
-        const auto &wheel_indices = veh.wheelcache;
+        const auto wheel_indices = veh.wheelcache; // Don't use a reference here, it causes a crash.
         for( auto &w : wheel_indices ) {
             const tripoint wheel_p = pt + veh.parts[w].precalc[0];
             if( one_in( 2 ) && displace_water( wheel_p ) ) {
@@ -2711,6 +2711,10 @@ int map::bash_rating( const int str, const tripoint &p, const bool allow_floor )
         return -1;
     }
 
+    if( str <= 0 ) {
+        return -1;
+    }
+
     int part = -1;
     const furn_t &furniture = furn_at( p );
     const ter_t &terrain = ter_at( p );
@@ -3873,6 +3877,13 @@ void map::shoot( const tripoint &p, projectile &proj, const bool hit_items )
                 ter_set(p, t_window_frame);
             }
         }
+    } else if( terrain == t_window_bars_alarm ) {
+        dam -= rng(1,3);
+        if (dam > 0) {
+                sounds::sound(p, 16, _("glass breaking!"), false, "smash", "glass");
+            ter_set(p, t_window_bars);
+            spawn_item(p, "glass_shard", 5);
+        }
     } else if( terrain == t_window_boarded ) {
         dam -= rng(10, 30);
         if (dam > 0) {
@@ -4933,8 +4944,9 @@ bool map::sees_some_items( const tripoint &p, const Creature &who ) const
 
 bool map::could_see_items( const tripoint &p, const Creature &who ) const
 {
-    const bool container = has_flag_ter_or_furn( "CONTAINER", p );
-    const bool sealed = has_flag_ter_or_furn( "SEALED", p );
+    static const std::string container_string( "CONTAINER" );
+    const bool container = has_flag_ter_or_furn( container_string, p );
+    const bool sealed = has_flag_ter_or_furn( TFLAG_SEALED, p );
     if( sealed && container ) {
         // never see inside of sealed containers
         return false;
@@ -5934,6 +5946,12 @@ void map::drawsq( WINDOW* w, player &u, const tripoint &p, const bool invert_arg
     }
 }
 
+// a check to see if the lower floor needs to be rendered in tiles
+bool map::need_draw_lower_floor( const tripoint &p )
+{
+    return !( !zlevels || p.z <= -OVERMAP_DEPTH || !ter_at( p ).has_flag( TFLAG_NO_FLOOR ) );
+}
+
 bool map::draw_maptile( WINDOW* w, player &u, const tripoint &p, const maptile &curr_maptile,
                         bool invert, bool show_items,
                         const tripoint &view_center,
@@ -6614,6 +6632,12 @@ void map::loadn( const int gridx, const int gridy, const bool update_vehicles ) 
         for( int gridz = -OVERMAP_DEPTH; gridz <= OVERMAP_HEIGHT; gridz++ ) {
             loadn( gridx, gridy, gridz, update_vehicles );
         }
+
+        // Note: we want it in a separate loop! It is a post-load cleanup
+        // Since we're adding roofs, we want it to go up (from lowest to highest)
+        for( int gridz = -OVERMAP_DEPTH; gridz <= OVERMAP_HEIGHT; gridz++ ) {
+            add_roofs( gridx, gridy, gridz );
+        }
     } else {
         loadn( gridx, gridy, abs_sub.z, update_vehicles );
     }
@@ -6775,7 +6799,7 @@ void map::remove_rotten_items( Container &items, const tripoint &pnt )
     }
 }
 
-void map::fill_funnels( const tripoint &p )
+void map::fill_funnels( const tripoint &p, int since_turn )
 {
     const auto &tr = tr_at( p );
     if( !tr.is_funnel() ) {
@@ -6794,8 +6818,7 @@ void map::fill_funnels( const tripoint &p )
         }
     }
     if( biggest_container != items.end() ) {
-
-        retroactively_fill_from_funnel( *biggest_container, tr, calendar::turn, getabs( p ) );
+        retroactively_fill_from_funnel( *biggest_container, tr, since_turn, calendar::turn, getabs( p ) );
     }
 }
 
@@ -6880,7 +6903,7 @@ void map::actualize( const int gridx, const int gridy, const int gridz )
             }
 
             if( do_funnels ) {
-                fill_funnels( pnt );
+                fill_funnels( pnt, tmpsub->turn_last_touched );
             }
 
             grow_plant( pnt );
@@ -6901,6 +6924,53 @@ void map::actualize( const int gridx, const int gridy, const int gridz )
 
     // the last time we touched the submap, is right now.
     tmpsub->turn_last_touched = calendar::turn;
+}
+
+void map::add_roofs( const int gridx, const int gridy, const int gridz )
+{
+    if( !zlevels ) {
+        // No roofs required!
+        // Why not? Because submaps below and above don't exist yet
+        return;
+    }
+
+    submap * const sub_here = get_submap_at_grid( gridx, gridy, gridz );
+    if( sub_here == nullptr ) {
+        debugmsg( "Tried to add roofs/floors on null submap on %d,%d,%d",
+                  gridx, gridy, gridz );
+        return;
+    }
+
+    bool check_roof = gridz > -OVERMAP_DEPTH;
+
+    submap * const sub_below = check_roof ? get_submap_at_grid( gridx, gridy, gridz - 1 ) : nullptr;
+
+    if( check_roof && sub_below == nullptr ) {
+        debugmsg( "Tried to add roofs to sm at %d,%d,%d, but sm below doesn't exist",
+                  gridx, gridy, gridz );
+        return;
+    }
+
+    for( int x = 0; x < SEEX; x++ ) {
+        for( int y = 0; y < SEEY; y++ ) {
+            const ter_id ter_here = sub_here->ter[x][y];
+            if( ter_here != t_open_air ) {
+                continue;
+            }
+
+            if( !check_roof ) {
+                // Make sure we don't have open air at lowest z-level
+                sub_here->ter[x][y] = t_rock_floor;
+                continue;
+            }
+
+            const ter_t &ter_below = sub_below->ter[x][y].obj();
+            if( !ter_below.roof.empty() ) {
+                // TODO: Make roof variable a ter_id to speed this up
+                sub_here->ter[x][y] = terfind( ter_below.roof );
+            }
+        }
+    }
 }
 
 void map::copy_grid( const tripoint &to, const tripoint &from )
@@ -7009,6 +7079,10 @@ void map::spawn_monsters_submap_group( const tripoint &gp, mongroup &group, bool
         }
     }
 
+    // Find horde's target submap
+    tripoint horde_target( group.target.x - abs_sub.x,
+        group.target.y - abs_sub.y, abs_sub.z );
+    overmapbuffer::sm_to_ms( horde_target );
     for( auto &tmp : group.monsters ) {
         for( int tries = 0; tries < 10 && !locations.empty(); tries++ ) {
             const tripoint p = random_entry_removed( locations );
@@ -7016,6 +7090,16 @@ void map::spawn_monsters_submap_group( const tripoint &gp, mongroup &group, bool
                 continue; // target can not contain the monster
             }
             tmp.spawn( p );
+            if( group.horde ) {
+                // Give monster a random point near horde's expected destination
+                const tripoint rand_dest = horde_target +
+                    point( rng( 0, SEEX ), rng( 0, SEEY ) );
+                const int turns = rl_dist( p, rand_dest ) + group.interest;
+                tmp.wander_to( rand_dest, turns );
+                add_msg( m_debug, "%s targetting %d,%d,%d", tmp.disp_name().c_str(),
+                         tmp.wander_pos.x, tmp.wander_pos.y, tmp.wander_pos.z );
+            }
+
             g->add_zombie( tmp );
             break;
         }
@@ -7740,9 +7824,9 @@ void map::add_corpse( const tripoint &p )
     const bool isReviveSpecial = one_in( 10 );
 
     if( !isReviveSpecial ) {
-        body.make_corpse();
+        body = item::make_corpse();
     } else {
-        body.make_corpse( mon_zombie, calendar::turn );
+        body = item::make_corpse( mon_zombie );
         body.item_tags.insert( "REVIVE_SPECIAL" );
         body.active = true;
     }

@@ -35,6 +35,7 @@ const mtype_id mon_dark_wyrm( "mon_dark_wyrm" );
 const mtype_id mon_fungal_blossom( "mon_fungal_blossom" );
 const mtype_id mon_spider_web_s( "mon_spider_web_s" );
 const mtype_id mon_spider_widow_giant_s( "mon_spider_widow_giant_s" );
+const mtype_id mon_spider_cellar_giant_s( "mon_spider_cellar_giant_s" );
 const mtype_id mon_turret( "mon_turret" );
 const mtype_id mon_turret_rifle( "mon_turret_rifle" );
 
@@ -1489,6 +1490,11 @@ void iexamine::egg_sackbw( player *p, map *m, const tripoint &examp )
     egg_sack_generic( p, m, examp, mon_spider_widow_giant_s );
 }
 
+void iexamine::egg_sackcs( player *p, map *m, const tripoint &examp )
+{
+    egg_sack_generic( p, m, examp, mon_spider_cellar_giant_s );
+}
+
 void iexamine::egg_sackws( player *p, map *m, const tripoint &examp )
 {
     egg_sack_generic( p, m, examp, mon_spider_web_s );
@@ -1782,7 +1788,7 @@ void iexamine::kiln_empty(player *p, map *m, const tripoint &examp)
     // Burn stuff that should get charred, leave out the rest
     int total_volume = 0;
     for( auto i : items ) {
-        total_volume += i.volume( false, false );
+        total_volume += i.volume();
     }
 
     auto char_type = item::find_type( "unfinished_charcoal" );
@@ -1848,7 +1854,7 @@ void iexamine::kiln_full(player *, map *m, const tripoint &examp)
     // Burn stuff that should get charred, leave out the rest
     for( auto item_it = items.begin(); item_it != items.end(); ) {
         if( item_it->typeId() == "unfinished_charcoal" || item_it->typeId() == "charcoal" ) {
-            total_volume += item_it->volume( false, false );
+            total_volume += item_it->volume();
             item_it = items.erase( item_it );
         } else {
             item_it++;
@@ -1931,9 +1937,8 @@ void iexamine::fvat_empty(player *p, map *m, const tripoint &examp)
         for (int i = 0; i < charges_held && !vat_full; i++) {
             p->use_charges(brew_type, 1);
             brew.charges++;
-            if ( ((brew.count_by_charges()) ? brew.volume(false, true) / 1000 :
-                  brew.volume(false, true) / 1000 * brew.charges ) >= 100) {
-                vat_full = true;    //vats hold 50 units of brew, or 350 charges for a count_by_charges brew
+            if ( ( brew.count_by_charges() ? brew.volume() : brew.volume() * brew.charges ) >= 100 ) {
+                vat_full = true; //vats hold 50 units of brew, or 350 charges for a count_by_charges brew
             }
         }
         add_msg(_("Set %s in the vat."), brew.tname().c_str());
@@ -2083,10 +2088,7 @@ void iexamine::keg(player *p, map *m, const tripoint &examp)
         for (int i = 0; i < charges_held && !keg_full; i++) {
             g->u.use_charges(drink.typeId(), 1);
             drink.charges++;
-            int d_vol = drink.volume(false, true) / 1000;
-            if (d_vol >= keg_cap) {
-                keg_full = true;
-            }
+            keg_full = drink.volume() >= keg_cap;
         }
         if( keg_full ) {
             add_msg(_("You completely fill the %1$s with %2$s."),
@@ -2132,7 +2134,7 @@ void iexamine::keg(player *p, map *m, const tripoint &examp)
             return;
 
         case HAVE_A_DRINK:
-            if( !p->eat( &*drink, dynamic_cast<const it_comest *>(drink->type) ) ) {
+            if( !p->eat( *drink ) ) {
                 return; // They didn't actually drink
             }
 
@@ -2147,8 +2149,7 @@ void iexamine::keg(player *p, map *m, const tripoint &examp)
 
         case REFILL: {
             int charges_held = p->charges_of(drink->typeId());
-            int d_vol = drink->volume(false, true) / 1000;
-            if (d_vol >= keg_cap) {
+            if( drink->volume() >= keg_cap ) {
                 add_msg(_("The %s is completely full."), m->name(examp).c_str());
                 return;
             }
@@ -2160,8 +2161,7 @@ void iexamine::keg(player *p, map *m, const tripoint &examp)
             for (int i = 0; i < charges_held; i++) {
                 p->use_charges(drink->typeId(), 1);
                 drink->charges++;
-                int d_vol = drink->volume(false, true) / 1000;
-                if (d_vol >= keg_cap) {
+                if( drink->volume() >= keg_cap ) {
                     add_msg(_("You completely fill the %1$s with %2$s."), m->name(examp).c_str(),
                             drink->tname().c_str());
                     p->moves -= 250;
@@ -2176,9 +2176,8 @@ void iexamine::keg(player *p, map *m, const tripoint &examp)
 
         case EXAMINE: {
             add_msg(m_info, _("That is a %s."), m->name(examp).c_str());
-            int full_pct = drink->volume(false, true) / (keg_cap * 10);
-            add_msg(m_info, _("It contains %s (%d), %d%% full."),
-                    drink->tname().c_str(), drink->charges, full_pct);
+            add_msg(m_info, _("It contains %s (%d), %0.f%% full."),
+                    drink->tname().c_str(), drink->charges, double( drink->volume() ) / keg_cap * 100 );
             return;
         }
 
@@ -2251,13 +2250,14 @@ void iexamine::harvest_tree_shrub(player *p, map *m, const tripoint &examp)
 
 void iexamine::tree_pine(player *p, map *m, const tripoint &examp)
 {
-    if(!query_yn(_("Pick %s?"), m->tername(examp).c_str())) {
+    if( !query_yn( _("Pick %s?"), m->tername( examp ).c_str() ) ) {
         none(p, m, examp);
         return;
     }
-    m->spawn_item(p->pos(), "pine_bough", 2, 12 );
+
+    m->spawn_item( p->pos(), "pine_bough", rng( 2, 8 ) );
     m->spawn_item( p->pos(), "pinecone", rng( 1, 4 ) );
-    m->ter_set(examp, t_tree_deadpine);
+    m->ter_set( examp, t_tree_deadpine );
 }
 
 void iexamine::tree_hickory(player *p, map *m, const tripoint &examp)
@@ -2963,8 +2963,8 @@ void iexamine::pay_gas(player *p, map *m, const tripoint &examp)
     int pricePerUnit = getPricePerGasUnit(discount);
     std::string unitPriceStr = string_format(_("$%0.2f"), pricePerUnit / 100.0);
 
-    bool can_hack = (!p->has_trait("ILLITERATE") && ((p->has_amount("electrohack", 1)) ||
-                     (p->has_bionic("bio_fingerhack") && p->power_level > 0)));
+    bool can_hack = (!p->has_trait("ILLITERATE") && ((p->has_charges("electrohack", 25)) ||
+                     (p->has_bionic("bio_fingerhack") && p->power_level > 24)));
 
     uimenu amenu;
     amenu.selected = 1;
@@ -3310,6 +3310,9 @@ iexamine_function iexamine_function_from_string(std::string const &function_name
     if ("egg_sackbw" == function_name) {
         return &iexamine::egg_sackbw;
     }
+    if ("egg_sackcs" == function_name) {
+        return &iexamine::egg_sackcs;
+    }
     if ("egg_sackws" == function_name) {
         return &iexamine::egg_sackws;
     }
@@ -3391,17 +3394,16 @@ iexamine_function iexamine_function_from_string(std::string const &function_name
     return &iexamine::none;
 }
 
-hack_result iexamine::hack_attempt(player &p) {
+hack_result iexamine::hack_attempt( player &p ) {
     if( p.has_trait( "ILLITERATE" ) ) {
         return HACK_UNABLE;
     }
-    bool using_electrohack = ( p.has_amount( "electrohack", 1 ) &&
+    bool using_electrohack = ( p.has_charges( "electrohack", 25 ) &&
                                query_yn( _( "Use electrohack?" ) ) );
     bool using_fingerhack = ( !using_electrohack && p.has_bionic( "bio_fingerhack" ) &&
-                             p.power_level  > 0  &&
-                             query_yn( _( "Use fingerhack?" ) ) );
+                              p.power_level  > 24  && query_yn( _( "Use fingerhack?" ) ) );
 
-    if( ! ( using_electrohack || using_fingerhack ) ) {
+    if( !( using_electrohack || using_fingerhack ) ) {
         return HACK_UNABLE;
     }
 
@@ -3411,6 +3413,11 @@ hack_result iexamine::hack_attempt(player &p) {
     int success = rng( p.skillLevel( skill_computer ) / 4 - 2, p.skillLevel( skill_computer ) * 2 );
     success += rng( -3, 3 );
     if( using_fingerhack ) {
+        p.charge_power( -25 );
+        success++;
+    }
+    if( using_electrohack ) {
+        p.use_charges( "electrohack", 25 );
         success++;
     }
 

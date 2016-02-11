@@ -2822,6 +2822,26 @@
     ]
 },
 {
+    "type" : "recipe",
+    "result": "cannabis",
+    "id_suffix": "uncraft",
+    "category": "CC_NONCRAFT",
+    "subcategory": "CSC_NONCRAFT",
+    "difficulty": 0,
+    "time": 5000,
+    "reversible": true,
+    "autolearn": false,
+    "flags": ["BLIND_HARD"],
+    "qualities" : [
+        {"id":"CUT","level":1,"amount":1}
+    ],
+    "components": [
+    [ [ "weed", 20 ] ],
+    [ [ "plant_fibre", 100 ] ],
+    [ [ "withered", 1 ] ]
+    ]
+},
+{
     "type": "recipe",
     "result": "shot_bird",
     "id_suffix": "uncraft",
@@ -3491,6 +3511,20 @@
 },
 {
     "type": "recipe",
+    "result": "belt223",
+    "id_suffix": "uncraft",
+    "category": "CC_NONCRAFT",
+    "subcategory": "CSC_NONCRAFT",
+    "difficulty": 0,
+    "time": 500,
+    "reversible": true,
+    "autolearn": false,
+    "components": [
+        [ [ "wire", 1 ] ]
+    ]
+},
+{
+    "type": "recipe",
     "result": "223",
     "id_suffix": "uncraft",
     "category": "CC_NONCRAFT",
@@ -3634,6 +3668,20 @@
         [ [ "lgrifle_primer", 1 ] ],
         [ [ "gunpowder", 8 ] ],
         [ [ "copper", 6 ] ]
+    ]
+},
+{
+    "type": "recipe",
+    "result": "belt308",
+    "id_suffix": "uncraft",
+    "category": "CC_NONCRAFT",
+    "subcategory": "CSC_NONCRAFT",
+    "difficulty": 0,
+    "time": 500,
+    "reversible": true,
+    "autolearn": false,
+    "components": [
+        [ [ "wire", 1 ] ]
     ]
 },
 {

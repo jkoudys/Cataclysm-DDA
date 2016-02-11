@@ -39,6 +39,8 @@ const efftype_id effect_music( "music" );
 const efftype_id effect_playing_instrument( "playing_instrument" );
 const efftype_id effect_recover( "recover" );
 const efftype_id effect_sleep( "sleep" );
+const efftype_id effect_stunned( "stunned" );
+const efftype_id effect_asthma( "asthma" );
 
 iuse_transform::~iuse_transform()
 {
@@ -974,6 +976,7 @@ void salvage_actor::load( JsonObject &obj )
         material_whitelist.push_back("plastic");
         material_whitelist.push_back("wood");
         material_whitelist.push_back("wool");
+        material_whitelist.push_back("neoprene");
     }
 }
 
@@ -1708,13 +1711,18 @@ long musical_instrument_actor::use( player *p, item *it, bool t, const tripoint&
         return 0;
     }
 
-    if( !t ) {
-        // TODO: Make the player stop playing music when paralyzed/choking
-        if( it->active || p->has_effect( effect_sleep) ) {
-            p->add_msg_if_player( _("You stop playing your %s"), it->display_name().c_str() );
-            it->active = false;
-            return 0;
-        }
+    // Stop playing a wind instrument when winded or even eventually become winded while playing it?
+    // It's impossible to distinguish instruments for now anyways.
+    if( p->has_effect( effect_sleep ) || p->has_effect( effect_stunned ) || p->has_effect( effect_asthma ) ) {
+        p->add_msg_if_player( m_bad, _("You stop playing your %s"), it->display_name().c_str() );
+        it->active = false;
+        return 0;
+    }
+
+    if( !t && it->active ) {
+        p->add_msg_if_player( _("You stop playing your %s"), it->display_name().c_str() );
+        it->active = false;
+        return 0;
     }
 
     // Check for worn or wielded - no "floating"/bionic instruments for now
@@ -1942,7 +1950,8 @@ const itype_id &material_component( const std::string &material_id )
         { "leather", "leather" },
         { "fur", "fur" },
         { "nomex", "nomex" },
-        { "wool", "felt_patch" }
+        { "wool", "felt_patch" },
+        { "neoprene", "neoprene" }
     };
 
     static const itype_id null_material = "";
@@ -2154,7 +2163,7 @@ repair_item_actor::attempt_hint repair_item_actor::repair( player &pl, item &too
     const int difficulty = fix.damage == 0 ? 4 : fix.damage;
     float repair_chance = (5 + pl.get_skill_level( used_skill ) - difficulty) / 100.0f;
     ///\EFFECT_DEX randomly reduces the chances of damaging an item when repairing
-    float damage_chance = (5 - (pl.dex_cur - tool_quality) / 5.0f) / 100.0f;
+    float damage_chance = (5 - (pl.dex_cur + tool_quality) / 5.0f) / 100.0f;
     float roll_value = rng_float( 0.0, 1.0 );
     enum roll_result {
         SUCCESS,
@@ -2301,7 +2310,8 @@ long heal_actor::use( player *p, item *it, bool, const tripoint &pos ) const
         cost /= (p->skillLevel( skill_firstaid ) + 1);
     }
 
-    if( long_action && &patient == p ) {
+    // NPCs can use first aid now, but they can't perform long actions
+    if( long_action && &patient == p && !p->is_npc() ) {
         // Assign first aid long action.
         ///\EFFECT_FIRSTAID speeds up firstaid activity
         p->assign_activity( ACT_FIRSTAID, cost, 0, p->get_item_position( it ), it->tname() );

@@ -290,6 +290,11 @@ void monster::spawn(const tripoint &p)
     unset_dest();
 }
 
+std::string monster::get_name() const
+{
+    return name( 1 );
+}
+
 std::string monster::name(unsigned int quantity) const
 {
  if (!type) {
@@ -893,6 +898,7 @@ bool monster::block_hit(Creature *, body_part &, damage_instance &) {
 
 void monster::absorb_hit(body_part, damage_instance &dam) {
     for( auto &elem : dam.damage_units ) {
+        add_msg(m_debug, "Dam Type: %s :: Ar Pen: %d :: Armor Mult: %f", name_by_dt(elem.type).c_str(), elem.res_pen, elem.res_mult);
         elem.amount -= std::min( resistances( *this ).get_effective_resist( elem ), elem.amount );
     }
 }
@@ -913,15 +919,9 @@ void monster::melee_attack(Creature &target, bool, const matec_id&) {
     body_part bp_hit;
     //int highest_hit = 0;
 
-    damage_instance damage;
-    if(!is_hallucination()) {
-        if (type->melee_dice > 0) {
-            damage.add_damage(DT_BASH,
-                    dice(type->melee_dice,type->melee_sides));
-        }
-        if (type->melee_cut > 0) {
-            damage.add_damage(DT_CUT, type->melee_cut);
-        }
+    damage_instance damage = !is_hallucination() ? type->melee_damage : damage_instance();
+    if( !is_hallucination() && type->melee_dice > 0 ) {
+        damage.add_damage( DT_BASH, dice( type->melee_dice,type->melee_sides ) );
     }
 
     dealt_damage_instance dealt_dam;
@@ -1033,15 +1033,9 @@ void monster::hit_monster(monster &other)
         return;
     }
 
-    damage_instance damage;
-    if( !is_hallucination() ) {
-        if( type->melee_dice > 0 ) {
-            damage.add_damage( DT_BASH, dice( type->melee_dice, type->melee_sides ) );
-        }
-
-        if( type->melee_cut > 0 ) {
-            damage.add_damage( DT_CUT, type->melee_cut );
-        }
+    damage_instance damage = !is_hallucination() ? type->melee_damage : damage_instance();
+    if( !is_hallucination() && type->melee_dice > 0 ) {
+        damage.add_damage( DT_BASH, dice( type->melee_dice,type->melee_sides ) );
     }
 
     dealt_damage_instance dealt_dam;
@@ -1970,6 +1964,18 @@ float monster::power_rating() const
     ret += has_flag( MF_ELECTRONIC ) ? 2 : 0; // Robots tend to have guns
     // Hostile stuff gets a big boost
     // Neutral moose will still get burned if it comes close
+    return ret;
+}
+
+float monster::speed_rating() const
+{
+    float ret = 1.0f / get_speed();
+    const auto leap = type->special_attacks.find( "leap" );
+    if( leap != type->special_attacks.end() ) {
+        // TODO: Make this calculate sane values here
+        ret += 0.5f;
+    }
+
     return ret;
 }
 

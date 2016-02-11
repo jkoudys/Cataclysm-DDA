@@ -906,14 +906,14 @@ void vehicle::smash_security_system(){
     }
 }
 
-void vehicle::use_controls(const tripoint &pos)
+void vehicle::use_controls( const tripoint &pos, const bool remote_action )
 {
     uimenu menu;
     menu.return_invalid = true;
-    menu.text = _("Vehicle controls");
+    menu.text = _( "Vehicle controls" );
 
     int vpart;
-    if (!interact_vehicle_locked()) {
+    if( !interact_vehicle_locked() ) {
         return;
     }
 
@@ -921,34 +921,36 @@ void vehicle::use_controls(const tripoint &pos)
     bool has_electronic_controls = false;
     bool remotely_controlled = g->remoteveh() == this;
 
-    if (g->m.veh_at(pos, vpart) == this) {
+    if( g->m.veh_at( pos, vpart ) == this ) {
         if ( g->u.controlling_vehicle ) {
             // Always have this option
             // Let go without turning the engine off.
-            menu.addentry( release_control, true, 'l', _("Let go of controls") );
+            menu.addentry( release_control, true, 'l', _( "Let go of controls" ) );
         }
         std::vector<int> parts_for_check = parts_at_relative( parts[vpart].mount.x,
-                                                              parts[vpart].mount.y);
+                                                              parts[vpart].mount.y );
         // iterate over all parts in the selected tile
-        for (size_t p = 0; p < parts_for_check.size(); ++p) {
-            if (part_flag(parts_for_check[p], "CONTROLS")) {
+        for( size_t p = 0; p < parts_for_check.size(); ++p ) {
+            if( part_flag( parts_for_check[p], "CONTROLS") ) {
                 has_basic_controls = true;
             }
-            if (part_flag(parts_for_check[p], "CTRL_ELECTRONIC")) {
+            if( part_flag( parts_for_check[p], "CTRL_ELECTRONIC" ) ) {
                 has_electronic_controls = true;
             }
         }
-    } else if( remotely_controlled ) {
-        menu.addentry( release_remote_control, true, 'l', _("Stop controlling") );
+    } else if( remotely_controlled || remote_action ) {
+        if( remotely_controlled ){
+            menu.addentry( release_remote_control, true, 'l', _( "Stop controlling" ) );
+        }
+        
         // iterate over all parts
-        for( size_t p = 0; p < parts.size(); ++p ) {
-            if (part_flag(p, "CTRL_ELECTRONIC")) {
-                has_electronic_controls = true;
-            }
+        for( size_t p = 0; !has_electronic_controls && p < parts.size(); ++p ) {
+            has_electronic_controls = part_flag( p, "CTRL_ELECTRONIC" ) ||
+                part_flag( p, "REMOTE_CONTROLS" );
         }
     }
     if( !has_basic_controls && !has_electronic_controls ) {
-        add_msg(m_info, _("No controls there."));
+        add_msg( m_info, _( "No controls there." ) );
         return;
     }
     bool has_lights = false;
@@ -4000,18 +4002,43 @@ void vehicle::operate_reaper(){
         const tripoint reaper_pos = veh_start + parts[reaper_id].precalc[0];
         const int plant_produced =  rng( 1, parts[reaper_id].info().bonus );
         const int seed_produced = rng(1, 3);
-        if( g->m.furn(reaper_pos) != f_plant_harvest ){
-            continue;
+        const int max_pickup_size = parts[reaper_id].info().size / 20;
+        if( g->m.furn(reaper_pos) == f_plant_harvest ){
+            const itype &type = *g->m.i_at(reaper_pos).front().type;
+            if( type.id == "fungal_seeds" || type.id == "marloss_seed" ) {
+                // Otherworldly plants, the earth-made reaper can not handle those.
+                continue;
+            }
+            g->m.furn_set( reaper_pos, f_null );
+            g->m.i_clear( reaper_pos );
+            for( auto &i : iexamine::get_harvest_items( type, plant_produced, seed_produced, false ) ) {
+                g->m.add_item_or_charges( reaper_pos, i );
+            }
+            sounds::sound( reaper_pos, rng( 10, 25 ), _("Swish") );
         }
-        const itype &type = *g->m.i_at(reaper_pos).front().type;
-        if( type.id == "fungal_seeds" || type.id == "marloss_seed" ) {
-            // Otherworldly plants, the earth-made reaper can not handle those.
-            continue;
-        }
-        g->m.furn_set( reaper_pos, f_null );
-        g->m.i_clear( reaper_pos );
-        for( auto &i : iexamine::get_harvest_items( type, plant_produced, seed_produced, false ) ) {
-            g->m.add_item_or_charges( reaper_pos, i );
+        if( part_flag(reaper_id, "CARGO") && g->m.ter( reaper_pos ) == t_dirtmound ) {
+            if( !g->m.has_items( reaper_pos ) ) {
+                continue;
+            }
+            const map_stack q1 = g->m.i_at( reaper_pos );
+            for( auto it1 : q1 ) {
+                item *that_item_there = nullptr;
+                size_t itemdex = 0;
+                const map_stack q = g->m.i_at( reaper_pos );
+                for( auto it : q ) {
+                    if( it.volume() < max_pickup_size ) {
+                        that_item_there = g->m.item_from( reaper_pos, itemdex );
+                        break;
+                    }
+                    itemdex++;
+                }
+                if( !that_item_there ) {
+                    break;
+                }
+                if(add_item( reaper_id, *that_item_there ) ) {
+                    g->m.i_rem( reaper_pos, itemdex );
+                }
+            }
         }
     }
 }
@@ -4098,7 +4125,6 @@ void vehicle::operate_scoop()
             if( battery_deficit == 0 && add_item( scoop, *that_item_there ) ) {
                 g->m.i_rem( position, itemdex );
             } else {
-                //otherwise move on to the next scoop.
                 break;
             }
         }
@@ -4755,11 +4781,11 @@ veh_collision vehicle::part_collision( int part, const tripoint &p,
         if( pl_ctrl ) {
             if( snd.length() > 0 ) {
                 //~ 1$s - vehicle name, 2$s - part name, 3$s - collision object name, 4$s - sound message
-                add_msg (m_warning, _("Your %1$s's %2$s rams into a %3$s with a %4$s"),
+                add_msg (m_warning, _("Your %1$s's %2$s rams into %3$s with a %4$s"),
                          name.c_str(), part_info(ret.part).name.c_str(), ret.target_name.c_str(), snd.c_str());
             } else {
                 //~ 1$s - vehicle name, 2$s - part name, 3$s - collision object name
-                add_msg (m_warning, _("Your %1$s's %2$s rams into a %3$s."),
+                add_msg (m_warning, _("Your %1$s's %2$s rams into %3$s."),
                          name.c_str(), part_info(ret.part).name.c_str(), ret.target_name.c_str());
             }
         }
@@ -6414,7 +6440,7 @@ bool vehicle::automatic_fire_turret( int p, const itype &guntype, const itype &a
     tmp_ups.charges = drain( fuel_type_battery, 1000 );
     tmp.worn.insert( tmp.worn.end(), tmp_ups );
 
-    tmp.fire_gun( targ, (long)abs( parts[p].mode ), gun );
+    tmp.fire_gun( targ, abs( parts[p].mode ), gun );
 
     // Return whatever is left.
     refill( fuel_type_battery, tmp.worn.back().charges );
@@ -6457,7 +6483,7 @@ bool vehicle::manual_fire_turret( int p, player &shooter, const itype &guntype,
         const tripoint &targ = trajectory.back();
         // Put our shooter on the roof of the vehicle
         shooter.add_effect( effect_on_roof, 1 );
-        shooter.fire_gun( targ, (long)abs( parts[p].mode ), gun );
+        shooter.fire_gun( targ, abs( parts[p].mode ), gun );
         // And now back - we don't want to get any weird behavior
         shooter.remove_effect( effect_on_roof );
     }

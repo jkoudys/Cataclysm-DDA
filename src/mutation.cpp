@@ -27,6 +27,19 @@ bool Character::has_trait(const std::string &b) const
     return my_mutations.count( b ) > 0;
 }
 
+bool Character::has_trait_flag( const std::string &b ) const
+{
+    // UGLY, SLOW, should be cached as my_mutation_flags or something
+    for( const auto &mut : my_mutations ) {
+        auto &mut_data = mutation_branch::get( mut.first );
+        if( mut_data.flags.count( b ) > 0 ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool Character::has_base_trait(const std::string &b) const
 {
     // Look only at base traits
@@ -437,12 +450,14 @@ void player::activate_mutation( const std::string &mut )
                 slime->friendly = -1;
             }
         }
-        //~ Usual enthusiastic slimespring small voices! :D
         if (one_in(3)) {
+            //~ Usual enthusiastic slimespring small voices! :D
             add_msg_if_player(m_good, _("wow! you look just like me! we should look out for each other!"));
         } else if (one_in(2)) {
+            //~ Usual enthusiastic slimespring small voices! :D
             add_msg_if_player(m_good, _("come on, big me, let's go!"));
         } else {
+            //~ Usual enthusiastic slimespring small voices! :D
             add_msg_if_player(m_good, _("we're a team, we've got this!"));
         }
         tdata.powered = false;

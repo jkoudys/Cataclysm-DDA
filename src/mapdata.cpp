@@ -54,8 +54,8 @@ static const std::unordered_map<std::string, ter_bitflags> ter_bitflags_map = { 
     { "DIGGABLE",                 TFLAG_DIGGABLE },       // monmove
     { "SUPPRESS_SMOKE",           TFLAG_SUPPRESS_SMOKE }, // fire
     { "FLAMMABLE_HARD",           TFLAG_FLAMMABLE_HARD }, // fire
-    { "TFLAG_SEALED",             TFLAG_SEALED },         // Fire, acid
-    { "TFLAG_ALLOW_FIELD_EFFECT", TFLAG_ALLOW_FIELD_EFFECT }, // Fire, acid
+    { "SEALED",                   TFLAG_SEALED },         // Fire, acid
+    { "ALLOW_FIELD_EFFECT",       TFLAG_ALLOW_FIELD_EFFECT }, // Fire, acid
     { "COLLAPSES",                TFLAG_COLLAPSES },      // building "remodeling"
     { "FLAMMABLE",                TFLAG_FLAMMABLE },      // fire bad! fire SLOW!
     { "REDUCE_SCENT",             TFLAG_REDUCE_SCENT },   // ...and the other half is update_scent
@@ -526,7 +526,7 @@ ter_id t_null,
     t_portcullis,
     t_recycler, t_window, t_window_taped, t_window_domestic, t_window_domestic_taped, t_window_open, t_curtains,
     t_window_alarm, t_window_alarm_taped, t_window_empty, t_window_frame, t_window_boarded,
-    t_window_boarded_noglass, t_window_reinforced, t_window_reinforced_noglass, t_window_enhanced, t_window_enhanced_noglass, t_window_bars_alarm,
+    t_window_boarded_noglass, t_window_reinforced, t_window_reinforced_noglass, t_window_enhanced, t_window_enhanced_noglass, t_window_bars_alarm, t_window_bars,
     t_window_stained_green, t_window_stained_red, t_window_stained_blue,
     t_window_no_curtains, t_window_no_curtains_open, t_window_no_curtains_taped,
     t_rock, t_fault,
@@ -689,6 +689,7 @@ void set_ter_ids() {
     t_window_enhanced=terfind("t_window_enhanced");
     t_window_enhanced_noglass=terfind("t_window_enhanced_noglass");
     t_window_bars_alarm=terfind("t_window_bars_alarm");
+    t_window_bars=terfind("t_window_bars");
     t_window_stained_green=terfind("t_window_stained_green");
     t_window_stained_red=terfind("t_window_stained_red");
     t_window_stained_blue=terfind("t_window_stained_blue");
@@ -880,7 +881,7 @@ furn_id f_null,
     f_fvat_empty, f_fvat_full,
     f_wood_keg,
     f_standing_tank,
-    f_statue, f_egg_sackbw, f_egg_sackws, f_egg_sacke,
+    f_statue, f_egg_sackbw, f_egg_sackcs, f_egg_sackws, f_egg_sacke,
     f_flower_marloss,
     f_floor_canvas,
     f_tatami,
@@ -972,6 +973,7 @@ void set_furn_ids() {
     f_standing_tank=furnfind("f_standing_tank");
     f_statue=furnfind("f_statue");
     f_egg_sackbw=furnfind("f_egg_sackbw");
+    f_egg_sackcs=furnfind("f_egg_sackcs");
     f_egg_sackws=furnfind("f_egg_sackws");
     f_egg_sacke=furnfind("f_egg_sacke");
     f_flower_marloss=furnfind("f_flower_marloss");

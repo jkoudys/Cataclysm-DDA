@@ -8,6 +8,7 @@
 #include <bitset>
 #include <unordered_set>
 #include <set>
+#include "visitable.h"
 #include "enums.h"
 #include "json.h"
 #include "color.h"
@@ -79,12 +80,6 @@ enum layer_level {
     MAX_CLOTHING_LAYER
 };
 
-enum class VisitResponse {
-    ABORT, // Stop processing after this node
-    NEXT,  // Descend vertically to any child nodes and then horizontally to next sibling
-    SKIP   // Skip any child nodes and move directly to the next sibling
-};
-
 class item_category
 {
     public:
@@ -105,14 +100,22 @@ class item_category
         bool operator!=(const item_category &rhs) const;
 };
 
-class item : public JsonSerializer, public JsonDeserializer
+class item : public JsonSerializer, public JsonDeserializer, public visitable<item>
 {
-public:
- item();
- item(const std::string new_type, int turn, bool rand = true);
+    public:
+        item();
+
+        item( item && ) = default;
+        item( const item & ) = default;
+        item &operator=( item && ) = default;
+        item &operator=( const item & ) = default;
+        virtual ~item();
+
+        item( const std::string new_type, int turn, bool rand = true );
+        item( JsonObject &jo );
 
         /**
-         * Make this a corpse of the given monster type.
+         * Make a corpse of the given monster type.
          * The monster type id must be valid (see @ref MonsterGenerator::get_mtype).
          *
          * The turn parameter sets the birthday of the corpse, in other words: the turn when the
@@ -123,12 +126,10 @@ public:
          * The name parameter can be used to give the corpse item a name. This is
          * used instead of the monster type name ("corpse of X" instead of "corpse of bear").
          *
-         * Without any parameters it makes a human corpse, created at the current turn.
+         * With the default parameters it makes a human corpse, created at the current turn.
          */
         /*@{*/
-        void make_corpse( const mtype_id& mt, unsigned int turn );
-        void make_corpse( const mtype_id& mt, unsigned int turn, const std::string &name );
-        void make_corpse();
+        static item make_corpse( const mtype_id& mt = NULL_ID, int turn = -1, const std::string &name = "" );
         /*@}*/
         /**
          * @return The monster type associated with this item (@ref corpse). It is usually the
@@ -159,12 +160,6 @@ public:
          */
         bool ready_to_revive( const tripoint &pos ) const;
 
- item(JsonObject &jo);
-        item(item &&) = default;
-        item(const item &) = default;
-        item &operator=(item &&) = default;
-        item &operator=(const item &) = default;
- virtual ~item();
  void make( const std::string new_type, bool scrub = false );
 
     /**
@@ -255,8 +250,12 @@ public:
 
  int weight() const;
 
- int precise_unit_volume() const;
- int volume(bool unit_value=false, bool precise_value=false) const;
+    /* Total volume of an item accounting for all contained/integrated items
+     * @param integral if true return effective volume if item was integrated into another */
+    int volume( bool integral = false ) const;
+
+    /* Volume of an item or of a single unit for charged items multipled by 1000 */
+    int precise_unit_volume() const;
 
     /**
      * @name Melee
@@ -446,25 +445,19 @@ public:
      */
     bool goes_bad() const;
 private:
-    /**
-     * Accumulated rot of the item. This is compared to it_comest::spoils
-     * to decide weather the item is rotten or not.
-     */
-    int rot;
-    /**
-     * The turn when the rot calculation has been done the last time.
-     */
-    int last_rot_check;
+    /** Accumulated rot compared to it_comest::spoils to decide weather item is rotten. */
+    int rot = 0;
+    /** Turn when the rot calculation was last performed */
+    int last_rot_check = 0;
+
 public:
     int get_rot() const
     {
         return rot;
     }
-    /**
-     * The turn when this item has been put into a fridge.
-     * 0 if this item is not in a fridge.
-     */
-    int fridge;
+
+    /** Turn item was put into a fridge or 0 if not in any fridge. */
+    int fridge = 0;
 
  int brewing_time() const;
  void detonate( const tripoint &p ) const;
@@ -674,16 +667,6 @@ public:
  const itype* type;
  std::vector<item> contents;
 
-        /** Traverses this item and any child items contained using a visitor pattern
-         * @pram func visitor function called for each node which controls whether traversal continues.
-         * Typically a lambda making use of captured state it should return VisitResponse::Next to
-         * recursively process child items, VisitResponse::Skip to ignore children of the current node
-         * or VisitResponse::Abort to skip further processing of any nodes.
-         * @return This method itself only ever returns VisitResponse::Next or VisitResponse::Abort.
-         */
-        VisitResponse visit_items( const std::function<VisitResponse(item&)>& func );
-        VisitResponse visit_items( const std::function<VisitResponse(const item&)>& func ) const;
-
         /** Check if this item contains one or more items matching filter */
         bool contains( const std::function<bool(const item&)>& filter ) const;
 
@@ -692,8 +675,10 @@ public:
             return contains( [&it]( const item& e ){ return &e == it; } );
         }
 
-        /** Checks if item is a holster and currently capable of storing obj */
-        bool can_holster ( const item& obj ) const;
+        /** Checks if item is a holster and currently capable of storing obj
+         *  @param ignore only check item is compatible and ignore any existing contents */
+        bool can_holster ( const item& obj, bool ignore = false ) const;
+
         /**
          * Returns @ref curammo, the ammo that is currently load in this item.
          * May return a null pointer.
@@ -823,6 +808,7 @@ public:
          */
         /*@{*/
         bool has_flag( const std::string& flag ) const;
+        bool has_any_flag( const std::vector<std::string>& flags ) const;
         /** Removes all item specific flags. */
         void unset_flags();
         /*@}*/
@@ -1074,8 +1060,9 @@ public:
         long ammo_capacity() const;
         /** Quantity of ammunition consumed per usage of tool or with each shot of gun */
         long ammo_required() const;
-        /** If sufficient ammo available consume it, otherwise do nothing and return false */
-        bool ammo_consume( int qty );
+        /** If sufficient ammo available consume it, otherwise do nothing and return false
+         *  @param pos current location of item, used for ejecting magazines and similar effects */
+        bool ammo_consume( int qty, const tripoint& pos );
         /** Specific ammo data, returns nullptr if item is neither ammo nor loaded with any */
         const itype * ammo_data() const;
         /** Specific ammo type, returns "null" if item is neither ammo nor loaded with any */
@@ -1088,8 +1075,13 @@ public:
         /** Does item have an integral magazine (as opposed to allowing detachable magazines) */
         bool magazine_integral() const;
 
+        /** Get the default magazine type (if any) for the current effective ammo type
+         *  @param conversion whether to include the effect of any flags or mods which convert item's ammo type
+         *  @return magazine type or "null" if item has integral magazine or no magazines for current ammo type */
+        itype_id magazine_default( bool conversion = true ) const;
+
         /** Get compatible magazines (if any) for this item
-         *  @param conversion whether to include the effect of any flags or mods which convert the type
+         *  @param conversion whether to include the effect of any flags or mods which convert item's ammo type
          *  @return magazine compatibility which is always empty if item has integral magazine
          *  @see item::magazine_integral
          */
@@ -1102,12 +1094,13 @@ public:
         item * magazine_current();
         const item * magazine_current() const;
 
-        /**
-         * Number of charges this gun can hold. Includes effects from installed gunmods.
-         * This does use the auxiliary gunmod (if any).
-         */
-        // TODO: make long? Because it relates to charges.
-        int clip_size() const;
+        /** Normalizes an item to use the new magazine system. Indempotent if item already converted.
+         *  @return items that were created as a result of the conversion (excess ammo or magazines) */
+        std::vector<item> magazine_convert();
+
+        /** Checks if mod can be applied to this item considering any current state (jammed, loaded etc.) */
+        bool gunmod_compatible( const item& mod, bool alert = true ) const;
+
         /**
          * Burst size (see ranged.cpp), includes effects from installed gunmods.
          */
@@ -1190,11 +1183,6 @@ public:
          * for which skill() would return a skill.
          */
         skill_id gun_skill() const;
-        /**
-         * Returns the appropriate size for a spare magazine used with this gun. If this is not a gun,
-         * it returns 0.
-         */
-        int spare_mag_size() const;
         /**
          * Returns the currently active auxiliary (@ref is_auxiliary_gunmod) gun mod item.
          * May return null if there is no such gun mod or if the gun is not in the
@@ -1290,42 +1278,39 @@ public:
         */
         std::string label( unsigned int quantity = 0 ) const;
     private:
-        /** Reset all members to default, making this a null item. */
-        void init();
         /** Helper for liquid and container related stuff. */
         enum LIQUID_FILL_ERROR : int;
         LIQUID_FILL_ERROR has_valid_capacity_for_liquid(const item &liquid) const;
         std::string name;
-        const itype* curammo;
+        const itype* curammo = nullptr;
         std::map<std::string, std::string> item_vars;
-        const mtype* corpse;
+        const mtype* corpse = nullptr;
         std::set<matec_id> techniques; // item specific techniques
-        light_emission light;
+        light_emission light = nolight;
 public:
- char invlet;             // Inventory letter
- long charges;
- bool active;             // If true, it has active effects to be processed
+     char invlet = 0;      // Inventory letter
+     long charges = -1;
+     bool active = false; // If true, it has active effects to be processed
 
     /**
      * How much damage the item has sustained
      * @see MIN_ITEM_DAMAGE
      * @see MAX_ITEM_DAMAGE
      */
-    int damage;
+    int damage = 0;
 
- int burnt;               // How badly we're burnt
- int bday;                // The turn on which it was created
- union{
-   int poison;          // How badly poisoned is it?
-   int bigness;         // engine power, wheel size
-   int frequency;       // Radio frequency
-   int note;            // Associated dynamic text snippet.
-   int irridation;      // Tracks radiation dosage.
- };
+    int burnt = 0;           // How badly we're burnt
+    int bday;                // The turn on which it was created
+    int poison = 0;          // How badly poisoned is it?
+    int bigness = 0;         // engine power, wheel size
+    int frequency = 0;       // Radio frequency
+    int note = 0;            // Associated dynamic text snippet.
+    int irridation = 0;      // Tracks radiation dosage.
+
  std::set<std::string> item_tags; // generic item specific flags
- unsigned item_counter; // generic counter to be used with item flags
- int mission_id; // Refers to a mission in game's master list
- int player_id; // Only give a mission to the right player!
+    unsigned item_counter = 0; // generic counter to be used with item flags
+    int mission_id = -1; // Refers to a mission in game's master list
+    int player_id = -1; // Only give a mission to the right player!
  typedef std::vector<item> t_item_vector;
  t_item_vector components;
 

@@ -17,6 +17,8 @@
 #include "rng.h"
 #include "translations.h"
 
+#include <algorithm>
+
 const mtype_id mon_generator( "mon_generator" );
 const mtype_id mon_zombie_dog( "mon_zombie_dog" );
 const mtype_id mon_fungaloid( "mon_fungaloid" );
@@ -271,7 +273,6 @@ void MonsterGenerator::init_attack()
     attack_map["GENERATOR"] = &mattack::generator;
     attack_map["UPGRADE"] = &mattack::upgrade;
     attack_map["BREATHE"] = &mattack::breathe;
-    attack_map["BITE"] = &mattack::bite;
     attack_map["IMPALE"] = &mattack::impale;
     attack_map["BRANDISH"] = &mattack::brandish;
     attack_map["FLESH_GOLEM"] = &mattack::flesh_golem;
@@ -418,6 +419,21 @@ void MonsterGenerator::load_monster(JsonObject &jo)
     mon_templates->load( jo );
 }
 
+class mon_attack_effect_reader : public generic_typed_reader<mon_attack_effect_reader> {
+    public:
+        mon_effect_data get_next( JsonIn &jin ) const {
+            JsonObject e = jin.get_object();
+            return mon_effect_data( efftype_id( e.get_string( "id" ) ), e.get_int( "duration", 0 ),
+                                    get_body_part_token( e.get_string( "bp", "NUM_BP" ) ), e.get_bool( "permanent", false ),
+                                    e.get_int( "chance", 100 ) );
+        }
+        template<typename C>
+        void erase_next( JsonIn &jin, C &container ) const {
+            const efftype_id id = efftype_id( jin.get_string() );
+            reader_detail::handler<C>().erase_if( container, [&id]( const mon_effect_data &e ) { return e.id == id; } );
+        }
+};
+
 void mtype::load( JsonObject &jo )
 {
     MonsterGenerator &gen = MonsterGenerator::generator();
@@ -463,7 +479,6 @@ void mtype::load( JsonObject &jo )
     optional( jo, was_loaded, "melee_skill", melee_skill, 0 );
     optional( jo, was_loaded, "melee_dice", melee_dice, 0 );
     optional( jo, was_loaded, "melee_dice_sides", melee_sides, 0 );
-    optional( jo, was_loaded, "melee_cut", melee_cut, 0 );
     optional( jo, was_loaded, "dodge", sk_dodge, 0 );
     optional( jo, was_loaded, "armor_bash", armor_bash, 0 );
     optional( jo, was_loaded, "armor_cut", armor_cut, 0 );
@@ -476,6 +491,20 @@ void mtype::load( JsonObject &jo )
     optional( jo, was_loaded, "vision_day", vision_day, 40 );
     optional( jo, was_loaded, "vision_night", vision_night, 1 );
     optional( jo, was_loaded, "armor_stab", armor_stab, 0.8f * armor_cut );
+    optional( jo, was_loaded, "attack_effs", atk_effs, mon_attack_effect_reader{} );
+
+    // TODO: make this work with `was_loaded`
+    if( jo.has_array( "melee_damage" ) ) {
+        JsonArray arr = jo.get_array( "melee_damage" );
+        melee_damage = load_damage_instance( arr );
+    } else if( jo.has_object( "melee_damage" ) ) {
+        melee_damage = load_damage_instance( jo );
+    }
+
+    if( jo.has_int( "melee_cut" ) ) {
+        int bonus_cut = jo.get_int( "melee_cut" );
+        melee_damage.add_damage( DT_CUT, bonus_cut );
+    }
 
     // TODO: allow adding/removing specific entries if `was_loaded` is true
     if( jo.has_array( "attack_effs" ) ) {
@@ -501,23 +530,43 @@ void mtype::load( JsonObject &jo )
         dies.push_back( mdeath::normal );
     }
 
-    // TODO: allow overriding/adding/removing those if `was_loaded` is true
-    gen.load_special_defense( this, jo, "special_when_hit" );
-    gen.load_special_attacks( this, jo, "special_attacks" );
-
-        // Disable upgrading when JSON contains `"upgrades": false`, but fallback to the
-        // normal behavior (including error checking) if "upgrades" is not boolean or not `false`.
-    if( jo.has_bool( "upgrades" ) && !jo.get_bool( "upgrades" ) ) {
-            upgrade_group = mongroup_id::NULL_ID;
-            upgrade_into = mtype_id::NULL_ID;
-            upgrades = false;
-    } else if( jo.has_member( "upgrades" ) ) {
-            JsonObject up = jo.get_object( "upgrades" );
-            optional( up, was_loaded, "half_life", half_life, -1 );
-            optional( up, was_loaded, "into_group", upgrade_group, auto_flags_reader<mongroup_id> {}, mongroup_id::NULL_ID );
-            optional( up, was_loaded, "into", upgrade_into, auto_flags_reader<mtype_id> {}, mtype_id::NULL_ID );
-            upgrades = true;
+    if( jo.has_member( "special_when_hit" ) ) {
+        JsonArray jsarr = jo.get_array( "special_when_hit" );
+        const auto iter = gen.defense_map.find( jsarr.get_string( 0 ) );
+        if( iter == gen.defense_map.end() ) {
+            jsarr.throw_error( "Invalid monster defense function" );
         }
+        sp_defense = iter->second;
+        def_chance = jsarr.get_int( 1 );
+    } else if( !was_loaded ) {
+        sp_defense = &mdefense::none;
+        def_chance = 0;
+    }
+
+    if( !was_loaded || jo.has_member( "special_attacks" ) ) {
+        special_attacks.clear();
+        special_attacks_names.clear();
+        add_special_attacks( jo, "special_attacks" );
+    } else {
+        // Note: special_attacks left as is, new attacks are added to it!
+        // Note: member name prefixes are compatible with those used by generic_typed_reader
+        remove_special_attacks( jo, "remove:special_attacks" );
+        add_special_attacks( jo, "add:special_attacks" );
+    }
+
+    // Disable upgrading when JSON contains `"upgrades": false`, but fallback to the
+    // normal behavior (including error checking) if "upgrades" is not boolean or not `false`.
+    if( jo.has_bool( "upgrades" ) && !jo.get_bool( "upgrades" ) ) {
+        upgrade_group = mongroup_id::NULL_ID;
+        upgrade_into = mtype_id::NULL_ID;
+        upgrades = false;
+    } else if( jo.has_member( "upgrades" ) ) {
+        JsonObject up = jo.get_object( "upgrades" );
+        optional( up, was_loaded, "half_life", half_life, -1 );
+        optional( up, was_loaded, "into_group", upgrade_group, auto_flags_reader<mongroup_id> {}, mongroup_id::NULL_ID );
+        optional( up, was_loaded, "into", upgrade_into, auto_flags_reader<mtype_id> {}, mtype_id::NULL_ID );
+        upgrades = true;
+    }
 
     const typed_flag_reader<decltype( gen.flag_map )> flag_reader{ gen.flag_map, "invalid monster flag" };
     optional( jo, was_loaded, "flags", flags, flag_reader );
@@ -569,28 +618,6 @@ m_flag MonsterGenerator::m_flag_from_string( std::string flag ) const
     return flag_map.find( flag )->second;
 }
 
-std::vector<mon_action_death> MonsterGenerator::get_death_functions(JsonObject &jo,
-        std::string member)
-{
-    std::vector<mon_action_death> deaths;
-
-    std::set<std::string> death_flags = jo.get_tags(member);
-
-    std::set<std::string>::iterator it = death_flags.begin();
-    for (; it != death_flags.end(); ++it) {
-        if ( death_map.find(*it) != death_map.end() ) {
-            deaths.push_back(death_map[*it]);
-        } else {
-            jo.throw_error("Invalid death_function");
-        }
-    }
-
-    if (deaths.empty()) {
-        deaths.push_back(death_map["NORMAL"]);
-    }
-    return deaths;
-}
-
 template<typename mattack_actor_type>
 mtype_special_attack load_actor( JsonObject obj, int cooldown )
 {
@@ -599,16 +626,15 @@ mtype_special_attack load_actor( JsonObject obj, int cooldown )
     return mtype_special_attack( actor.release(), cooldown );
 }
 
-void set_attack_from_object(
-    JsonObject obj,
-    std::map<std::string, mtype_special_attack> &special_attacks,
-    std::vector<std::string> &special_attacks_names )
+void mtype::add_special_attack( JsonObject obj )
 {
     const std::string type = obj.get_string( "type" );
     const int cooldown = obj.get_int( "cooldown" );
 
     if( type == "leap" ) {
         special_attacks[type] = load_actor<leap_actor>( obj, cooldown );
+    } else if( type == "bite" ) {
+        special_attacks[type] = load_actor<bite_actor>( obj, cooldown );
     } else {
         obj.throw_error( "unknown monster attack", "type" );
         return;
@@ -617,8 +643,19 @@ void set_attack_from_object(
     special_attacks_names.push_back( type );
 }
 
-void MonsterGenerator::load_special_attacks(mtype *m, JsonObject &jo, std::string member) {
-    m->special_attacks.clear(); // make sure we're running with everything cleared
+void mtype::add_special_attack( JsonArray inner )
+{
+    MonsterGenerator &gen = MonsterGenerator::generator();
+    const std::string name = inner.get_string( 0 );
+    const auto iter = gen.attack_map.find( name );
+    if( iter == gen.attack_map.end() ) {
+        inner.throw_error( "Invalid special_attacks" );
+    }
+    special_attacks[name] = mtype_special_attack( iter->second, inner.get_int( 1 ) );
+    special_attacks_names.push_back( name );
+}
+
+void mtype::add_special_attacks( JsonObject &jo, const std::string &member ) {
 
     if( !jo.has_array( member ) ) {
         return;
@@ -627,71 +664,24 @@ void MonsterGenerator::load_special_attacks(mtype *m, JsonObject &jo, std::strin
     JsonArray outer = jo.get_array(member);
     while( outer.has_more() ) {
         if( outer.test_array() ) {
-            JsonArray inner = outer.next_array();
-            const auto &aname = inner.get_string(0);
-            if ( attack_map.find(aname) != attack_map.end() ) {
-                auto new_entry = mtype_special_attack(
-                    attack_map[aname], inner.get_int(1) );
-                m->special_attacks[aname] = new_entry;
-
-                m->special_attacks_names.push_back(aname);
-            } else {
-                inner.throw_error("Invalid special_attacks");
-            }
+            add_special_attack( outer.next_array() );
         } else if( outer.test_object() ) {
-            set_attack_from_object(
-                outer.next_object(), m->special_attacks, m->special_attacks_names );
+            add_special_attack( outer.next_object() );
         } else {
             outer.throw_error( "array element is neither array nor object." );
         }
     }
 }
 
-void MonsterGenerator::load_special_defense(mtype *m, JsonObject &jo, std::string member) {
-    if (jo.has_array(member)) {
-        JsonArray jsarr = jo.get_array(member);
-        if ( defense_map.find(jsarr.get_string(0)) != defense_map.end() ) {
-            m->sp_defense = defense_map[jsarr.get_string(0)];
-            m->def_chance = jsarr.get_int(1);
-        } else {
-            jsarr.throw_error("Invalid special_when_hit");
+void mtype::remove_special_attacks( JsonObject &jo, const std::string &member_name )
+{
+    for( const std::string &name : jo.get_tags( member_name ) ) {
+        special_attacks.erase( name );
+        const auto iter = std::find( special_attacks_names.begin(), special_attacks_names.end(), name );
+        if( iter != special_attacks_names.end() ) {
+            special_attacks_names.erase( iter );
         }
     }
-
-    if (m->sp_defense == NULL) {
-        m->sp_defense = defense_map["NONE"];
-    }
-}
-
-template <typename T>
-std::set<T> MonsterGenerator::get_set_from_tags(std::set<std::string> tags,
-        std::map<std::string, T> conversion_map, T fallback)
-{
-    std::set<T> ret;
-
-    if (!tags.empty()) {
-        for( const auto &tag : tags ) {
-            if( conversion_map.find( tag ) != conversion_map.end() ) {
-                ret.insert( conversion_map[tag] );
-            }
-        }
-    }
-    if (ret.empty()) {
-        ret.insert(fallback);
-    }
-
-    return ret;
-}
-
-template <typename T>
-T MonsterGenerator::get_from_string(std::string tag, std::map<std::string, T> conversion_map,
-                                    T fallback)
-{
-    T ret = fallback;
-    if (conversion_map.find(tag) != conversion_map.end()) {
-        ret = conversion_map[tag];
-    }
-    return ret;
 }
 
 void MonsterGenerator::check_monster_definitions() const

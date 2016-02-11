@@ -133,8 +133,6 @@ const efftype_id effect_visuals( "visuals" );
 const efftype_id effect_weed_high( "weed_high" );
 const efftype_id effect_winded( "winded" );
 
-static bool is_firearm(const item &it);
-
 void remove_double_ammo_mod( item &it, player &p )
 {
     if( !it.item_tags.count( "DOUBLE_AMMO" ) || it.item_tags.count( "DOUBLE_REACTOR" )) {
@@ -172,22 +170,6 @@ void remove_double_plut_mod( item &it, player &p )
         it.charges = 0;
         p.i_add_or_drop( cells, 1 );
     }
-}
-
-void remove_recharge_mod( item &it, player &p )
-{
-    if( !it.item_tags.count( "RECHARGE" ) ) {
-        return;
-    }
-    p.add_msg_if_player( _( "You remove the rechargeable powerpack from your %s!" ),
-                         it.tname().c_str() );
-    item mod( "rechargeable_battery", calendar::turn );
-    mod.charges = it.charges;
-    it.charges = 0;
-    p.i_add_or_drop( mod, 1 );
-    it.item_tags.erase( "RECHARGE" );
-    it.item_tags.erase( "NO_UNLOAD" );
-    it.item_tags.erase( "NO_RELOAD" );
 }
 
 void remove_atomic_mod( item &it, player &p )
@@ -2090,11 +2072,6 @@ int iuse::catfood(player *p, item *it, bool, const tripoint& )
     return petfood(p, it, false);
 }
 
-static bool is_firearm(const item &it)
-{
-    return it.is_gun() && !it.has_flag("PRIMITIVE_RANGED_WEAPON");
-}
-
 int iuse::sew_advanced(player *p, item *it, bool, const tripoint& )
 {
     if( p->is_npc() ) {
@@ -2130,7 +2107,7 @@ int iuse::sew_advanced(player *p, item *it, bool, const tripoint& )
         p->add_msg_if_player(m_info, _("You can only tailor your clothes!"));
         return 0;
     }
-    if (is_firearm(*mod)){
+    if (mod->is_firearm()){
         p->add_msg_if_player(m_info, _("You can't use a tailor's kit on a firearm!"));
         return 0;
     }
@@ -2321,7 +2298,6 @@ int iuse::sew_advanced(player *p, item *it, bool, const tripoint& )
 void remove_battery_mods( item &modded, player &p )
 {
     remove_atomic_mod( modded, p );
-    remove_recharge_mod( modded, p );
     remove_ups_mod( modded, p );
     remove_double_ammo_mod( modded, p );
     remove_double_plut_mod( modded, p );
@@ -2741,15 +2717,14 @@ int iuse::fish_trap(player *p, item *it, bool t, const tripoint &pos)
                     //not existing in the fishables vector. (maybe it was in range, but wandered off)
                     //lets say it is a 5% chance per fish to catch
                     if (one_in(20)) {
-                        item fish;
                         const std::vector<mtype_id> fish_group = MonsterGroupManager::GetMonstersFromGroup( mongroup_id( "GROUP_FISH" ) );
                         const mtype_id& fish_mon = fish_group[rng(1, fish_group.size()) - 1];
-                        fish.make_corpse( fish_mon, it->bday + rng(0, 1800)); //we don't know when it was caught. its random
                         //Yes, we can put fishes in the trap like knives in the boot,
                         //and then get fishes via activation of the item,
                         //but it's not as comfortable as if you just put fishes in the same tile with the trap.
                         //Also: corpses and comestibles do not rot in containers like this, but on the ground they will rot.
-                        g->m.add_item_or_charges( pos, fish );
+                        //we don't know when it was caught so use a random turn
+                        g->m.add_item_or_charges( pos, item::make_corpse( fish_mon, it->bday + rng(0, 1800) ) );
                         break; //this can happen only once
                     }
                 }
@@ -3799,6 +3774,10 @@ int iuse::set_trap(player *p, item *it, bool, const tripoint& )
         message << _("You place the funnel, waiting to collect rain.");
         type = tr_funnel;
         practice = 0;
+    } else if (it->type->id == "metal_funnel") {
+        message << _("You place the metal funnel, waiting to collect rain.");
+        type = tr_metal_funnel;
+        practice = 0;
     } else if (it->type->id == "makeshift_funnel") {
         message << _("You place the makeshift funnel, waiting to collect rain.");
         type = tr_makeshift_funnel;
@@ -3899,8 +3878,8 @@ int iuse::set_trap(player *p, item *it, bool, const tripoint& )
     }
 
     if( buried ) {
-        if( !p->has_items_with_quality( "DIG", 2, 1 ) ) {
-            p->add_msg_if_player( m_info, _( "You need a shovel." ) );
+        if( !p->has_items_with_quality( "DIG", 1, 1 ) ) {
+            p->add_msg_if_player( m_info, _( "You need a digging tool." ));
             return 0;
         } else if( !g->m.has_flag( "DIGGABLE", posx, posy ) ) {
             p->add_msg_if_player( m_info, _( "You can't dig in that %s." ),
@@ -5118,30 +5097,33 @@ int iuse::oxytorch(player *p, item *it, bool, const tripoint& )
         return 0;
     }
 
-    int dirx, diry;
     if (!(p->has_amount("goggles_welding", 1) || p->is_wearing("goggles_welding") ||
           p->is_wearing("rm13_armor_on") || p->has_bionic("bio_sunglasses"))) {
         add_msg(m_info, _("You need welding goggles to do that."));
         return 0;
     }
-    if (!choose_adjacent(_("Cut up metal where?"), dirx, diry)) {
+
+    tripoint dirp = p->pos();
+    if( !choose_adjacent(_("Cut up metal where?"), dirp ) ) {
         return 0;
     }
 
-    if (dirx == p->posx() && diry == p->posy()) {
+    if( dirp == p->pos() ) {
         add_msg(m_info, _("Yuck.  Acetylene gas smells weird."));
         return 0;
     }
 
-    const ter_id ter = g->m.ter( dirx, diry );
+    const ter_id ter = g->m.ter( dirp );
+    const auto furn = g->m.furn( dirp );
     int moves;
 
-    if( g->m.furn(dirx, diry) == f_rack || ter == t_chainfence_posts ) {
+    if( furn == f_rack || ter == t_chainfence_posts ) {
         moves = 200;
     } else if( ter == t_window_enhanced || ter == t_window_enhanced_noglass ) {
         moves = 500;
     } else if( ter == t_chainfence_v || ter == t_chainfence_h || ter == t_chaingate_c ||
-               ter == t_chaingate_l  || ter == t_bars || ter == t_window_bars_alarm ) {
+               ter == t_chaingate_l  || ter == t_bars || ter == t_window_bars_alarm ||
+               ter == t_window_bars ) {
         moves = 1000;
     } else if( ter == t_door_metal_locked || ter == t_door_metal_c || ter == t_door_bar_c ||
                ter == t_door_bar_locked || ter == t_door_metal_pickable ) {
@@ -5160,7 +5142,7 @@ int iuse::oxytorch(player *p, item *it, bool, const tripoint& )
 
     // placing ter here makes resuming tasks work better
     p->assign_activity( ACT_OXYTORCH, moves, (int)ter, p->get_item_position( it ) );
-    p->activity.placement = tripoint( dirx, diry, 0 );
+    p->activity.placement = dirp;
     p->activity.values.push_back( charges );
 
     // charges will be consumed in oxytorch_do_turn, not here
@@ -5181,7 +5163,6 @@ int iuse::hacksaw(player *p, item *it, bool, const tripoint &pos )
         add_msg(m_info, _("You're not even chained to a boiler."));
         return 0;
     }
-
 
     if (g->m.furn(dirx, diry) == f_rack) {
         p->moves -= 500;
@@ -5205,6 +5186,16 @@ int iuse::hacksaw(player *p, item *it, bool, const tripoint &pos )
         g->m.ter_set(dirx, diry, t_dirt);
         sounds::sound(dirp, 15, _("grnd grnd grnd"));
         g->m.spawn_item(dirx, diry, "pipe", 6);
+    } else if( ter == t_window_bars_alarm ) {
+        p->moves -= 500;
+        g->m.ter_set( dirx, diry, t_window_alarm );
+        sounds::sound( dirp, 15, _("grnd grnd grnd" ) );
+        g->m.spawn_item( p->pos(), "pipe", rng( 1, 2 ) );
+    } else if( ter == t_window_bars ) {
+        p->moves -= 500;
+        g->m.ter_set( dirx, diry, t_window_empty );
+        sounds::sound(dirp, 15, _("grnd grnd grnd"));
+        g->m.spawn_item(p->pos(), "pipe", 6);
     } else if( ter == t_bars ) {
         if (g->m.ter(dirx + 1, diry) == t_sewage || g->m.ter(dirx, diry + 1) == t_sewage ||
             g->m.ter(dirx - 1, diry) == t_sewage || g->m.ter(dirx, diry - 1) == t_sewage) {
@@ -6275,7 +6266,7 @@ int iuse::gun_repair(player *p, item *it, bool, const tripoint& )
         p->add_msg_if_player(m_info, _("You do not have that item!"));
         return 0;
     }
-    if (!is_firearm(*fix)) {
+    if (!fix->is_firearm()) {
         p->add_msg_if_player(m_info, _("That isn't a firearm!"));
         return 0;
     }
@@ -6332,7 +6323,7 @@ int iuse::misc_repair(player *p, item *it, bool, const tripoint& )
         return 0;
     }
     int inventory_index = g->inv_for_filter( _("Select the item to repair."), []( const item & itm ) {
-        return ( !is_firearm(itm) ) && (itm.made_of("wood") || itm.made_of("paper") ||
+        return ( !itm.is_firearm() ) && (itm.made_of("wood") || itm.made_of("paper") ||
                                  itm.made_of("bone") || itm.made_of("chitin") ) ;
     } );
     item *fix = &( p->i_at(inventory_index ) );
@@ -6340,7 +6331,7 @@ int iuse::misc_repair(player *p, item *it, bool, const tripoint& )
         p->add_msg_if_player(m_info, _("You do not have that item!"));
         return 0;
     }
-    if ( is_firearm(*fix) ) {
+    if ( fix->is_firearm() ) {
         p->add_msg_if_player(m_info, _("That requires gunsmithing tools."));
         return 0;
     }
@@ -6513,7 +6504,6 @@ int iuse::robotcontrol(player *p, item *it, bool, const tripoint& )
                 return 0;
             }
             return it->type->charges_to_use();
-            break;
         }
         case 3: { //make all friendly robots terminate (un)life with extreme prejudice
             p->moves -= 100;
@@ -6531,7 +6521,6 @@ int iuse::robotcontrol(player *p, item *it, bool, const tripoint& )
                 return 0;
             }
             return it->type->charges_to_use();
-            break;
         }
 
     }
@@ -6679,7 +6668,7 @@ bool einkpc_download_memory_card(player *p, item *eink, item *mc)
         if (candidates.size() > 0) {
 
             const recipe *r = random_entry( candidates );
-            const std::string rident = r->ident;
+            const std::string rident = r->ident();
 
             const item dummy(r->result, 0);
 
@@ -6774,7 +6763,7 @@ static const std::string &photo_quality_name( const int index )
 int iuse::einktabletpc(player *p, item *it, bool t, const tripoint &pos)
 {
     if (t) {
-        if( it->get_var( "EIPC_MUSIC_ON" ) != "" ) {
+        if( it->get_var( "EIPC_MUSIC_ON" ) != "" && ( it->charges > 0 ) ) {
             if( calendar::once_every(MINUTES(5)) ) {
                 it->charges--;
             }
@@ -6782,6 +6771,11 @@ int iuse::einktabletpc(player *p, item *it, bool t, const tripoint &pos)
             //the more varied music, the better max mood.
             const int songs = it->get_var( "EIPC_MUSIC", 0 );
             play_music( p, pos, 8, std::min( 100, songs ) );
+        }
+        else {
+            it->active = false;
+            it->erase_var( "EIPC_MUSIC_ON" );
+            p->add_msg_if_player(m_info, _("Tablet's batteries are dead."));
         }
 
         return 0;
@@ -7568,7 +7562,7 @@ int iuse::radiocaron(player *p, item *it, bool t, const tripoint &pos)
         return 0;
     }
 
-    int choice = menu(true, _("What do with activated RC car:"), _("Turn off"),
+    int choice = menu(true, _("What to do with activated RC car?"), _("Turn off"),
                       _("Cancel"), NULL);
 
     if (choice == 2) {
@@ -7637,12 +7631,12 @@ int iuse::radiocontrol(player *p, item *it, bool t, const tripoint& )
     const char *car_action = NULL;
 
     if (!it->active) {
-        car_action = _("Take control of RC car.");
+        car_action = _("Take control of RC car");
     } else {
-        car_action = _("Stop controlling RC car.");
+        car_action = _("Stop controlling RC car");
     }
 
-    choice = menu(true, _("What do with radio control:"), _("Nothing"), car_action,
+    choice = menu(true, _("What to do with radio control?"), _("Nothing"), car_action,
                   _("Press red button"), _("Press blue button"), _("Press green button"), NULL);
 
     if (choice == 1) {
@@ -7756,7 +7750,7 @@ static bool hackveh(player *p, item *it, vehicle *veh)
 
 vehicle *pickveh( const tripoint& center, bool advanced )
 {
-    static const std::string ctrl = "CONTROLS";
+    static const std::string ctrl = "CTRL_ELECTRONIC";
     static const std::string advctrl = "REMOTE_CONTROLS";
     uimenu pmenu;
     pmenu.title = _("Select vehicle to access");
@@ -7856,7 +7850,7 @@ int iuse::remoteveh(player *p, item *it, bool t, const tripoint &pos)
             veh->start_engines();
         }
     } else if( choice == 3 ) {
-        veh->use_controls( pos );
+        veh->use_controls( pos, true );
     } else {
         return 0;
     }

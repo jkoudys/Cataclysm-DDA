@@ -37,10 +37,11 @@
         "type" : "terrain",
         "id" : "t_brick_wall",
         "name": "brick wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "brown",
         "move_cost": 0,
-        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 60, "str_max": 160,
             "sound": "crash!",
@@ -52,12 +53,48 @@
         }
     },{
         "type" : "terrain",
+        "id" : "t_scrap_wall",
+        "name": "simple metal wall",
+        "symbol": "LINE_OXOX",
+        "color": "dkgray",
+        "move_cost": 0,
+        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
+        "bash": {
+            "str_min": 80, "str_max": 200,
+            "sound": "metal screeching!",
+            "sound_fail": "clang!",
+            "ter_set": "t_pit_shallow",
+            "items": [
+                { "item": "steel_chunk", "count": [10, 22] }
+            ]
+        }
+    },{
+        "type" : "terrain",
+        "id" : "t_scrap_wall_halfway",
+        "name": "half-built simple metal wall",
+        "symbol": "#",
+        "color": "dkgray",
+        "move_cost": 4,
+        "flags": ["NOITEM", "TRANSPARENT", "MOUNTABLE", "REDUCE_SCENT"],
+        "bash": {
+            "str_min": 50, "str_max": 130,
+            "sound": "metal screeching!",
+            "sound_fail": "clang!",
+            "ter_set": "t_pit_shallow",
+            "items": [
+                { "item": "steel_chunk", "count": [5, 11] }
+            ]
+        }
+    },{
+        "type" : "terrain",
         "id" : "t_sconc_wall",
         "name": "simple concrete wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "ltgray",
         "move_cost": 0,
-        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 90, "str_max": 350,
             "sound": "crash!",
@@ -89,10 +126,11 @@
         "type" : "terrain",
         "id" : "t_strconc_wall",
         "name": "reinforced concrete wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "ltgray",
         "move_cost": 0,
-        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 120, "str_max": 460,
             "sound": "scrrrash!",
@@ -599,6 +637,27 @@
         }
     },{
         "type" : "terrain",
+        "id" : "t_scrap_floor",
+        "name": "simple metal floor",
+        "symbol": ".",
+        "color": "cyan",
+        "move_cost": 2,
+        "roof": "t_flat_roof",
+        "flags": [
+            "TRANSPARENT", "SUPPORTS_ROOF", "COLLAPSES", "INDOORS", "FLAT", "ROAD"
+        ],
+        "bash": {
+            "str_min": 50, "str_max": 400,
+            "sound": "SMASH!!",
+            "ter_set": "t_null",
+            "str_min_supported": 100,
+            "bash_below": true,
+            "items": [
+                { "item": "steel_chunk", "count": [5, 11] }
+            ]
+        }
+    },{
+        "type" : "terrain",
         "id" : "t_floor_waxed",
         "name": "waxed floor",
         "symbol": ".",
@@ -708,10 +767,11 @@
         "type" : "terrain",
         "id" : "t_wall_log",
         "name": "log wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "brown",
         "move_cost": 0,
-        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 60, "str_max": 180,
             "sound": "crunch!",
@@ -725,10 +785,11 @@
         "type" : "terrain",
         "id" : "t_wall_log_chipped",
         "name": "chipped log wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "brown",
         "move_cost": 0,
-        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 40, "str_max": 160,
             "sound": "crunch!",
@@ -765,7 +826,7 @@
         "color": "brown",
         "move_cost": 0,
         "flags": [
-            "FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "TRANSPARENT", "REDUCE_SCENT", "CONNECT_TO_WALL"
+            "FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "REDUCE_SCENT", "CONNECT_TO_WALL", "WALL"
         ],
         "bash": {
             "str_min": 10, "str_max": 150,
@@ -784,7 +845,7 @@
         "color": "ltred",
         "move_cost": 0,
         "flags": [
-            "FLAMMABLE", "NOITEM", "DOOR", "TRANSPARENT", "CONNECT_TO_WALL"
+            "FLAMMABLE", "NOITEM", "DOOR", "CONNECT_TO_WALL", "WALL"
         ],
         "bash": {
             "str_min": 6, "str_max": 150,
@@ -837,10 +898,11 @@
         "type" : "terrain",
         "id" : "t_wall_wood",
         "name": "wooden wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "ltred",
         "move_cost": 0,
-        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 12, "str_max": 150,
             "sound": "crunch!",
@@ -856,10 +918,11 @@
         "type" : "terrain",
         "id" : "t_wall_wood_chipped",
         "name": "chipped wood wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "ltred",
         "move_cost": 0,
-        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["FLAMMABLE", "NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 8, "str_max": 150,
             "sound": "crunch!",
@@ -1853,6 +1916,47 @@
         }
     },{
         "type" : "terrain",
+        "id" : "t_door_metal_c_peep",
+        "name": "closed metal door with peephole",
+        "symbol": "+",
+        "color": "cyan",
+        "move_cost": 0,
+        "flags": ["NOITEM", "DOOR", "CONNECT_TO_WALL"],
+        "open": "t_door_metal_o_peep",
+        "examine_action": "door_peephole",
+        "bash": {
+            "str_min": 80, "str_max": 250,
+            "sound": "metal screeching!",
+            "sound_fail": "clang!",
+            "ter_set": "t_mdoor_frame",
+            "items": [
+                { "item": "peephole", "prob": 75 },
+                { "item": "scrap", "count": [12, 24] },
+                { "item": "steel_plate", "prob": 75 }
+            ]
+        }
+    },{
+        "type" : "terrain",
+        "id" : "t_door_metal_o_peep",
+        "name": "open metal door with peephole",
+        "symbol": "'",
+        "color": "cyan",
+        "move_cost": 2,
+        "flags": ["TRANSPARENT", "FLAT", "CONNECT_TO_WALL", "ROAD"],
+        "close": "t_door_metal_c_peep",
+        "bash": {
+            "str_min": 80, "str_max": 250,
+            "sound": "metal screeching!",
+            "sound_fail": "clang!",
+            "ter_set": "t_mdoor_frame",
+            "items": [
+                { "item": "peephole", "prob": 75 },
+                { "item": "scrap", "count": [12, 24] },
+                { "item": "steel_plate", "prob": 75 }
+            ]
+        }
+    },{
+        "type" : "terrain",
         "id" : "t_door_metal_locked",
         "name": "closed metal door",
         "comment": "Actually locked",
@@ -2477,12 +2581,12 @@
         }
     },{
         "type" : "terrain",
-        "id" : "t_window_bars_alarm",
-        "name": "window with metal bars",
+        "id" : "t_window_bars",
+        "name": "window frame with metal bars",
         "symbol": "#",
         "color": "ltgray",
         "move_cost": 0,
-        "flags": ["TRANSPARENT", "NOITEM", "REDUCE_SCENT", "ALARMED", "CONNECT_TO_WALL"],
+        "flags": ["TRANSPARENT", "NOITEM", "CONNECT_TO_WALL"],
         "bash": {
             "str_min": 60, "str_max": 250,
             "sound": "metal screeching!",
@@ -2493,6 +2597,25 @@
                 { "item": "steel_chunk", "count": [1, 4] },
                 { "item": "scrap", "count": [1, 5] },
                 { "item": "glass_shard", "count": 3 }
+            ]
+        }
+    },{
+        "type" : "terrain",
+        "id" : "t_window_bars_alarm",
+        "name": "window with metal bars",
+        "symbol": "#",
+        "color": "ltgray",
+        "move_cost": 0,
+        "flags": ["TRANSPARENT", "NOITEM", "REDUCE_SCENT", "ALARMED", "CONNECT_TO_WALL"],
+        "bash": {
+            "str_min": 3, "str_max": 6,
+            "sound": "glass breaking!",
+            "sound_fail": "whack!",
+            "sound_vol": 16,
+            "sound_fail_vol": 10,
+            "ter_set": "t_window_bars",
+            "items": [
+                { "item": "glass_shard", "count": 5 }
             ]
         }
     },{
@@ -2565,6 +2688,7 @@
             "ter_set": "t_rock_floor",
             "items": [
                 { "item": "rock", "count": [3, 7] },
+                { "item": "coal", "count": [0, 1], "prob": 10 },
                 { "item": "material_limestone", "charges": [10, 25], "prob": 80 },
                 { "item": "material_rocksalt", "count": [0, 1], "prob": 20 }
             ]
@@ -4286,6 +4410,13 @@
                 { "item": "2x4", "count": [1, 4] },
                 { "item": "splinter", "count": [2, 4] }
             ]
+        },
+        "deconstruct": {
+            "ter_set": "t_dirtfloor",
+            "items": [
+                { "item": "rope_30", "count": 1 },
+                { "item": "2x4", "count": 8 }
+            ]
         }
     },{
         "type" : "terrain",
@@ -4305,6 +4436,13 @@
                 { "item": "rope_6", "count": [3, 4] },
                 { "item": "2x4", "count": [1, 4] },
                 { "item": "splinter", "count": [2, 4] }
+            ]
+        },
+        "deconstruct": {
+            "ter_set": "t_dirtfloor",
+            "items": [
+                { "item": "rope_30", "count": 1 },
+                { "item": "2x4", "count": 8 }
             ]
         }
     },{
@@ -5033,10 +5171,11 @@
         "type" : "terrain",
         "id" : "t_rock_wall",
         "name": "stone wall",
-        "symbol": "#",
+        "symbol": "LINE_OXOX",
         "color": "ltgray",
         "move_cost": 0,
-        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL"],
+        "flags": ["NOITEM", "SUPPORTS_ROOF", "WALL", "AUTO_WALL_SYMBOL"],
+        "connects_to": "WALL",
         "bash": {
             "str_min": 80, "str_max": 300,
             "sound": "crash!",

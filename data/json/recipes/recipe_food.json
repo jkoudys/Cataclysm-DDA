@@ -92,6 +92,32 @@
   ]
 },{
   "type" : "recipe",
+  "result": "mushroom_cooked",
+  "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_VEGGI",
+  "skill_used": "cooking",
+  "difficulty": 0,
+  "time": 15000,
+  "reversible": false,
+  "autolearn": true,
+  "batch_time_factors":[67, 5],
+  "qualities":[
+    {"id":"COOK","level":1,"amount":1}
+  ], "tools": [
+    [
+      [ "hotplate", 7 ],
+      [ "char_smoker", 1 ],
+      [ "toolset", 7 ],
+      [ "fire", -1 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "mushroom", 1 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
   "result": "meat_cooked",
   "category": "CC_FOOD",
   "subcategory": "CSC_FOOD_MEAT",
@@ -349,7 +375,8 @@
       [ "seed_cotton_boll", 1 ],
       [ "seed_pumpkin", 4 ],
       [ "seed_sunflower", 2 ],
-      [ "seed_canola", 4 ]
+      [ "seed_canola", 4 ],
+      [ "seed_weed", 6 ]
     ]
   ]
 },{
@@ -627,21 +654,42 @@
   "subcategory": "CSC_FOOD_OTHER",
   "skill_used": "cooking",
   "difficulty": 2,
-  "skills_required": [ "survival", 5 ],
-  "time": 9000,
+  "time": 18000,
   "reversible": false,
   "autolearn": true,
   "batch_time_factors":[67, 5],
   "tools": [
     [
-      [ "dehydrator", 20 ],
-      [ "char_smoker", 4 ]
+      [ "dehydrator", 25 ],
+      [ "char_smoker", 5 ]
     ]
   ],
   "components": [
     [
       [ "mushroom", 4 ],
       [ "mushroom_morel", 4 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "dry_mushroom_magic",
+  "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_VEGGI",
+  "skill_used": "cooking",
+  "difficulty": 2,
+  "time": 18000,
+  "reversible": false,
+  "autolearn": true,
+  "batch_time_factors":[67, 5],
+  "tools": [
+    [
+      [ "dehydrator", 25 ],
+      [ "char_smoker", 5 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "mushroom_magic", 4 ]
     ]
   ]
 },{
@@ -689,6 +737,50 @@
   "components": [
     [
       [ "fish", 3 ]
+    ],
+    [
+      [ "flour", 1 ],
+      [ "cornmeal", 1 ],
+      [ "flatbread", 1 ],
+      [ "tortilla_corn", 1 ],
+      [ "bread", 1 ],
+      [ "wastebread", 1 ],
+      [ "cornbread", 1 ],
+      [ "hardtack", 1 ],
+      [ "crackers", 1 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "onion_rings",
+  "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_VEGGI",
+  "skill_used": "cooking",
+  "difficulty": 3,
+  "time": 16000,
+  "reversible": false,
+  "autolearn": true,
+  "note": "the cooking oil isn't supposed to be expended since you can recycle it after frying the onions",
+  "qualities" : [
+    {"id":"CUT","level":1,"amount":1},
+    {"id":"COOK","level":2,"amount":1}
+  ],
+  "tools": [
+    [
+      [ "hotplate", 8 ],
+      [ "char_smoker", 1 ],
+      [ "toolset", 8 ],
+      [ "fire", -1 ]
+    ],
+    [
+      [ "cooking_oil", -1 ],
+      [ "tallow", -1 ],
+      [ "lard", -1 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "onion", 1 ]
     ],
     [
       [ "flour", 1 ],
@@ -765,6 +857,8 @@
     [
       [ "lettuce", 1 ],
       [ "irradiated_lettuce", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
       [ "dandelion_cooked", 1 ],
       [ "veggy_wild_cooked", 1 ],
       [ "veggy_cooked", 1 ]
@@ -809,6 +903,8 @@
     [
       [ "lettuce", 1 ],
       [ "irradiated_lettuce", 1],
+      [ "cabbage", 1],
+      [ "irradiated_cabbage", 1],
       [ "dandelion_cooked", 1 ],
       [ "veggy_wild_cooked", 1 ],
       [ "veggy_cooked", 1 ]
@@ -845,6 +941,8 @@
     [
       [ "lettuce", 1 ],
       [ "irradiated_lettuce", 1],
+      [ "cabbage", 1],
+      [ "irradiated_cabbage", 1],
       [ "dandelion_cooked", 1 ],
       [ "veggy_wild_cooked", 1 ],
       [ "veggy_cooked", 1 ]
@@ -881,6 +979,8 @@
     [
       [ "lettuce", 1 ],
       [ "irradiated_lettuce", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
       [ "dandelion_cooked", 1 ],
       [ "veggy_wild_cooked", 1 ],
       [ "veggy_cooked", 1 ]
@@ -3265,6 +3365,8 @@
         [ "irradiated_corn", 3 ],
         [ "onion", 9 ],
         [ "irradiated_onion", 9 ],
+        [ "cabbage", 3 ],
+        [ "irradiated_cabbage", 3 ],
         [ "irradiated_carrot", 9 ],
         [ "carrot", 9 ]
     ],
@@ -3664,6 +3766,9 @@
       [ "egg_reptile", 1 ],
       [ "dry_veggy", 2 ],
       [ "dandelion_cooked", 2 ],
+      [ "mushroom_cooked", 2 ],
+      [ "morel_cooked", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ]
     ],
     [
@@ -3741,6 +3846,124 @@
   ]
 },{
   "type" : "recipe",
+  "result": "soup_mushroom",
+  "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_VEGGI",
+  "skill_used": "cooking",
+  "difficulty": 2,
+  "time": 20000,
+  "reversible": false,
+  "autolearn": true,
+  "batch_time_factors":[80, 4],
+  "qualities":[
+    {"id":"COOK","level":3,"amount":1}
+  ], "tools": [
+    [
+      [ "hotplate", 5 ],
+      [ "char_smoker", 1 ],
+      [ "toolset", 5 ],
+      [ "fire", -1 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "broth", 1 ]
+    ],
+    [
+      [ "mushroom", 4 ],
+      [ "mushroom_cooked", 4 ],
+      [ "dry_mushroom", 4 ],
+      [ "morel_cooked", 4 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "jar_soup_mushroom",
+  "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_VEGGI",
+  "skill_used": "cooking",
+  "skills_required": ["mechanics",1],
+  "difficulty": 4,
+  "time": 30000,
+  "reversible": false,
+  "autolearn": true,
+  "batch_time_factors":[80, 4],
+  "qualities":[
+    {"id":"COOK","level":3,"amount":1}
+  ], "tools": [
+    [
+      [ "hotplate", 10 ],
+      [ "char_smoker", 1 ],
+      [ "toolset", 10 ],
+      [ "fire", -1 ]
+    ],
+    [
+      [ "vac_sealer", 10 ],
+      [ "makeshift_sealer", 20 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "jar_glass", 1 ]
+    ],
+    [
+      [ "broth", 1 ]
+    ],
+    [
+      [ "mushroom", 4 ],
+      [ "mushroom_cooked", 4 ],
+      [ "dry_mushroom", 4 ],
+      [ "morel_cooked", 4 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+  "result": "soup_mushroom",
+  "id_suffix" : "canned",
+  "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_VEGGI",
+  "skill_used": "cooking",
+  "difficulty": 4,
+  "time": 24000,
+  "reversible": false,
+  "autolearn": true,
+  "contained": true,
+  "batch_time_factors":[83, 5],
+  "qualities" : [
+    {"id":"SAW_M","level":1,"amount":1},
+    {"id":"HAMMER","level":1,"amount":1},
+    {"id":"CUT","level":1,"amount":1},
+    {"id":"COOK","level":3,"amount":1}
+  ], "tools": [
+    [
+      [ "hotplate", 10 ],
+      [ "char_smoker", 1 ],
+      [ "toolset", 10 ],
+      [ "fire", -1 ]
+    ],
+    [
+      [ "can_sealer", -1 ]
+    ]
+  ],
+  "components": [
+    [
+      [ "can_food", 1 ]
+    ],
+    [
+      [ "scrap", 1 ]
+    ],
+    [
+      [ "broth", 1 ]
+    ],
+    [
+      [ "mushroom", 4 ],
+      [ "mushroom_cooked", 4 ],
+      [ "dry_mushroom", 4 ],
+      [ "morel_cooked", 4 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
   "result": "soup_veggy",
   "category": "CC_FOOD",
   "subcategory": "CSC_FOOD_VEGGI",
@@ -3772,6 +3995,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -3801,7 +4027,10 @@
       [ "carrot", 12 ],
       [ "veggy", 2 ],
       [ "dry_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "mushroom_cooked", 2 ],
+      [ "morel_cooked", 2 ],
       [ "rehydrated_veggy", 2 ],
       [ "veggy_wild", 2 ]
     ]
@@ -3840,6 +4069,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -3893,6 +4125,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "corn", 1 ],
       [ "irradiated_corn", 1 ],
       [ "can_corn", 1 ],
@@ -3925,7 +4160,10 @@
       [ "can_beans", 1 ],
       [ "beans_cooked", 1 ],
       [ "dandelion_cooked", 1 ],
+      [ "mushroom", 1 ],
       [ "dry_mushroom", 1 ],
+      [ "mushroom_cooked", 1 ],
+      [ "morel_cooked", 1 ],
       [ "acorns_cooked", 1 ]
     ],
     [
@@ -3996,7 +4234,10 @@
       [ "raw_beans", 1 ],
       [ "dry_rice", 1 ],
       [ "dandelion_cooked", 1 ],
+      [ "mushroom", 1 ],
       [ "dry_mushroom", 1 ],
+      [ "mushroom_cooked", 1 ],
+      [ "morel_cooked", 1 ],
       [ "acorns_cooked", 1 ]
     ]
   ]
@@ -4036,6 +4277,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -4402,6 +4646,7 @@
   "time": 6000,
   "reversible": false,
   "autolearn": true,
+  "batch_time_factors":[82, 4],
   "qualities":[
     {"id":"COOK","level":2,"amount":1}
   ], "tools": [
@@ -4532,7 +4777,10 @@
       ["veggy", 1],
       ["veggy_wild", 1],
       ["dry_veggy", 1 ],
+      ["mushroom", 1 ],
       ["dry_mushroom", 1 ],
+      ["morel_cooked", 1 ],
+      ["mushroom_cooked", 1 ],
       ["rehydrated_veggy", 1 ],
       [ "can_tomato", 1 ],
       ["tomato", 1],
@@ -4545,6 +4793,9 @@
       ["irradiated_zucchini", 1],
       ["celery", 1 ],
       ["irradiated_celery", 1],
+      ["cabbage", 1],
+      ["irradiated_cabbage", 1],
+      ["sauerkraut", 2],
       ["potato_raw", 1],
       ["potato_irradiated", 1],
       ["corn", 1],
@@ -4574,6 +4825,7 @@
   "time": 3000,
   "reversible": false,
   "autolearn": true,
+  "batch_time_factors":[82, 4],
   "qualities":[
     {"id":"COOK","level":2,"amount":1}
   ], "tools": [
@@ -4673,6 +4925,7 @@
       ["veggy", 1],
       ["veggy_wild", 1],
       ["dry_veggy", 1 ],
+      ["mushroom", 1 ],
       ["dry_mushroom", 1 ],
       ["rehydrated_veggy", 1 ],
       [ "can_tomato", 1 ],
@@ -4686,6 +4939,9 @@
       ["irradiated_zucchini", 1],
       ["celery", 1 ],
       ["irradiated_celery", 1],
+      ["cabbage", 1],
+      ["irradiated_cabbage", 1],
+      ["sauerkraut", 2],
       ["potato_raw", 1],
       ["potato_irradiated", 1],
       ["corn", 1],
@@ -4711,6 +4967,7 @@
   "time": 6000,
   "reversible": false,
   "autolearn": true,
+  "batch_time_factors":[82, 4],
   "qualities":[
     {"id":"COOK","level":2,"amount":1}
   ], "tools": [
@@ -4827,7 +5084,10 @@
     [
       ["veggy", 1],
       ["dry_veggy", 1 ],
+      ["mushroom", 1 ],
       ["dry_mushroom", 1 ],
+      ["morel_cooked", 1 ],
+      ["mushroom_cooked", 1 ],
       ["rehydrated_veggy", 1 ],
       ["veggy_wild", 1],
       [ "can_tomato", 1 ],
@@ -4841,6 +5101,9 @@
       ["irradiated_zucchini", 1],
       ["celery", 1 ],
       ["irradiated_celery", 1],
+      ["cabbage", 1 ],
+      ["irradiated_cabbage", 1 ],
+      ["sauerkraut", 2 ],
       ["potato_raw", 1],
       ["potato_irradiated", 1],
       ["corn", 1],
@@ -5010,15 +5273,13 @@
   "tools": [
     [
       ["hotplate", 5],
-      [ "char_smoker", 1 ],
+      ["char_smoker", 1],
       ["toolset", 5],
       ["fire", -1]
     ]
   ],
   "components": [
-    [
-      ["pinecone", 4]
-    ]
+    [["pinecone", 4]]
   ]
 },{
   "type" : "recipe",
@@ -5030,13 +5291,12 @@
   "time": 6000,
   "reversible": false,
   "autolearn": true,
+  "flags": ["BLIND_EASY"],
   "qualities":[
     {"id":"HAMMER","level":1,"amount":1}
   ],
   "components": [
-    [
-      ["hickory_nut", 1]
-    ]
+    [["hickory_nut", 1]]
   ]
 },{
   "type" : "recipe",
@@ -5055,7 +5315,7 @@
   "tools": [
     [
       ["hotplate", 5],
-      [ "char_smoker", 1 ],
+      ["char_smoker", 1],
       ["toolset", 5],
       ["fire", -1]
     ]
@@ -6209,6 +6469,9 @@
       [ "irradiated_zucchini", 2 ],
       [ "celery", 2 ],
       [ "irradiated_celery", 2 ],
+      [ "cabbage", 2 ],
+      [ "irradiated_cabbage", 2 ],
+      [ "sauerkraut", 4 ],
       [ "potato_raw", 2 ],
       [ "potato_irradiated", 2 ],
       [ "onion", 2 ],
@@ -6330,7 +6593,10 @@
       [ "veggy_vac", 2 ],
       [ "rehydrated_veggy", 2 ],
       [ "dry_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "morel_cooked", 2 ],
+      [ "mushroom_cooked", 2 ],
       [ "dry_beans", 1 ],
       [ "raw_beans", 1 ],
       [ "dry_rice", 1 ]
@@ -6378,7 +6644,10 @@
       [ "veggy_vac", 2 ],
       [ "rehydrated_veggy", 2 ],
       [ "dry_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "morel_cooked", 2 ],
+      [ "mushroom_cooked", 2 ],
       [ "dry_beans", 1 ],
       [ "raw_beans", 1 ],
       [ "dry_rice", 1 ]
@@ -6419,7 +6688,10 @@
       [ "veggy_wild", 2 ],
       [ "veggy_vac", 2 ],
       [ "rehydrated_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "morel_cooked", 2 ],
+      [ "mushroom_cooked", 2 ],
       [ "dry_veggy", 2 ]
     ],
     [
@@ -6470,7 +6742,10 @@
       [ "veggy_wild", 2 ],
       [ "veggy_vac", 2 ],
       [ "rehydrated_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "morel_cooked", 2 ],
+      [ "mushroom_cooked", 2 ],
       [ "dry_veggy", 2 ]
     ],
     [
@@ -6525,6 +6800,9 @@
       [ "veggy_vac", 2 ],
       [ "celery", 2 ],
       [ "irradiated_celery", 2 ],
+      [ "cabbage", 2 ],
+      [ "irradiated_cabbage", 2 ],
+      [ "sauerkraut", 4 ],
       [ "tomato", 2 ],
       [ "can_tomato", 2 ],
       [ "pumpkin", 2 ],
@@ -6535,7 +6813,10 @@
       [ "irradiated_tomato", 2 ],
       [ "irradiated_broccoli", 1 ],
       [ "rehydrated_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "morel_cooked", 2 ],
+      [ "mushroom_cooked", 2 ],
       [ "dry_veggy", 2 ]
     ],
     [
@@ -6953,6 +7234,9 @@
       [ "veggy_wild", 2 ],
       [ "rehydrated_veggy", 2 ],
       [ "dry_veggy", 2 ],
+      [ "mushroom", 2 ],
+      [ "mushroom_cooked", 2 ],
+      [ "morel_cooked", 2 ],
       [ "dry_mushroom", 2 ]
     ]
   ]
@@ -7342,6 +7626,7 @@
       [ "jar_glass", 1 ]
     ],
     [
+      [ "mushroom", 1 ],
       [ "veggy", 1 ],
       [ "veggy_wild", 1 ]
     ]
@@ -7490,7 +7775,10 @@
       [ "raw_beans", 1 ],
       [ "beans_cooked", 1 ],
       [ "dandelion_cooked", 1 ],
+      [ "mushroom", 1 ],
       [ "dry_mushroom", 1 ],
+      [ "mushroom_cooked", 1 ],
+      [ "morel_cooked", 1 ],
       [ "acorns_cooked", 1 ]
     ]
   ]
@@ -7533,6 +7821,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -7593,6 +7884,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -7625,7 +7919,10 @@
       [ "irradiated_carrot", 12 ],
       [ "veggy", 2 ],
       [ "dry_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "mushroom_cooked", 2 ],
+      [ "morel_cooked", 2 ],
       [ "rehydrated_veggy", 2 ],
       [ "veggy_wild", 2 ]
     ]
@@ -7669,6 +7966,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "corn", 1 ],
       [ "can_corn", 1 ],
       [ "irradiated_corn", 1 ],
@@ -7704,7 +8004,10 @@
       [ "dry_rice", 1 ],
       [ "beans_cooked", 1 ],
       [ "dandelion_cooked", 1 ],
+      [ "mushroom", 1 ],
       [ "dry_mushroom", 1 ],
+      [ "morel_cooked", 1 ],
+      [ "mushroom_cooked", 1 ],
       [ "acorns_cooked", 1 ]
     ],
     [
@@ -7760,6 +8063,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -7830,6 +8136,9 @@
       [ "egg_reptile", 1 ],
       [ "dry_veggy", 2 ],
       [ "dandelion_cooked", 2 ],
+      [ "mushroom_cooked", 2 ],
+      [ "morel_cooked", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ]
     ],
     [
@@ -8058,6 +8367,7 @@
       [ "bag_plastic", 1 ]
     ],
     [
+      [ "mushroom", 2 ],
       [ "veggy", 2 ],
       [ "veggy_wild", 2 ]
     ],
@@ -8942,6 +9252,190 @@
   ]
 },{
   "type" : "recipe",
+   "result": "sandwich_dudeluxe",
+   "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_MEAT",
+   "skill_used": "cooking",
+   "difficulty": 2,
+   "time": 7500,
+   "reversible": false,
+   "autolearn": false,
+  "book_learn": [[ "cookbook_human", 3 ]],
+  "qualities" : [
+    {"id":"CUT","level":1,"amount":1}
+  ],
+  "components": [
+    [
+      [ "hflesh_vac", 1 ],
+      [ "human_canned", 1 ],
+      [ "hflesh_aspic", 1 ],
+      [ "human_smoked", 1 ],
+      [ "human_cooked", 2 ],
+      [ "hfleshbologna", 2 ],
+      [ "rehydrated_hflesh", 2 ],
+      [ "human_pickled", 2 ],
+      [ "mannwurst", 1 ]
+    ],
+    [
+      [ "flatbread", 2 ],
+      [ "bread", 2 ],
+      [ "cornbread", 2 ],
+      [ "brioche", 2 ],
+      [ "biscuit", 2 ],
+      [ "tortilla_corn", 2 ]
+    ],
+    [
+      [ "cheese", 2 ], [ "cheese_hard", 2 ], [ "can_cheese", 2]
+    ],
+    [
+      [ "veggy_cooked", 1 ],
+      [ "veggy_wild_cooked", 1 ],
+      [ "veggy_vac", 1 ],
+      [ "celery", 1 ],
+      [ "irradiated_celery", 1 ],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 1 ],
+      [ "tomato", 1 ],
+      [ "can_tomato", 1 ],
+      [ "irradiated_pumpkin", 1 ],
+      [ "onion", 1 ],
+      [ "irradiated_onion", 1 ],
+      [ "broccoli", 1 ],
+      [ "irradiated_tomato", 1 ],
+      [ "irradiated_broccoli", 1 ],
+      [ "rehydrated_veggy", 1 ],
+      [ "morel_cooked", 1 ],
+      [ "mushroom_cooked", 1 ],
+      [ "sauerkraut_onions", 1 ],
+      [ "pickle", 1 ],
+      [ "veggy_canned", 1 ],
+      [ "beans_cooked", 1 ],
+      [ "irradiated_carrot", 1 ],
+      [ "irradiated_zucchini", 1 ],
+      [ "irradiated_lettuce", 1 ],
+      [ "carrot", 1 ],
+      [ "zucchini", 1 ],
+      [ "lettuce", 1 ],
+      [ "pine_nuts", 1 ],
+      [ "morel_fried", 1 ],
+      [ "veggy_aspic", 1 ],
+      [ "dahlia_baked", 1 ],
+      [ "irradiated_cucumber", 1 ],
+      [ "cucumber", 1 ],
+      [ "veggy_pickled", 1 ],
+      [ "cooked_cattail_stalk", 1 ],
+      [ "cooked_pumpkin", 1 ],
+      [ "potato_baked", 1 ],
+      [ "potato_irradiated", 1 ],
+      [ "can_tomato", 1 ],
+      [ "dandelion_cooked", 1 ]
+    ],
+    [
+      [ "ketchup", 1 ], [ "blood", 1], [ "mustard", 1], [ "horseradish", 1 ], [ "mayonnaise", 1], [ "seasoning_salt", 5], [ "soysauce", 1 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+   "result": "sandwich_deluxe",
+   "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_MEAT",
+   "skill_used": "cooking",
+   "difficulty": 2,
+   "time": 7500,
+   "reversible": false,
+   "autolearn": true,
+  "qualities" : [
+    {"id":"CUT","level":1,"amount":1}
+  ],
+  "components": [
+    [
+      [ "meat_cooked", 1 ],
+      [ "lunchmeat", 4 ],
+      [ "bologna", 5 ],
+      [ "fish_cooked", 1 ],
+      [ "bacon", 2 ],
+      [ "meat_vac", 2 ],
+      [ "fried_spam", 2 ],
+      [ "rehydrated_meat", 2 ],
+      [ "fish_smoked", 1 ],
+      [ "meat_smoked", 1 ],
+      [ "sausage", 1 ],
+      [ "can_herring", 1 ],
+      [ "can_chicken", 1 ],
+      [ "can_salmon", 1 ],
+      [ "can_tuna", 1 ],
+      [ "can_sardine", 1 ],
+      [ "can_clams", 1 ],
+      [ "meat_canned", 1 ],
+      [ "rehydrated_fish", 2 ],
+      [ "fish_pickled", 1 ],
+      [ "meat_pickled", 1 ],
+      [ "cracklins", 2 ],
+      [ "can_spam", 1 ],
+      [ "meat_aspic", 2 ]
+    ],
+    [
+      [ "flatbread", 2 ],
+      [ "bread", 2 ],
+      [ "cornbread", 2 ],
+      [ "brioche", 2 ],
+      [ "biscuit", 2 ],
+      [ "tortilla_corn", 2 ]
+    ],
+    [
+      [ "cheese", 2 ], [ "cheese_hard", 2 ], [ "can_cheese", 2]
+    ],
+    [
+      [ "veggy_cooked", 1 ],
+      [ "veggy_wild_cooked", 1 ],
+      [ "veggy_vac", 1 ],
+      [ "celery", 1 ],
+      [ "irradiated_celery", 1 ],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 1 ],
+      [ "tomato", 1 ],
+      [ "can_tomato", 1 ],
+      [ "irradiated_pumpkin", 1 ],
+      [ "onion", 1 ],
+      [ "irradiated_onion", 1 ],
+      [ "broccoli", 1 ],
+      [ "irradiated_tomato", 1 ],
+      [ "irradiated_broccoli", 1 ],
+      [ "rehydrated_veggy", 1 ],
+      [ "morel_cooked", 1 ],
+      [ "mushroom_cooked", 1 ],
+      [ "sauerkraut_onions", 1 ],
+      [ "pickle", 1 ],
+      [ "veggy_canned", 1 ],
+      [ "beans_cooked", 1 ],
+      [ "irradiated_carrot", 1 ],
+      [ "irradiated_zucchini", 1 ],
+      [ "irradiated_lettuce", 1 ],
+      [ "carrot", 1 ],
+      [ "zucchini", 1 ],
+      [ "lettuce", 1 ],
+      [ "pine_nuts", 1 ],
+      [ "morel_fried", 1 ],
+      [ "veggy_aspic", 1 ],
+      [ "dahlia_baked", 1 ],
+      [ "irradiated_cucumber", 1 ],
+      [ "cucumber", 1 ],
+      [ "veggy_pickled", 1 ],
+      [ "cooked_cattail_stalk", 1 ],
+      [ "cooked_pumpkin", 1 ],
+      [ "potato_baked", 1 ],
+      [ "potato_irradiated", 1 ],
+      [ "can_tomato", 1 ],
+      [ "dandelion_cooked", 1 ]
+    ],
+    [
+      [ "ketchup", 1 ], [ "mustard", 1], [ "horseradish", 1 ], [ "mayonnaise", 1], [ "seasoning_salt", 5], [ "soysauce", 1 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
    "result": "cheeseburgerhuman",
    "category": "CC_FOOD",
   "subcategory": "CSC_FOOD_MEAT",
@@ -9740,6 +10234,7 @@
     [
       ["veggy", 1],
       ["veggy_wild", 1],
+      ["mushroom", 1],
       ["tomato", 1],
       ["irradiated_tomato", 1],
       ["broccoli", 1],
@@ -9754,6 +10249,8 @@
       ["irradiated_corn", 1],
       ["onion", 1],
       ["irradiated_onion", 1],
+      ["garlic", 1],
+      ["seed_garlic", 6],
       ["irradiated_carrot", 6],
       ["carrot", 6]
     ],
@@ -10278,6 +10775,7 @@
       [ "irradiated_broccoli", 1],
       [ "dandelion_cooked", 1 ],
       [ "veggy_wild_cooked", 1 ],
+      [ "sauerkraut", 2 ],
       [ "irradiated_cabbage", 1 ],
       [ "cabbage", 1 ]
     ],
@@ -10874,7 +11372,10 @@
       [ "raw_beans", 1 ],
       [ "dry_rice", 1 ],
       [ "dandelion_cooked", 1 ],
+      [ "mushroom", 1 ],
       [ "dry_mushroom", 1 ],
+      [ "mushroom_cooked", 1 ],
+      [ "morel_cooked", 1 ],
       [ "acorns_cooked", 1 ]
     ]
   ]
@@ -10925,6 +11426,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -10954,7 +11458,10 @@
       [ "carrot", 12 ],
       [ "veggy", 2 ],
       [ "dry_veggy", 2 ],
+      [ "mushroom", 2 ],
       [ "dry_mushroom", 2 ],
+      [ "mushroom_cooked", 2 ],
+      [ "morel_cooked", 2 ],
       [ "rehydrated_veggy", 2 ],
       [ "veggy_wild", 2 ]
     ]
@@ -11007,6 +11514,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "powder_eggs", 5 ],
       [ "egg_bird", 1 ],
       [ "egg_reptile", 1 ],
@@ -11074,6 +11584,9 @@
       [ "potato_raw", 1 ],
       [ "celery", 1 ],
       [ "irradiated_celery", 1],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 2 ],
       [ "corn", 1 ],
       [ "irradiated_corn", 1 ],
       [ "can_corn", 1 ],
@@ -11106,7 +11619,10 @@
       [ "can_beans", 1 ],
       [ "beans_cooked", 1 ],
       [ "dandelion_cooked", 1 ],
+      [ "mushroom", 1 ],
       [ "dry_mushroom", 1 ],
+      [ "morel_cooked", 1 ],
+      [ "mushroom_cooked", 1 ],
       [ "acorns_cooked", 1 ]
     ],
     [
@@ -11191,6 +11707,105 @@
     [
       [ "water", 2 ],
       [ "water_clean", 2 ]
+    ]
+  ]
+},{
+  "type" : "recipe",
+   "result": "sandwich_veggy",
+   "category": "CC_FOOD",
+  "subcategory": "CSC_FOOD_MEAT",
+   "skill_used": "cooking",
+   "difficulty": 0,
+   "time": 3000,
+   "reversible": true,
+   "autolearn": true,
+   "qualities" : [
+     {"id":"CUT","level":1,"amount":1}
+  ],
+  "components": [
+    [
+      [ "flatbread", 2 ],
+      [ "bread", 2 ],
+      [ "cornbread", 2 ],
+      [ "wastebread", 2 ]
+    ],
+    [
+      [ "veggy_cooked", 1 ],
+      [ "veggy_wild_cooked", 1 ],
+      [ "veggy_vac", 1 ],
+      [ "celery", 1 ],
+      [ "irradiated_celery", 1 ],
+      [ "cabbage", 1 ],
+      [ "irradiated_cabbage", 1 ],
+      [ "sauerkraut", 1 ],
+      [ "tomato", 1 ],
+      [ "can_tomato", 1 ],
+      [ "irradiated_pumpkin", 1 ],
+      [ "onion", 1 ],
+      [ "irradiated_onion", 1 ],
+      [ "broccoli", 1 ],
+      [ "irradiated_tomato", 1 ],
+      [ "irradiated_broccoli", 1 ],
+      [ "rehydrated_veggy", 1 ],
+      [ "morel_cooked", 1 ],
+      [ "mushroom_cooked", 1 ],
+      [ "sauerkraut_onions", 1 ],
+      [ "pickle", 1 ],
+      [ "veggy_canned", 1 ],
+      [ "beans_cooked", 1 ],
+      [ "irradiated_carrot", 1 ],
+      [ "irradiated_zucchini", 1 ],
+      [ "irradiated_lettuce", 1 ],
+      [ "carrot", 1 ],
+      [ "zucchini", 1 ],
+      [ "lettuce", 1 ],
+      [ "pine_nuts", 1 ],
+      [ "morel_fried", 1 ],
+      [ "veggy_aspic", 1 ],
+      [ "dahlia_baked", 1 ],
+      [ "irradiated_cucumber", 1 ],
+      [ "cucumber", 1 ],
+      [ "veggy_pickled", 1 ],
+      [ "cooked_cattail_stalk", 1 ],
+      [ "cooked_pumpkin", 1 ],
+      [ "potato_baked", 1 ],
+      [ "potato_irradiated", 1 ],
+      [ "can_tomato", 1 ],
+      [ "dandelion_cooked", 1 ]
+    ]
+  ]
+},
+{
+   "type" : "recipe",
+   "result": "sandwich_cucumber",
+   "category": "CC_FOOD",
+   "subcategory": "CSC_FOOD_SNACK",
+   "skill_used": "cooking",
+   "difficulty": 0,
+   "time": 1500,
+   "reversible": false,
+   "autolearn": true,
+   "qualities" : [
+     {"id":"CUT","level":1,"amount":1}
+   ],
+  "components": [
+    [
+      [ "flatbread", 2 ],
+      [ "tortilla_corn", 2 ],
+      [ "johnnycake", 2 ],
+      [ "cornbread", 2 ],
+      [ "brioche", 2 ],
+      [ "bread", 2 ]
+    ],
+    [
+      [ "cucumber", 1 ],
+      [ "irradiated_cucumber", 1 ]
+    ],   
+    [
+      [ "mayonnaise", 1 ],
+      [ "mustard", 1 ],
+      [ "horseradish", 2 ],
+      [ "seasoning_salt", 2 ]
     ]
   ]
 },
@@ -12332,10 +12947,10 @@
       [ "brandy", 1 ],
       [ "whiskey", 1 ],
       [ "single_malt_whiskey", 1 ]
-    ],	
+    ],
     [
       [ "cinnamon", 5 ]
-    ]	  
+    ]
   ]
 }
 ]

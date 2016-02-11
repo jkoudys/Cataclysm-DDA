@@ -16,6 +16,7 @@ struct tripoint;
 class item;
 class monster;
 class Creature;
+class JsonObject;
 
 enum damage_type : int {
     DT_NULL = 0, // null damage, doesn't exist
@@ -86,7 +87,10 @@ struct resistances {
 
 struct projectile {
         damage_instance impact;
-        int speed; // how hard is it to dodge? essentially rolls to-hit, bullets have arbitrarily high values but thrown objects have dodgeable values
+        // how hard is it to dodge? essentially rolls to-hit,
+        // bullets have arbitrarily high values but thrown objects have dodgeable values.
+        int speed;
+        int range;
 
         std::set<std::string> proj_effects;
 
@@ -106,8 +110,9 @@ struct projectile {
         projectile &operator=( const projectile & );
 
     private:
-        std::unique_ptr<item>
-        drop; // Actual item used (to drop contents etc.). Null in case of bullets (they aren't "made of cartridges")
+        // Actual item used (to drop contents etc.).
+        // Null in case of bullets (they aren't "made of cartridges").
+        std::unique_ptr<item> drop;
 };
 
 struct dealt_projectile_attack {
@@ -122,5 +127,9 @@ void ammo_effects( const tripoint &p, const std::set<std::string> &effects );
 int aoe_size( const std::set<std::string> &effects );
 
 damage_type dt_by_name( const std::string &name );
+const std::string &name_by_dt( const damage_type &dt );
+
+damage_instance load_damage_instance( JsonObject &jo );
+damage_instance load_damage_instance( JsonArray &jarr );
 
 #endif

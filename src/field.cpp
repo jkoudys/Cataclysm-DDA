@@ -942,7 +942,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                     for( auto mat : fuel->made_of_types() ) {
                                         best_res = std::max( best_res, mat->fire_resist() );
                                     }
-                                    if( best_res < cur->getFieldDensity() && one_in( fuel->volume( true, false ) ) ) {
+                                    if( best_res < cur->getFieldDensity() && one_in( fuel->volume() ) ) {
                                         smoke++;
                                         burn_amt = cur->getFieldDensity() - best_res;
                                     }
@@ -1842,6 +1842,10 @@ void map::player_in_field( player &u )
                 } else {
                     adjusted_intensity -= 1;
                 }
+            }
+
+            if( adjusted_intensity < 1 ) {
+                break;
             }
             {
                 // Burn message by intensity

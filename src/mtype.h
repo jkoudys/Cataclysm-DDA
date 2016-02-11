@@ -7,6 +7,7 @@
 #include "color.h"
 #include "int_id.h"
 #include "string_id.h"
+#include "damage.h"
 
 #include <bitset>
 #include <string>
@@ -17,7 +18,6 @@
 class Creature;
 class monster;
 class monfaction;
-struct projectile;
 struct dealt_projectile_attack;
 struct species_type;
 enum field_id : int;
@@ -35,6 +35,7 @@ using mfaction_id = int_id<monfaction>;
 using species_id = string_id<species_type>;
 class effect_type;
 using efftype_id = string_id<effect_type>;
+class JsonArray;
 
 typedef std::string itype_id;
 
@@ -230,6 +231,13 @@ struct mtype {
         std::string name_plural;
 
         std::set< const species_type* > species_ptrs;
+
+        void add_special_attacks( JsonObject &jo, const std::string &member_name );
+        void remove_special_attacks( JsonObject &jo, const std::string &member_name );
+
+        void add_special_attack( JsonArray jarr );
+        void add_special_attack( JsonObject jo );
+
     public:
         mtype_id id;
         // TODO: maybe make this private as well? It must be set to `true` only once,
@@ -265,10 +273,10 @@ struct mtype {
         int  speed;       // Speed; human = 100
         // Number of moves per regular attack.
         int attack_cost;
+        damage_instance melee_damage; // Basic melee attack damage
         unsigned char melee_skill; // Melee hit skill, 20 is superhuman hitting abilities.
-        unsigned char melee_dice;  // Number of dice on melee hit
+        unsigned char melee_dice;  // Number of dice of bonus bashing damage on melee hit
         unsigned char melee_sides; // Number of sides those dice have
-        unsigned char melee_cut;   // Bonus cutting damage
         unsigned char sk_dodge;    // Dodge skill; should be 0 to 5
         unsigned char armor_bash;  // Natural armor vs. bash
         unsigned char armor_cut;   // Natural armor vs. cut

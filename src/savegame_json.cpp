@@ -45,6 +45,86 @@ const std::string obj_type_name[11]={ "OBJECT_NONE", "OBJECT_ITEM", "OBJECT_ACTO
     "OBJECT_TERRAIN", "OBJECT_FURNITURE"
 };
 
+std::vector<item> item::magazine_convert() {
+    std::vector<item> res;
+
+    // only guns, auxiliary gunmods and tools require conversion
+    if( !is_gun() && !is_tool() ) {
+        return res;
+    }
+
+    // ignore items that have already been converted
+    if( has_var( "magazine_converted" ) ) {
+        return res;
+    }
+
+    // if item has integral magazine remove any magazine mods but do not mark item as converted
+    if( magazine_integral() ) {
+        if( !is_gun() ) {
+            return res; // only guns can have attached gunmods
+        }
+
+        int qty = has_gunmod( "spare_mag" ) >= 0 ? contents[ has_gunmod( "spare_mag" ) ].charges : 0;
+        qty += charges - type->gun->clip; // excess ammo from magazine extensions
+
+        // limit ammo to base capacity and return any excess as a new item
+        charges = std::min( charges, long( type->gun->clip ) );
+        if( qty > 0 ) {
+            res.emplace_back( get_curammo() ? get_curammo()->id : default_ammo( ammo_type() ), calendar::turn );
+            res.back().charges = qty;
+        }
+
+        contents.erase( std::remove_if( contents.begin(), contents.end(), []( const item& e ) {
+            return e.typeId() == "spare_mag" || e.typeId() == "clip" || e.typeId() == "clip2";
+        } ), contents.end() );
+
+        return res;
+    }
+
+    // now handle items using the new detachable magazines that haven't yet been converted
+    item mag( magazine_default(), calendar::turn );
+    item ammo( get_curammo() ? get_curammo()->id : default_ammo( ammo_type() ), calendar::turn );
+
+    // give base item an appropriate magazine and add to that any ammo originally stored in base item
+    if( !magazine_current() ) {
+        contents.push_back( mag );
+        if( charges > 0 ) {
+            ammo.charges = std::min( charges, mag.ammo_capacity() );
+            charges -= ammo.charges;
+            contents.back().contents.push_back( ammo );
+        }
+    }
+
+    // remove any spare magazine and replace it with an equivalent loaded magazine
+    item *spare_mag = has_gunmod( "spare_mag" ) >= 0 ? &contents[ has_gunmod( "spare_mag" ) ] : nullptr;
+    if( spare_mag ) {
+        res.push_back( mag );
+        if( spare_mag->charges > 0 ) {
+            ammo.charges = std::min( spare_mag->charges, mag.ammo_capacity() );
+            charges += spare_mag->charges - ammo.charges;
+            res.back().contents.push_back( ammo );
+        }
+    }
+
+    // return any excess ammo (from either item or spare mag) as a new item
+    if( charges > 0 ) {
+        ammo.charges = charges;
+        res.push_back( ammo );
+    }
+
+    // remove incompatible magazine mods
+    contents.erase( std::remove_if( contents.begin(), contents.end(), []( const item& e ) {
+        return e.typeId() == "spare_mag" || e.typeId() == "clip" || e.typeId() == "clip2";
+    } ), contents.end() );
+
+    // normalize the base item and mark it as converted
+    charges = 0;
+    unset_curammo();
+    set_var( "magazine_converted", true );
+
+    return res;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////
 ///// on runtime populate lookup tables.
 std::map<std::string, int> obj_type_id;
@@ -253,6 +333,13 @@ void Character::load(JsonObject &data)
     } else {
         debugmsg("Skills[] no bueno");
     }
+
+    visit_items( [&] ( item *it ) {
+        for( auto& e: it->magazine_convert() ) {
+            i_add( e );
+        }
+        return VisitResponse::NEXT;
+    } );
 }
 
 void Character::store(JsonOut &json) const
@@ -736,6 +823,7 @@ void npc_follower_rules::deserialize(JsonIn &jsin)
     data.read( "allow_pick_up", allow_pick_up );
     data.read( "allow_bash", allow_bash );
     data.read( "allow_sleep", allow_sleep );
+    data.read( "allow_complain", allow_complain );
 }
 
 extern std::string convert_talk_topic( talk_topic_enum );
@@ -1274,7 +1362,6 @@ template<typename Archive>
 void item::io( Archive& archive )
 {
     const auto load_type = [this]( const std::string& id ) {
-        init();
         // only for backward compatibility (there are no "on" versions of those anymore)
         if( id == "UPS_on" ) {
             make( "UPS_off" );
@@ -1300,6 +1387,10 @@ void item::io( Archive& archive )
     archive.io( "charges", charges, -1l );
     archive.io( "burnt", burnt, 0 );
     archive.io( "poison", poison, 0 );
+    archive.io( "bigness", bigness, 0 );
+    archive.io( "frequency", frequency, 0 );
+    archive.io( "note", note, 0 );
+    archive.io( "irridation", irridation, 0 );
     archive.io( "bday", bday, 0 );
     archive.io( "mission_id", mission_id, -1 );
     archive.io( "player_id", player_id, -1 );
@@ -1327,6 +1418,21 @@ void item::io( Archive& archive )
     }
     /* Loading has finished, following code is to ensure consistency and fixes bugs in saves. */
 
+    // Old saves used to only contain one of those values (stored under "poison"), it would be
+    // loaded into a union of those members. Now they are separate members and must be set separately.
+    if( poison != 0 && bigness == 0 && is_var_veh_part() ) {
+        std::swap( bigness, poison );
+    }
+    if( poison != 0 && note == 0 && !type->snippet_category.empty() ) {
+        std::swap( note, poison );
+    }
+    if( poison != 0 && frequency == 0 && ( typeId() == "radio_on" || typeId() == "radio" ) ) {
+        std::swap( frequency, poison );
+    }
+    if( poison != 0 && irridation == 0 && typeId() == "rad_badge" ) {
+        std::swap( irridation, poison );
+    }
+
     // Compatiblity for item type changes: for example soap changed from being a generic item
     // (item::charges == -1) to comestible (and thereby counted by charges), old saves still have
     // charges == -1, this fixes the charges value to the default charges.
@@ -1351,7 +1457,7 @@ void item::io( Archive& archive )
     std::string mode;
     if( archive.read( "mode", mode ) ) {
         // only for backward compatibility (nowadays mode is stored in item_vars)
-        set_gun_mode( mode );
+        set_gun_mode(mode);
     }
 }
 

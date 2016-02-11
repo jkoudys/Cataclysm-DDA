@@ -16,31 +16,44 @@ class vehicle;
  */
 class item_location
 {
+    public:
+        item_location();
+        item_location( const item_location & ) = delete;
+        item_location &operator= ( const item_location & ) = delete;
+        item_location( item_location && );
+        item_location &operator=( item_location && );
+        ~item_location();
+
+        item_location( Character &ch, const item *which );
+        item_location( const tripoint &p, const item *which );
+        item_location( vehicle &v, const point &where, const item *which );
+
+        /** Describes the item location
+         *  @param ch if set description is relative to character location */
+        std::string describe( const Character *ch = nullptr ) const;
+
+        /** Move an item from the location to the character inventory
+         *  @warning caller should restack inventory if item is to remain in it
+         *  @warning all further operations using this class are invalid
+         *  @return inventory position for the item */
+        int obtain( Character &ch );
+
+        /** Removes the selected item from the game
+         *  @warning all further operations using this class are invalid */
+        void remove_item();
+
+        /** Gets the selected item or nullptr */
+        item *get_item();
+        const item *get_item() const;
+
     private:
         class impl;
+        std::unique_ptr<impl> ptr;
+
         class item_is_null;
         class item_on_map;
         class item_on_person;
         class item_on_vehicle;
-        std::unique_ptr<impl> ptr;
-        item_location( impl * );
-    public:
-        item_location( item_location && );
-        ~item_location();
-        /** Factory functions for readability */
-        /*@{*/
-        static item_location nowhere();
-        static item_location on_map( const tripoint &p, const item *which );
-        static item_location on_character( Character &ch, const item *which );
-        static item_location on_vehicle( vehicle &v, const point &where, const item *which );
-        /*@}*/
-
-        /** Removes the selected item from the game */
-        void remove_item();
-        /** Gets the selected item or nullptr */
-        item *get_item();
-        /** Gets the position of item in character's inventory or INT_MIN */
-        int get_inventory_position();
 };
 
 #endif

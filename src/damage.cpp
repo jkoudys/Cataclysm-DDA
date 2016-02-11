@@ -8,6 +8,7 @@
 #include "map_iterator.h"
 #include "field.h"
 #include "mtype.h"
+#include "json.h"
 
 #include <map>
 
@@ -305,9 +306,21 @@ damage_type dt_by_name( const std::string &name )
     return iter->second;
 }
 
+const std::string &name_by_dt( const damage_type &dt )
+{
+    auto iter = dt_map.cbegin();
+    while( iter != dt_map.cend() ) {
+        if( iter->second == dt ) {
+            return iter->first;
+        }
+        iter++;
+    }
+    static const std::string err_msg( "dt_not_found" );
+    return err_msg;
+}
+
 projectile::projectile() :
-    speed( 0 ),
-    drop( nullptr )
+    speed( 0 ), range( 0 ), drop( nullptr )
 { }
 
 projectile::projectile( const projectile &other )
@@ -319,6 +332,7 @@ projectile &projectile::operator=( const projectile &other )
 {
     impact = other.impact;
     speed = other.speed;
+    range = other.range;
     proj_effects = other.proj_effects;
     set_drop( other.get_drop() );
 
@@ -356,5 +370,47 @@ void projectile::set_drop( item &&it )
 void projectile::unset_drop()
 {
     drop.reset( nullptr );
+}
+
+damage_unit load_damage_unit( JsonObject &curr )
+{
+    damage_type dt = dt_by_name( curr.get_string( "damage_type" ) );
+    if( dt == DT_NULL ) {
+        curr.throw_error( "Invalid damage type" );
+    }
+
+    float amount = curr.get_float( "amount" );
+    int arpen = curr.get_int( "armor_penetration", 0 );
+    float armor_mul = curr.get_float( "armor_multiplier", 1.0f );
+    float damage_mul = curr.get_float( "damage_multiplier", 1.0f );
+    return damage_unit( dt, amount, arpen, armor_mul, damage_mul );
+}
+
+damage_instance load_damage_instance( JsonObject &jo )
+{
+    damage_instance di;
+    if( jo.has_array( "values" ) ) {
+        JsonArray jarr = jo.get_array( "values" );
+        while( jarr.has_more() ) {
+            JsonObject curr = jarr.next_object();
+            di.damage_units.push_back( load_damage_unit( curr ) );
+        }
+    } else if( jo.has_string( "damage_type" ) ) {
+        di.damage_units.push_back( load_damage_unit( jo ) );
+    }
+
+    di.effects = jo.get_tags( "effects" );
+    return di;
+}
+
+damage_instance load_damage_instance( JsonArray &jarr )
+{
+    damage_instance di;
+    while( jarr.has_more() ) {
+        JsonObject curr = jarr.next_object();
+        di.damage_units.push_back( load_damage_unit( curr ) );
+    }
+
+    return di;
 }
 

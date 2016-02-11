@@ -1067,9 +1067,23 @@ item *inventory::most_loaded_gun()
     item *ret = &nullitem;
     int max = 0;
     for( auto &elem : items ) {
-        if( elem.front().is_gun() && elem.front().charges > max ) {
-            ret = &( elem.front() );
-            max = ret->charges;
+        item &gun = elem.front();
+        if( !gun.is_gun() ) {
+            continue;
+        }
+
+        const auto required = gun.ammo_required();
+        int cur = 0;
+        if( required <= 0 ) {
+            // Arbitrary
+            cur = 5;
+        } else {
+            cur = gun.ammo_remaining() / required;
+        }
+
+        if( cur > max ) {
+            ret = &gun;
+            max = cur;
         }
     }
     return ret;
@@ -1182,26 +1196,11 @@ std::set<char> inventory::allocated_invlets() const
     return invlets;
 }
 
-VisitResponse inventory::visit_items( const std::function<VisitResponse(item&)>& func ) {
-    for( auto &stack : items ) {
-        for( auto &it : stack ) {
-            if( it.visit_items( func ) == VisitResponse::ABORT ) {
-                return VisitResponse::ABORT;
-            }
-        }
-    }
-    return VisitResponse::NEXT;
-}
-
-VisitResponse inventory::visit_items( const std::function<VisitResponse(const item&)>& func ) const {
-    return const_cast<inventory *>( this )->visit_items( static_cast<const std::function<VisitResponse(item&)>&>( func ) );
-}
-
 std::vector<item *> inventory::items_with( const std::function<bool(const item&)>& filter ) {
     std::vector<item *> res;
-    visit_items( [&res, &filter]( item& it ) {
-        if( filter( it ) ) {
-            res.emplace_back( &it );
+    visit_items( [&res, &filter]( item *node ) {
+        if( filter( *node ) ) {
+            res.emplace_back( node );
         }
         return VisitResponse::NEXT;
     });
@@ -1210,17 +1209,11 @@ std::vector<item *> inventory::items_with( const std::function<bool(const item&)
 
 std::vector<const item *> inventory::items_with( const std::function<bool(const item&)>& filter ) const {
     std::vector<const item *> res;
-    visit_items( [&res, &filter]( const item& it ) {
-        if( filter( it ) ) {
-            res.emplace_back( &it );
+    visit_items_const( [&res, &filter]( const item *node ) {
+        if( filter( *node ) ) {
+            res.emplace_back( node );
         }
         return VisitResponse::NEXT;
     });
     return res;
-}
-
-bool inventory::has_item_with( const std::function<bool(const item&)>& filter ) const {
-    return visit_items( [&filter]( const item& it ) {
-        return filter( it ) ? VisitResponse::ABORT : VisitResponse::NEXT;
-    } ) == VisitResponse::ABORT;
 }

@@ -403,7 +403,8 @@
         "description" : "For your whole life you've been forbidden from indulging in your peculiar tastes.  Now the world's ended, and you'll be damned if anyone is going to tell you that you can't eat people.",
         "starting_trait" : true,
         "valid" : false,
-        "cancels" : ["VEGETARIAN"]
+        "cancels" : ["VEGETARIAN"],
+        "flags" : ["CANNIBAL"]
     },{
         "type" : "mutation",
         "id" : "PSYCHOPATH",
@@ -411,12 +412,13 @@
         "points" : 2,
         "description" : "You don't experience guilt like others do.  Even when you know your actions are wrong, you just don't care.",
         "starting_trait" : true,
-        "valid" : false
+        "valid" : false,
+        "flags" : ["CANNIBAL"]
     },{
         "type" : "mutation",
         "id" : "MARTIAL_ARTS",
         "name" : "Martial Arts Training",
-        "points" : 3,
+        "points" : 2,
         "description" : "You have received some martial arts training at a local dojo.  You start with your choice of Karate, Judo, Aikido, Tai Chi, or Taekwondo.",
         "starting_trait" : true,
         "initial_ma_styles" : [ "style_karate", "style_judo", "style_aikido", "style_tai_chi", "style_taekwondo" ],
@@ -425,7 +427,7 @@
         "type" : "mutation",
         "id" : "MARTIAL_ARTS2",
         "name" : "Self-Defense Classes",
-        "points" : 3,
+        "points" : 2,
         "description" : "You have taken some self-defense classes at a nearby gym.  You start with your choice of Capoeira, Krav Maga, Muay Thai, Ninjutsu, or Zui Quan.",
         "starting_trait" : true,
         "initial_ma_styles" : [ "style_krav_maga", "style_muay_thai", "style_ninjutsu",  "style_capoeira", "style_zui_quan" ],
@@ -434,7 +436,7 @@
         "type" : "mutation",
         "id": "MARTIAL_ARTS3",
         "name": "Shaolin Adept",
-        "points": 3,
+        "points": 2,
         "description": "You have studied the arts of the Shaolin monks.  You start with one of the five animal fighting styles: Tiger, Crane, Leopard, Snake, or Dragon.",
         "starting_trait" : true,
         "initial_ma_styles" : [ "style_tiger", "style_crane", "style_leopard", "style_snake", "style_dragon" ],
@@ -443,7 +445,7 @@
         "type" : "mutation",
         "id": "MARTIAL_ARTS4",
         "name": "Venom Mob Protege",
-        "points": 3,
+        "points": 2,
         "description": "You are a pupil of the Venom Clan.  You start with one of the five deadly venoms: Centipede, Viper, Scorpion, Lizard, or Toad.",
         "starting_trait" : true,
         "initial_ma_styles" : [ "style_centipede", "style_venom_snake", "style_scorpion", "style_lizard", "style_toad" ],
@@ -453,9 +455,9 @@
         "id": "MARTIAL_ARTS5",
         "name": "Melee Weapon Training",
         "points": 3,
-        "description": "You have practiced fighting with weapons.  You start with your choice of Eskrima, Fencing, or Pentjak Silat.",
+        "description": "You have practiced fighting with weapons.  You start with your choice of Eskrima, Fencing, Pentjak Silat or Niten Ichi-Ryu.",
         "starting_trait" : true,
-        "initial_ma_styles" : [ "style_eskrima", "style_fencing", "style_silat" ],
+        "initial_ma_styles" : [ "style_eskrima", "style_fencing", "style_silat", "style_niten" ],
         "valid" : false
     },{
         "type" : "mutation",
@@ -720,7 +722,7 @@
         "id" : "TRIGGERHAPPY",
         "name" : "Trigger Happy",
         "points" : -1,
-        "description" : "On rare occasion, you will go full-auto when you intended to fire a single shot.  This has no effect when firing handguns or other semi-automatic firearms.",
+        "description" : "On rare occasion, you will go full-auto when you intended to fire a single shot.  This has no effect when firing semi-automatic firearms.",
         "starting_trait" : true,
         "valid" : false
     },{
@@ -981,7 +983,7 @@
         "id" : "ELFA_FNV",
         "name" : "Fey Nightsight",
         "points" : 5,
-        "description" : "You can see clearly, even in the darkest caves and under moonless skies.  Activate to toggle NV-visible areas on or off.",
+        "description" : "You have great low-light vision now, though that doesn't allow you to perform fine tasks such as crafting and reading in darkness.  Activate to toggle NV-visible areas on or off.",
         "prereqs" : ["ELFA_NV"],
         "cancels" : ["LIZ_IR", "FEL_NV", "NIGHTVISION", "NIGHTVISION2", "NIGHTVISION3"],
         "category" : ["MUTCAT_ELFA"],
@@ -2498,7 +2500,7 @@
         "id" : "PRED1",
         "name" : "Culler",
         "points" : 2,
-        "description" : "You've had a revelation: by killing the weaker creatures, who would only die anyway, you preserve resources for those better able to survive.",
+        "description" : "You've had a revelation: by killing the weaker creatures, who would only die anyway, you preserve resources for those better able to survive.  You are less bothered by death of others: their own weakness invited these fates upon them.",
         "purifiable" : false,
         "changes_to" : ["PRED2"],
         "prereqs" : ["CARNIVORE", "THRESH_URSINE"],
@@ -2509,8 +2511,7 @@
         "id" : "PRED2",
         "name" : "Hunter",
         "points" : 3,
-        "description" : "You're getting quite used to hunting and killing ...game.  For food.",
-        "note" : "That ellipsis is placed correctly: it indicates that the thinker takes a second to decide on that term.  Hasn't gone all-out Monster yet, but xe's getting there.",
+        "description" : "Your brain has a lot more in common with predatory animal than a human, making it easer to control misplaced reactions to death of your prey.  Additionally, combat skills, which you use to hunt, are easer to learn and maintain.",
         "purifiable" : false,
         "prereqs" : ["CARNIVORE", "THRESH_URSINE"],
         "prereqs2" : ["PRED1"],
@@ -2522,7 +2523,7 @@
         "id" : "PRED3",
         "name" : "Predator",
         "points" : 3,
-        "description" : "Let's not overthink things.  You get hungry, you find prey, you kill it and you eat it.",
+        "description" : "You consider yourself something other than human and no longer empathise with them.  Combat skills are easy to learn and maintain, but your critical thinking, so characteristic to these creatures, suffers.",
         "valid" : false,
         "purifiable" : false,
         "prereqs" : ["CARNIVORE", "THRESH_URSINE"],
@@ -2539,7 +2540,7 @@
         "id" : "PRED4",
         "name" : "Apex Predator",
         "points" : 2,
-        "description" : "It's good to be on top of the food chain.",
+        "description" : "Your mind and brain have adapted to your new place in the world: as one on top the food chain. You can effortlessly master and maintain combat skills, but your critical thinking has atrophied further.",
         "valid" : false,
         "purifiable" : false,
         "prereqs" : ["CARNIVORE", "THRESH_URSINE"],
@@ -2560,7 +2561,8 @@
         "prereqs" : ["CARNIVORE"],
         "prereqs2" : ["PRED3", "PRED4"],
         "threshreq" : ["THRESH_BEAST", "THRESH_RAPTOR", "THRESH_CHIMERA", "THRESH_URSINE", "THRESH_LIZARD", "THRESH_SPIDER"],
-        "category" : ["MUTCAT_BEAST", "MUTCAT_RAPTOR", "MUTCAT_CHIMERA", "MUTCAT_URSINE", "MUTCAT_LIZARD", "MUTCAT_SPIDER"]
+        "category" : ["MUTCAT_BEAST", "MUTCAT_RAPTOR", "MUTCAT_CHIMERA", "MUTCAT_URSINE", "MUTCAT_LIZARD", "MUTCAT_SPIDER"],
+        "flags" : ["CANNIBAL"]
     },{
         "type" : "mutation",
         "id" : "M_DEFENDER",

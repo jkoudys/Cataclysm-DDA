@@ -830,6 +830,7 @@ void game::start_game(std::string worldname)
     u.add_memorial_log(pgettext("memorial_male", "%s began their journey into the Cataclysm."),
                        pgettext("memorial_female", "%s began their journey into the Cataclysm."),
                        u.name.c_str());
+   lua_callback("on_new_player_created");
 }
 
 void game::create_factions()
@@ -1566,9 +1567,7 @@ void game::catch_a_monster(std::vector<monster*> &catchables, const tripoint &po
 {
     int index = rng(1, catchables.size()) - 1; //get a random monster from the vector
     //spawn the corpse, rotten by a part of the duration
-    item fish;
-    fish.make_corpse( catchables[index]->type->id, calendar::turn + int(rng(0, catch_duration)) );
-    m.add_item_or_charges( pos, fish );
+    m.add_item_or_charges( pos, item::make_corpse( catchables[index]->type->id, calendar::turn + int( rng( 0, catch_duration ) ) ) );
     u.add_msg_if_player(m_good, _("You caught a %s."), catchables[index]->type->nname().c_str());
     //quietly kill the catched
     catchables[index]->no_corpse_quiet = true;
@@ -2552,7 +2551,7 @@ bool game::handle_action()
         case ACTION_MOVE_N:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(0, -1);
             } else if (veh_ctrl) {
                 pldrive(0, -1);
@@ -2564,7 +2563,7 @@ bool game::handle_action()
         case ACTION_MOVE_NE:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(1, -1);
             } else if (veh_ctrl) {
                 pldrive(1, -1);
@@ -2576,7 +2575,7 @@ bool game::handle_action()
         case ACTION_MOVE_E:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(1, 0);
             } else if (veh_ctrl) {
                 pldrive(1, 0);
@@ -2588,7 +2587,7 @@ bool game::handle_action()
         case ACTION_MOVE_SE:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(1, 1);
             } else if (veh_ctrl) {
                 pldrive(1, 1);
@@ -2600,7 +2599,7 @@ bool game::handle_action()
         case ACTION_MOVE_S:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(0, 1);
             } else if (veh_ctrl) {
                 pldrive(0, 1);
@@ -2612,7 +2611,7 @@ bool game::handle_action()
         case ACTION_MOVE_SW:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(-1, 1);
             } else if (veh_ctrl) {
                 pldrive(-1, 1);
@@ -2624,7 +2623,7 @@ bool game::handle_action()
         case ACTION_MOVE_W:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(-1, 0);
             } else if (veh_ctrl) {
                 pldrive(-1, 0);
@@ -2636,7 +2635,7 @@ bool game::handle_action()
         case ACTION_MOVE_NW:
             moveCount++;
 
-            if( u.get_value( "remote_controlling" ) != "" ) {
+            if( ( u.get_value( "remote_controlling" ) != "" ) && ( ( u.has_active_item("radiocontrol") ) || ( u.has_active_bionic("bio_remote") ) ) ) {
                 rcdrive(-1, -1);
             } else if (veh_ctrl) {
                 pldrive(-1, -1);
@@ -3209,6 +3208,8 @@ void game::update_scent()
         player_last_position = u.pos();
         player_last_moved = calendar::turn;
     }
+
+    overmap_buffer.set_scent( u.global_omt_location(), u.scent );
 
     // note: the next four intermediate matrices need to be at least
     // [2*SCENT_RADIUS+3][2*SCENT_RADIUS+1] in size to hold enough data
@@ -3846,10 +3847,11 @@ void game::debug()
                        _( "Show Sound Clustering" ),  // 23
                        _( "Lua Console" ),            // 24
                        _( "Display weather" ),        // 25
-                       _( "Change time" ),            // 26
-                       _( "Set automove route" ),     // 27
-                       _( "Show mutation category levels" ), // 28
-                       _( "Overmap editor" ),         // 29
+                       _( "Display overmap scents" ), // 26
+                       _( "Change time" ),            // 27
+                       _( "Set automove route" ),     // 28
+                       _( "Show mutation category levels" ), // 29
+                       _( "Overmap editor" ),         // 30
                        _( "Cancel" ),
                        NULL );
     int veh_num;
@@ -4037,7 +4039,7 @@ void game::debug()
             add_msg( m_info, _( "Recipe debug." ) );
             add_msg( _( "Your eyes blink rapidly as knowledge floods your brain." ) );
             for( auto cur_recipe : recipe_dict ) {
-                if( !( u.learned_recipes.find( cur_recipe->ident ) != u.learned_recipes.end() ) )  {
+                if( !( u.learned_recipes.find( cur_recipe->ident() ) != u.learned_recipes.end() ) )  {
                     u.learn_recipe( ( recipe * )cur_recipe, true );
                 }
             }
@@ -4422,7 +4424,10 @@ void game::debug()
         case 25:
             overmap::draw_weather();
             break;
-        case 26: {
+        case 26:
+            overmap::draw_scents();
+            break;
+        case 27: {
             auto set_turn = [&]( const int initial, const int factor, const char * const msg ) {
                 const auto text = string_input_popup( msg, 20, to_string( initial ), "", "", 20, true );
                 if( text.empty() ) {
@@ -4475,7 +4480,7 @@ void game::debug()
             } while( smenu.ret != 6 && smenu.ret != UIMENU_INVALID );
         }
         break;
-        case 27: {
+        case 28: {
             tripoint dest = look_around();
             if( dest == tripoint_min || dest == u.pos() ) {
                 break;
@@ -4488,13 +4493,13 @@ void game::debug()
             }
         }
         break;
-        case 28: {
+        case 29: {
             for( const auto & elem : u.mutation_category_level ) {
                 add_msg( "%s: %d", elem.first.c_str(), elem.second );
             }
         }
         break;
-        case 29: {
+        case 30: {
             overmap::draw_editor();
         }
         break;
@@ -5573,35 +5578,33 @@ void game::draw_minimap()
     }
 
     // Print arrow to mission if we have one!
-    if (!drew_mission) {
-        double slope;
-        if (cursx != targ.x) {
-            slope = double(targ.y - cursy) / double(targ.x - cursx);
-        }
-        if (cursx == targ.x || fabs(slope) > 3.5) { // Vertical slope
-            if (targ.y > cursy) {
-                mvwputch(w_minimap, 6, 3, c_red, '*');
+    if( !drew_mission ) {
+        double slope = ( cursx != targ.x ) ? double( targ.y - cursy ) / double( targ.x - cursx ) : 4;
+
+        if( cursx == targ.x || fabs( slope ) > 3.5 ) { // Vertical slope
+            if( targ.y > cursy ) {
+                mvwputch( w_minimap, 6, 3, c_red, '*' );
             } else {
-                mvwputch(w_minimap, 0, 3, c_red, '*');
+                mvwputch( w_minimap, 0, 3, c_red, '*' );
             }
         } else {
             int arrowx = 3, arrowy = 3;
-            if (fabs(slope) >= 1.) { // y diff is bigger!
-                arrowy = (targ.y > cursy ? 6 : 0);
-                arrowx = int(3 + 3 * (targ.y > cursy ? slope : (0 - slope)));
-                if (arrowx < 0) {
+            if( fabs( slope ) >= 1. ) { // y diff is bigger!
+                arrowy = ( targ.y > cursy ? 6 : 0 );
+                arrowx = int( 3 + 3 * ( targ.y > cursy ? slope : ( 0 - slope ) ) );
+                if( arrowx < 0 ) {
                     arrowx = 0;
                 }
-                if (arrowx > 6) {
+                if( arrowx > 6 ) {
                     arrowx = 6;
                 }
             } else {
-                arrowx = (targ.x > cursx ? 6 : 0);
-                arrowy = int(3 + 3 * (targ.x > cursx ? slope : (0 - slope)));
-                if (arrowy < 0) {
+                arrowx = ( targ.x > cursx ? 6 : 0 );
+                arrowy = int( 3 + 3 * ( targ.x > cursx ? slope : ( 0 - slope ) ) );
+                if( arrowy < 0 ) {
                     arrowy = 0;
                 }
-                if (arrowy > 6) {
+                if( arrowy > 6 ) {
                     arrowy = 6;
                 }
             }
@@ -5615,7 +5618,7 @@ void game::draw_minimap()
             mvwputch( w_minimap, arrowy, arrowx, c_red, glyph );
         }
     }
-    wrefresh(w_minimap);
+    wrefresh( w_minimap );
 }
 
 void game::hallucinate( const tripoint &center )
@@ -6509,6 +6512,7 @@ void game::shrapnel( const tripoint &p, int power, int count, int radius )
     fake_npc.setpos( p );
     projectile proj;
     proj.speed = 100;
+    proj.range = radius;
     proj.proj_effects.insert( "DRAW_AS_LINE" );
     proj.proj_effects.insert( "NULL_SOURCE" );
     for( int i = 0; i < count; i++ ) {
@@ -10996,7 +11000,8 @@ void game::plfire( bool burst, const tripoint &default_target )
         }
 
         if( gun.has_flag("RELOAD_AND_SHOOT") && gun.ammo_remaining() == 0 ) {
-            if( !gun.reload( u, gun.pick_reload_ammo( u, true ) ) ) {
+            item_location ammo = gun.pick_reload_ammo( u, true );
+            if( !ammo.get_item() || !gun.reload( u, std::move( ammo ) ) ) {
                 return;
             }
 
@@ -11027,7 +11032,7 @@ void game::plfire( bool burst, const tripoint &default_target )
 
             if( !( u.has_charges( "UPS_off", ups_drain ) ||
                    u.has_charges( "adv_UPS_off", adv_ups_drain ) ||
-                   (u.has_bionic( "bio_ups" ) && u.power_level >= bio_power_drain ) ) ) {
+                   (u.has_active_bionic( "bio_ups" ) && u.power_level >= bio_power_drain ) ) ) {
                 add_msg( m_info,
                          _("You need a UPS with at least %d charges or an advanced UPS with at least %d charges to fire that!"),
                          ups_drain, adv_ups_drain );
@@ -11074,14 +11079,14 @@ void game::plfire( bool burst, const tripoint &default_target )
     }
     draw_ter(); // Recenter our view
 
-    if( gun.get_gun_mode() == "MODE_BURST" ) {
+    if( gun.get_gun_mode() == "MODE_BURST" || ( u.has_trait( "TRIGGERHAPPY" ) && one_in( 30 ) && gun.burst_size() >= 2 ) ) {
         burst = true;
     }
 
     if( reach_attack ) {
         u.reach_attack( p );
     } else {
-        u.fire_gun( p, burst, gun );
+        u.fire_gun( p, burst ? gun.burst_size() : 1, gun );
     }
 
     reenter_fullscreen();
@@ -11384,19 +11389,17 @@ void game::eat(int pos)
         return it.made_of( SOLID ) && (it.is_food( &u ) || it.is_food_container( &u ) );
     }, _( "Consume item:" ), 1 );
 
-    const int inv_pos = item_loc.get_inventory_position();
-    if( inv_pos != INT_MIN ) {
-        u.consume( inv_pos );
-        return;
-    }
-
     item *it = item_loc.get_item();
-    if( it == nullptr ) {
-        add_msg(_("Never mind."));
+    if( !it ) {
+        add_msg( _( "Never mind." ) );
         return;
     }
 
-    if( u.consume_item( *it ) ) {
+    pos = u.get_item_position( it );
+    if( pos != INT_MIN ) {
+        u.consume( pos );
+
+    } else if( u.consume_item( *it ) ) {
         if( it->is_food_container() ) {
             it->contents.erase( it->contents.begin() );
             add_msg( _("You leave the empty %s."), it->tname().c_str() );
@@ -11482,21 +11485,12 @@ void game::reload( int pos )
             break;
     }
 
-    // pick ammo
     auto loc = it->pick_reload_ammo( u, true );
-    auto ammo = loc.get_item();
-    if( ammo ) {
-        // move ammo to inventory if necessary
-        int am_pos = u.get_item_position( ammo );
-        if( am_pos == INT_MIN ) {
-            am_pos = u.get_item_position( &u.i_add( *ammo ) );
-            loc.remove_item();
-        }
-
-        // do the actual reloading
+    if( loc.get_item() ) {
         std::stringstream ss;
         ss << pos;
-        u.assign_activity( ACT_RELOAD, it->reload_time( u ), -1, am_pos, ss.str() );
+        u.assign_activity( ACT_RELOAD, it->reload_time( u ), -1, loc.obtain( u ), ss.str() );
+        u.inv.restack( &u );
     }
 
     refresh_all();
@@ -11578,12 +11572,6 @@ void game::unload( item &it )
 
     if( it.is_gun() ) {
         for( auto &e : it.contents ) {
-            // @todo deprecate handling of spare magazine
-            if( e.typeId() == "spare_mag" && e.charges > 0 ) {
-                msgs.emplace_back( e.tname() );
-                opts.emplace_back( &e );
-            }
-
             if( e.is_auxiliary_gunmod() && !e.has_flag( "NO_UNLOAD" ) &&
                 ( e.magazine_current() || e.ammo_remaining() > 0 ) ) {
                 msgs.emplace_back( e.tname() );
@@ -11594,18 +11582,6 @@ void game::unload( item &it )
 
     item *target = opts.size() > 1 ? opts[ ( uimenu( false, _("Unload what?"), msgs ) ) - 1 ] : &it;
 
-    // @todo deprecate handling of spare magazine as special case
-    if( target->typeId() == "spare_mag" && target->charges > 0 ) {
-        item ammo( it.ammo_current(), calendar::turn );
-        ammo.charges = it.charges;
-        if( add_or_drop_with_msg( u, ammo ) ) {
-            target->charges = 0;
-            add_msg( _( "You unload your %s." ), target->tname().c_str() );
-            u.moves -= it.reload_time( u ) / 2;
-        }
-        return;
-    }
-
     // Next check for any reasons why the item cannot be unloaded
     if( target->ammo_type() == "NULL" || target->ammo_capacity() <= 0 ) {
         add_msg( m_info, _("You can't unload a %s!"), target->tname().c_str() );
@@ -11613,7 +11589,7 @@ void game::unload( item &it )
     }
 
     if( target->has_flag( "NO_UNLOAD" ) ) {
-        if( target->has_flag( "RECHARGE" ) ) {
+        if( target->has_flag( "RECHARGE" ) || target->has_flag( "USE_UPS" )) {
             add_msg( m_info, _( "You can't unload a rechargeable %s!" ), target->tname().c_str() );
         } else {
             add_msg( m_info, _( "You can't unload a %s!" ), target->tname().c_str() );
@@ -13863,9 +13839,9 @@ void game::update_stair_monsters()
             if( critter.staircount > 4 ) {
                 dump << string_format(_("You see a %s on the stairs"), critter.name().c_str());
             } else {
-                //~ The <monster> is almost at the <bottom/top> of the <terrain type>!
                 if( critter.staircount > 0 ) {
                     dump << (from_below ?
+                             //~ The <monster> is almost at the <bottom/top> of the <terrain type>!
                              string_format(_("The %1$s is almost at the top of the %2$s!"),
                                            critter.name().c_str(),
                                            m.tername(dest).c_str()) :

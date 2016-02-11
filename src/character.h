@@ -1,10 +1,12 @@
 #ifndef CHARACTER_H
 #define CHARACTER_H
 
+#include "visitable.h"
 #include "creature.h"
 #include "inventory.h"
 #include "bionics.h"
 #include "skill.h"
+#include "map_selector.h"
 
 #include <map>
 
@@ -34,7 +36,7 @@ enum fatigue_levels {
     MASSIVE_FATIGUE = 1000
 };
 
-class Character : public Creature
+class Character : public Creature, public visitable<Character>
 {
     public:
         virtual ~Character() override { };
@@ -77,6 +79,10 @@ class Character : public Creature
         virtual int get_per_bonus() const;
         virtual int get_int_bonus() const;
 
+        // Penalty modifiers applied for ranged attacks due to low stats
+        virtual int ranged_dex_mod() const;
+        virtual int ranged_per_mod() const;
+
         /** Setters for stats exclusive to characters */
         virtual void set_str_bonus(int nstr);
         virtual void set_dex_bonus(int ndex);
@@ -115,6 +121,14 @@ class Character : public Creature
         virtual void set_stomach_water(int n_stomach_water);
 
         virtual void mod_stat( const std::string &stat, int modifier ) override;
+
+        /* Calculate aim improvement based on character stats/skills and gunsight properties
+         * @param recoil amount of applicable recoil when determining which gunsight to use
+         * @return MOC of aim improvement per 10 moves
+         * @note These units chosen as MOC/move would be too fast (lower bound 1MOC/move) and
+         * move/MOC too slow (upper bound 1MOC/move).
+         * As a result the smallest unit of aim time is 10 moves. */
+        int aim_per_time( const item& gun, int recoil ) const;
 
         /** Combat getters */
         virtual int get_dodge_base() const override;
@@ -171,6 +185,8 @@ class Character : public Creature
         virtual bool has_trait(const std::string &flag) const override;
         /** Returns true if the player has the entered starting trait */
         bool has_base_trait(const std::string &flag) const;
+        /** Returns true if player has a trait with a flag */
+        bool has_trait_flag( const std::string &flag ) const;
         /** Returns the trait id with the given invlet, or an empty string if no trait has that invlet */
         std::string trait_by_invlet( long ch ) const;
 
@@ -239,21 +255,10 @@ class Character : public Creature
             return false;
         }
 
-        /** Traverses wielded, worn and inventory items and using a visitor function
-         * @return Similar to item::visit returns only VisitResponse::Next or VisitResponse::Abort
-         * @see item::visit
-         **/
-        VisitResponse visit_items( const std::function<VisitResponse(item&)>& func );
-        VisitResponse visit_items( const std::function<VisitResponse(const item&)>& func ) const;
-
-        /**
-         * Test whether an item in the playerts possession matches a certain filter.
-         * The items might be inside other items (containers / quiver / etc.),
-         * the filter is recursively applied to all item contents.
-         * @param filter functor returning true for item that should checked for.
-         * @return Returns true when at least one item matches the filter, otherwise false
-         */
-        bool has_item_with( const std::function<bool(const item&)>& filter ) const;
+        /** Returns a map_selector which can be used to query items on nearby tiles
+         *  @param radius number of adjacent tiles to include searching from pos outwards
+         *  @param accessible whether found items must be accesible from pos to be considered */
+        map_selector nearby( int radius = 0, bool accessible = true );
 
         /**
          * Gather all items that match a certain filter.
@@ -366,7 +371,7 @@ class Character : public Creature
         bool can_pickVolume(int volume, bool safe = false) const;
         bool can_pickWeight(int weight, bool safe = true) const;
 
-        void drop_inventory_overflow();
+        virtual void drop_inventory_overflow();
 
         bool has_artifact_with(const art_effect_passive effect) const;
 
@@ -388,6 +393,9 @@ class Character : public Creature
         SkillLevel const& get_skill_level(const Skill &_skill) const;
         SkillLevel const& get_skill_level(const skill_id &ident) const;
 
+        /** Return character dispersion penalty dependent upon relevant gun skill level */
+        int skill_dispersion( const item& gun, bool random ) const;
+
         // --------------- Other Stuff ---------------
 
 
@@ -408,6 +416,8 @@ class Character : public Creature
          */
         virtual void normalize() override;
         virtual void die(Creature *nkiller) override;
+
+        std::string get_name() const override;
 
         /**
          * It is supposed to hide the query_yn to simplify player vs. npc code.

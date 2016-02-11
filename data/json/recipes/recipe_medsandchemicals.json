@@ -471,7 +471,10 @@
       [ "syringe", 1 ]
     ],
     [
-      [ "charcoal", 1 ]
+      ["charcoal", 1],
+      ["coal_lump", 1],
+      ["small_charcoal", 10],
+      ["small_coal", 10]
     ],
     [
       [ "datura_seed", 8 ]
@@ -1670,6 +1673,7 @@
       [ "vitamins", 5 ],
       [ "iodine", 5 ],
       [ "disinfectant", 5 ],
+      [ "hflesh_powder", 10 ],
       [ "protein_powder", 10 ]
     ]
   ]
@@ -2142,7 +2146,10 @@
       [ "ammonia", 1 ]
     ],
     [
-      [ "charcoal", 1 ]
+      ["charcoal", 1],
+      ["coal_lump", 1],
+      ["small_charcoal", 10],
+      ["small_coal", 10]
     ],
     [
       [ "lye_powder", 5 ]
@@ -2262,6 +2269,9 @@
     ],
     [
       [ "charcoal", 1 ],
+      [ "coal_lump", 1 ],
+      [ "small_charcoal", 10 ],
+      [ "small_coal", 10 ],
       [ "lye_powder", 20 ]
     ]
   ]
@@ -2303,6 +2313,7 @@
   "skill_used": "cooking",
   "difficulty": 4,
   "time": 180000,
+  "batch_time_factors":[80, 4],
   "reversible": false,
   "autolearn": false,
   "book_learn": [["adv_chemistry", 5] , ["textbook_chemistry", 5] , ["recipe_labchem", 5]],
@@ -2318,7 +2329,8 @@
   ],
   "components": [
     [
-      [ "charcoal", 10 ]
+      [ "charcoal", 10 ],
+      [ "small_charcoal", 100 ]
     ],
     [
       [ "water_clean", 2 ],
@@ -2652,10 +2664,17 @@
     "reversible": false,
     "autolearn": false,
     "book_learn": [["textbook_biodiesel", 5]],
-    "tools": [[[ "chemistry_set", 10 ]]],
+    "qualities":[ {"id":"CHEM","level":2,"amount":1} ],
+    "tools": [
+    [
+      [ "fire", -1 ],
+      [ "toolset", 10 ],
+      [ "hotplate", 10 ]
+    ]
+    ],
     "components": [
         [[ "water_clean", 1 ], [ "water", 1 ]],
-        [[ "chem_ethanol", 14 ]],
+        [[ "chem_ethanol", 14 ], ["denat_alcohol", 14 ]],
         [[ "cooking_oil", 2 ],
          [ "lard", 2 ],
          [ "tallow", 2 ],
@@ -2711,7 +2730,13 @@
   "autolearn": false,
   "book_learn": [[ "recipe_labchem", 7 ], ["textbook_chemistry", 7]],
   "qualities":[ {"id":"BOIL","level":2,"amount":1} ],
-  "tools": [ [ [ "chemistry_set", 25 ] ] ],
+    "tools": [
+    [
+      [ "fire", -1 ],
+      [ "toolset", 25 ],
+      [ "hotplate", 25 ]
+    ]
+    ],
   "components": [ [ [ "chem_hydrogen_peroxide", 5 ] ] ]
 },
 {
@@ -2749,10 +2774,13 @@
 "reversible": false,
 "autolearn": true,
 "qualities":[
-{"id":"BOIL","level":2,"amount":1}
+{"id":"BOIL","level":2,"amount":1},
+{"id":"CHEM","level":2,"amount":1}
 ], "tools": [
 [
-[ "chemistry_set", 50 ]
+[ "fire", -1 ],
+[ "toolset", 50 ],
+[ "hotplate", 50 ]
 ]
 ],
 "components": [
@@ -2775,10 +2803,13 @@
 "reversible": false,
 "autolearn": true,
 "qualities":[
-{"id":"BOIL","level":2,"amount":1}
+{"id":"BOIL","level":2,"amount":1},
+{"id":"CHEM","level":2,"amount":1}
 ], "tools": [
 [
-[ "chemistry_set", 25 ]
+[ "fire", -1 ],
+[ "toolset", 25 ],
+[ "hotplate", 25 ]
 ]
 ],
 "components": [
@@ -2805,10 +2836,13 @@
 "reversible": false,
 "autolearn": true,
 "qualities":[
-{"id":"BOIL","level":2,"amount":1}
+{"id":"BOIL","level":2,"amount":1},
+{"id":"CHEM","level":2,"amount":1}
 ], "tools": [
 [
-[ "chemistry_set", 25 ]
+[ "fire", -1 ],
+[ "toolset", 25 ],
+[ "hotplate", 25 ]
 ]
 ],
 "components": [
@@ -2830,7 +2864,7 @@
   "time": 20000,
   "reversible": false,
   "autolearn": false,
-  "book_learn": [[ "textbook_anarch", 6 ] , [ "recipe_labchem", 4 ], ["textbook_chemistry", 5]],
+  "book_learn": [[ "textbook_anarch", 6 ] , [ "recipe_labchem", 4 ], ["textbook_chemistry", 5], ["textbook_armschina", 5]],
   "qualities" : 
     [
       {"id":"CONTAIN","level":1,"amount":1}
@@ -2867,6 +2901,7 @@
 [ "chem_ammonium_nitrate", 90 ]
 ],
 [
+[ "diesel", 500 ],
 [ "gasoline", 500 ]
 ]
 ]
@@ -2885,7 +2920,9 @@
 {"id":"BOIL","level":2,"amount":1}
 ], "tools": [
 [
-[ "chemistry_set", 10 ]
+[ "fire", -1 ],
+[ "toolset", 10 ],
+[ "hotplate", 10 ]
 ]
 ],
 "components": [
@@ -2906,10 +2943,13 @@
 "autolearn": false,
 "book_learn": [[ "recipe_labchem", 8 ], ["textbook_anarch", 10]],
 "qualities":[
-{"id":"BOIL","level":2,"amount":1}
+{"id":"BOIL","level":2,"amount":1},
+{"id":"CHEM","level":2,"amount":1}
 ], "tools": [
 [
-[ "chemistry_set", 20 ]
+[ "fire", -1 ],
+[ "toolset", 20 ],
+[ "hotplate", 20 ]
 ]
 ],
 "components": [

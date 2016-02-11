@@ -136,6 +136,11 @@ else
 endif
 RC  = $(CROSS)windres
 
+# Capture CXXVERSION if using MXE - used later for ICE workaround
+ifdef CROSS
+  CXXVERSION := $(shell ${OS_COMPILER} --version | grep -i gcc | sed 's/^.* //g')
+endif
+
 # We don't need scientific precision for our math functions, this lets them run much faster.
 CXXFLAGS += -ffast-math
 LDFLAGS += $(PROFILE)
@@ -149,7 +154,12 @@ ifdef RELEASE
       CXXFLAGS += -O3
     endif
   else
-    CXXFLAGS += -Os
+    # MXE ICE Workaround
+  	ifeq (${CXXVERSION}, 4.9.3)
+	    CXXFLAGS += -O3
+  	else
+  		CXXFLAGS += -Os
+  	endif
     LDFLAGS += -s
   endif
   # OTHERS += -mmmx -m3dnow -msse -msse2 -msse3 -mfpmath=sse -mtune=native
@@ -158,7 +168,7 @@ ifdef RELEASE
   DEBUG =
   DEFINES += -DRELEASE
   # Do an astyle regression check on release builds.
-  ASTYLE = astyle-check
+  ASTYLE = astyle-check json-format-check
 endif
 
 ifdef CLANG
@@ -767,9 +777,12 @@ astyle:
 astyle-all: $(SOURCES) $(HEADERS)
 	$(ASTYLE_BINARY) --options=.astylerc -n $(SOURCES) $(HEADERS)
 
+json-format-check:
+	tools/json_format_check.sh
+
 # Test whether the system has a version of astyle that supports --dry-run
 ifeq ($(shell if $(ASTYLE_BINARY) -Q -X --dry-run src/game.h > /dev/null; then echo foo; fi),foo)
-ASTYLE_CHECK=$(shell $(ASTYLE_BINARY) --options=.astylerc --dry-run -X -Q $(shell cat astyled_whitelist))
+ASTYLE_CHECK=$(shell LC_ALL=C $(ASTYLE_BINARY) --options=.astylerc --dry-run -X -Q $(shell cat astyled_whitelist))
 endif
 
 astyle-check: $(SOURCES) $(HEADERS)

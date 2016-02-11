@@ -42,6 +42,7 @@
 #include "weather_gen.h"
 #include "cata_utility.h"
 #include "iuse_actor.h"
+#include "catalua.h"
 
 #include <map>
 
@@ -147,101 +148,6 @@ stats player_stats;
 
 static const itype_id OPTICAL_CLOAK_ITEM_ID( "optical_cloak" );
 
-namespace {
-    const std::string &get_morale_data( const morale_type id )
-    {
-        static const std::array<std::string, NUM_MORALE_TYPES> morale_data = { {
-            { "This is a bug (player.cpp:moraledata)" },
-            { _( "Enjoyed %i" ) },
-            { _( "Enjoyed a hot meal" ) },
-            { _( "Music" ) },
-            { _( "Enjoyed honey" ) },
-            { _( "Played Video Game" ) },
-            { _( "Marloss Bliss" ) },
-            { _( "Mutagenic Anticipation" ) },
-            { _( "Good Feeling" ) },
-            { _( "Supported" ) },
-            { _( "Looked at photos" ) },
-
-            { _( "Nicotine Craving" ) },
-            { _( "Caffeine Craving" ) },
-            { _( "Alcohol Craving" ) },
-            { _( "Opiate Craving" ) },
-            { _( "Speed Craving" ) },
-            { _( "Cocaine Craving" ) },
-            { _( "Crack Cocaine Craving" ) },
-            { _( "Mutagen Craving" ) },
-            { _( "Diazepam Craving" ) },
-            { _( "Marloss Craving" ) },
-
-            { _( "Disliked %i" ) },
-            { _( "Ate Human Flesh" ) },
-            { _( "Ate Meat" ) },
-            { _( "Ate Vegetables" ) },
-            { _( "Ate Fruit" ) },
-            { _( "Lactose Intolerance" ) },
-            { _( "Ate Junk Food" ) },
-            { _( "Wheat Allergy" ) },
-            { _( "Ate Indigestible Food" ) },
-            { _( "Wet" ) },
-            { _( "Dried Off" ) },
-            { _( "Cold" ) },
-            { _( "Hot" ) },
-            { _( "Bad Feeling" ) },
-            { _( "Killed Innocent" ) },
-            { _( "Killed Friend" ) },
-            { _( "Guilty about Killing" ) },
-            { _( "Guilty about Mutilating Corpse" ) },
-            { _( "Fey Mutation" ) },
-            { _( "Chimerical Mutation" ) },
-            { _( "Mutation" ) },
-
-            { _( "Moodswing" ) },
-            { _( "Read %i" ) },
-            { _( "Got comfy" ) },
-
-            { _( "Heard Disturbing Scream" ) },
-
-            { _( "Masochism" ) },
-            { _( "Hoarder" ) },
-            { _( "Stylish" ) },
-            { _( "Optimist" ) },
-            { _( "Bad Tempered" ) },
-            //~ You really don't like wearing the Uncomfy Gear
-            { _( "Uncomfy Gear" ) },
-            { _( "Found kitten <3" ) },
-
-            { _( "Got a Haircut" ) },
-            { _( "Freshly Shaven" ) },
-        } };
-        if( static_cast<size_t>( id ) >= morale_data.size() ) {
-            debugmsg( "invalid morale type: %d", id );
-            return morale_data[0];
-        }
-        return morale_data[id];
-    }
-} // namespace
-
-std::string morale_point::name() const
-{
-    // Start with the morale type's description.
-    std::string ret = get_morale_data( type );
-
-    // Get the name of the referenced item (if any).
-    std::string item_name = "";
-    if( item_type != NULL ) {
-        item_name = item_type->nname( 1 );
-    }
-
-    // Replace each instance of %i with the item's name.
-    size_t it = ret.find( "%i" );
-    while( it != std::string::npos ) {
-        ret.replace( it, 2, item_name );
-        it = ret.find( "%i" );
-    }
-
-    return ret;
-}
 
 player::player() : Character()
 {
@@ -590,6 +496,14 @@ void player::process_turn()
     }
 }
 
+void player::drop_inventory_overflow() {
+    // Fix for #15079
+    // @todo replace when we implement off-hand item_location
+    if( activity.type != ACT_RELOAD ) {
+        Character::drop_inventory_overflow();
+    }
+}
+
 void player::action_taken()
 {
     nv_cached = false;
@@ -598,23 +512,15 @@ void player::action_taken()
 void player::update_morale()
 {
     // Decay existing morale entries.
-    for (size_t i = 0; i < morale.size(); i++) {
-        // Age the morale entry by one turn.
-        morale[i].age += 1;
+    for( size_t i = 0; i < morale.size(); i++ ) {
+        morale[i].proceed();
 
-        // If it's past its expiration date, remove it.
-        if (morale[i].age >= morale[i].duration) {
-            morale.erase(morale.begin() + i);
+        if( morale[i].is_expired() ) {
+            morale.erase( morale.begin() + i );
             i--;
-
-            // Future-proofing.
             continue;
         }
-
-        // We don't actually store the effective strength; it gets calculated when we
-        // need it.
     }
-
     // We reapply persistent morale effects after every decay step, to keep them fresh.
     apply_persistent_morale();
 }
@@ -2057,9 +1963,9 @@ void player::memorial( std::ofstream &memorial_file, std::string epitaph )
         memorial_file << string_format(pgettext("epitaph","\"%s\""), epitaph.c_str()) << "\n\n";
     }
     //~ First parameter: Pronoun, second parameter: a profession name (with article)
-    memorial_file << string_format("%1$s was %2$s when the apocalypse began.",
+    memorial_file << string_format(_("%1$s was %2$s when the apocalypse began."),
                                    pronoun.c_str(), profession_name.c_str()) << "\n";
-    memorial_file << string_format("%1$s died on %2$s of year %3$d, day %4$d, at %5$s.",
+    memorial_file << string_format(_("%1$s died on %2$s of year %3$d, day %4$d, at %5$s."),
                      pronoun.c_str(), season_name_upper(calendar::turn.get_season()).c_str(), (calendar::turn.years() + 1),
                      (calendar::turn.days() + 1), calendar::turn.print_time().c_str()) << "\n";
     memorial_file << kill_place << "\n";
@@ -3385,7 +3291,7 @@ void player::disp_morale()
     // Figure out how wide the name column needs to be.
     int name_column_width = 18;
     for (auto &i : morale) {
-        int length = utf8_width(i.name());
+        int length = utf8_width( i.get_name() );
         if ( length > name_column_width) {
             name_column_width = length;
         }
@@ -3408,7 +3314,7 @@ void player::disp_morale()
     // Print out the morale entries.
     for (size_t i = 0; i < morale.size(); i++)
     {
-        std::string name = morale[i].name();
+        std::string name = morale[i].get_name();
         int bonus = net_morale(morale[i]);
 
         // Print out the name.
@@ -3498,10 +3404,8 @@ std::string player::print_gun_mode() const
     std::stringstream attachment;
     if (gunmod != NULL) {
         attachment << gunmod->type_name().c_str();
-        for( auto &mod : weapon.contents ) {
-            if( mod.is_auxiliary_gunmod() ) {
-                attachment << " (" << mod.charges << ")";
-            }
+        if( gunmod->ammo_remaining() ) {
+            attachment << " (" << gunmod->ammo_remaining() << ")";
         }
         return string_format( _("%s (Mod)"), attachment.str().c_str() );
     } else {
@@ -3519,7 +3423,7 @@ std::string player::print_recoil() const
 {
     if (weapon.is_gun()) {
         const int adj_recoil = recoil + driving_recoil;
-        if( adj_recoil > 150 ) {
+        if( adj_recoil > MIN_RECOIL ) {
             // 150 is the minimum when not actively aiming
             const char *color_name = "c_ltgray";
             if( adj_recoil >= 690 ) {
@@ -4541,24 +4445,6 @@ int player::throw_range(int pos) const
     return ret;
 }
 
-int player::ranged_dex_mod() const
-{
-    const int dex = get_dex();
-
-    ///\EFFECT_DEX <12 increases ranged penalty
-    if (dex >= 12) { return 0; }
-    return (12 - dex) * 15;
-}
-
-int player::ranged_per_mod() const
-{
-    const int per = get_per();
-
-    ///\EFFECT_PER <12 increases ranged penalty
-    if (per >= 12) { return 0; }
-    return (12 - per) * 15;
-}
-
 int player::throw_dex_mod(bool return_stat_effect) const
 {
   // Stat window shows stat effects on based on current stat
@@ -4580,36 +4466,6 @@ int player::throw_dex_mod(bool return_stat_effect) const
  // return_stat_effect actually matters here
  return (return_stat_effect ? rng(0, deviation) : deviation);
 }
-
-// Calculates MOC of aim improvement per 10 moves, based on
-// skills, stats, and quality of the gun sight being used.
-// Using this weird setup because # of MOC per move is too fast, (slowest is one MOC/move)
-// and number of moves per MOC is too slow. (fastest is one MOC/move)
-// A worst case of 1 MOC per 10 moves is acceptable, and it scales up
-// indefinitely, though the smallest unit of aim time is 10 moves.
-int player::aim_per_time( item *gun, int for_recoil ) const
-{
-    // Account for Dexterity, weapon skill, weapon mods and flags,
-    int speed_penalty = 0;
-    // Ranges from 0 - 600.
-    // 0 - 10 after adjustment.
-    speed_penalty += skill_dispersion( gun, false ) / 60;
-    // Ranges from 0 - 12 after adjustment.
-    speed_penalty += ranged_dex_mod() / 15;
-    // Ranges from 0 - 10
-    speed_penalty += gun->aim_speed( for_recoil );
-    // TODO: should any conditions, mutations, etc affect this?
-    // Probably CBMs too.
-    int improvement_amount = std::max( 1, 32 - speed_penalty );
-    // Improvement rate is capped by the max aim level of the gun sight being used.
-    return std::min( improvement_amount, for_recoil - gun->sight_dispersion( for_recoil ) );
-}
-
-int player::aim_per_time( item *gun ) const
-{
-    return aim_per_time( gun, recoil );
-}
-
 
 int player::read_speed(bool return_stat_effect) const
 {
@@ -7981,16 +7837,6 @@ void player::suffer()
     }
 
     if (!in_sleep_state()) {
-        if (weight_carried() > weight_capacity()) {
-            // Starts at 1 in 25, goes down by 5 for every 50% more carried
-            if (one_in(35 - 5 * weight_carried() / (weight_capacity() / 2))) {
-                add_msg_if_player(m_bad, _("Your body strains under the weight!"));
-                // 1 more pain for every 800 grams more (5 per extra STR needed)
-                if ( ((weight_carried() - weight_capacity()) / 800 > pain && pain < 100)) {
-                    mod_pain(1);
-                }
-            }
-        }
         if (weight_carried() > 4 * weight_capacity()) {
             if (has_effect( effect_downed )) {
                 add_effect( effect_downed, 1, num_bp, false, 0, true );
@@ -8969,15 +8815,7 @@ void player::update_body_wetness( const w_point &weather )
 
 int player::net_morale(morale_point effect) const
 {
-    double bonus = effect.bonus;
-
-    // If the effect is old enough to have started decaying,
-    // reduce it appropriately.
-    if (effect.age > effect.decay_start)
-    {
-        bonus *= logarithmic_range(effect.decay_start,
-                                effect.duration, effect.age);
-    }
+    double bonus = effect.get_bonus();
 
     // Optimistic characters focus on the good things in life,
     // and downplay the bad things.
@@ -9027,81 +8865,25 @@ int player::morale_level() const
 
 void player::add_morale(morale_type type, int bonus, int max_bonus,
                         int duration, int decay_start,
-                        bool cap_existing, const itype* item_type)
+                        bool capped, const itype* item_type)
 {
-    bool placed = false;
-
     // Search for a matching morale entry.
-    for (auto &i : morale) {
-        if (i.type == type && i.item_type == item_type) {
-            // Found a match!
-            placed = true;
-
-            // Scale the morale bonus to its current level.
-            if (i.age > i.decay_start) {
-                i.bonus *= logarithmic_range(i.decay_start, i.duration, i.age);
-            }
-
-            // If we're capping the existing effect, we can use the new duration
-            // and decay start.
-            if (cap_existing) {
-                i.duration = duration;
-                i.decay_start = decay_start;
-            } else {
-                // Otherwise, we need to figure out whether the existing effect had
-                // more remaining duration and decay-resistance than the new one does.
-                // Only takes the new duration if new bonus and old are the same sign.
-                if (i.duration - i.age <= duration &&
-                   ((i.bonus > 0) == (max_bonus > 0)) ) {
-                    i.duration = duration;
-                } else {
-                    // This will give a longer duration than above.
-                    i.duration -= i.age;
-                }
-
-                if (i.decay_start - i.age <= decay_start &&
-                   ((i.bonus > 0) == (max_bonus > 0)) ) {
-                    i.decay_start = decay_start;
-                } else {
-                    // This will give a later decay start than above.
-                    i.decay_start -= i.age;
-                }
-            }
-
-            // Now that we've finished using it, reset the age to 0.
-            i.age = 0;
-
-            // Is the current morale level for this entry below its cap, if any?
-            if (abs(i.bonus) < abs(max_bonus) || max_bonus == 0) {
-                // Add the requested morale boost.
-                i.bonus += bonus;
-
-                // If we passed the cap, pull back to it.
-                if (abs(i.bonus) > abs(max_bonus) && max_bonus != 0) {
-                    i.bonus = max_bonus;
-                }
-            } else if (cap_existing) {
-                // The existing bonus is above the new cap.  Reduce it.
-                i.bonus = max_bonus;
-            }
-            //Found a match, so no need to check further
-            break;
+    for( auto &i : morale ) {
+        if( i.get_type() == type && i.get_item_type() == item_type ) {
+            i.add( bonus, max_bonus, duration, decay_start, capped );
+            return;
         }
     }
 
-    // No matching entry, so add a new one
-    if (!placed)
-    {
-        morale_point tmp(type, item_type, bonus, duration, decay_start, 0);
-        morale.push_back(tmp);
-    }
+    morale_point new_morale( type, item_type, bonus, duration, decay_start );
+    morale.push_back( new_morale );
 }
 
 int player::has_morale( morale_type type ) const
 {
     for( auto &elem : morale ) {
-        if( elem.type == type ) {
-            return elem.bonus;
+        if( elem.get_type() == type ) {
+            return elem.get_bonus();
         }
     }
     return 0;
@@ -9110,8 +8892,8 @@ int player::has_morale( morale_type type ) const
 void player::rem_morale(morale_type type, const itype* item_type)
 {
     for( size_t i = 0; i < morale.size(); ++i ) {
-        if (morale[i].type == type && morale[i].item_type == item_type) {
-            morale.erase(morale.begin() + i);
+        if( morale[i].get_type() == type && morale[i].get_item_type() == item_type ) {
+            morale.erase( morale.begin() + i );
             break;
         }
     }
@@ -9370,6 +9152,9 @@ bool player::has_fire(const int quantity) const
         return true;
     } else if (has_charges("zweifire_on", quantity)) {
         return true;
+    } else if( is_npc() ) {
+        // A hack to make NPCs use their molotovs
+        return true;
     }
     return false;
 }
@@ -9516,7 +9301,7 @@ std::list<item> player::use_charges(itype_id it, long quantity)
             }
         }
     }
-    if ( power_level > 0 && it == "UPS_off" && has_bionic( "bio_ups" ) ) {
+    if ( power_level > 0 && it == "UPS_off" && has_active_bionic( "bio_ups" ) ) {
         // Need always at least 1 power unit, to prevent exploits
         // and make sure power_level does not get negative
         long ch = std::max(1l, quantity / 10);
@@ -9686,7 +9471,7 @@ long player::charges_of(const itype_id &it) const
         quantity += static_cast<long>( floor( charges_of( "adv_UPS_off" ) / 0.6 ) );
     }
     if ( power_level > 0 ) {
-        if ( it == "UPS_off" && has_bionic( "bio_ups" ) ) {
+        if ( it == "UPS_off" && has_active_bionic( "bio_ups" ) ) {
             quantity += power_level * 10;
         }
     }
@@ -9714,16 +9499,6 @@ bool player::has_item( const item *it ) const
 bool player::has_mission_item(int mission_id) const
 {
     return mission_id != -1 && has_item_with( has_mission_item_filter{ mission_id } );
-}
-
-hint_rating player::rate_action_eat( const item &it ) const
-{
-    //TODO more cases, for HINT_IFFY
-    if( it.is_food_container() || it.is_food() ) {
-        return HINT_GOOD;
-    }
-
-    return HINT_CANT;
 }
 
 //Returns the amount of charges that were consumed by the player
@@ -9773,7 +9548,7 @@ bool player::consume_item( item &target )
     int amount_used = 1;
     if (comest != NULL) {
         if (comest->comesttype == "FOOD" || comest->comesttype == "DRINK") {
-            if( !eat(to_eat, comest) ) {
+            if( !eat( *to_eat ) ) {
                 return false;
             }
         } else if (comest->comesttype == "MED") {
@@ -9798,7 +9573,7 @@ bool player::consume_item( item &target )
                     return false;
                 }
             }
-            consume_effects(to_eat, comest);
+            consume_effects( *to_eat );
             moves -= 250;
         } else {
             debugmsg("Unknown comestible type of item: %s\n", to_eat->tname().c_str());
@@ -9892,575 +9667,6 @@ bool player::consume(int target_position)
     return true;
 }
 
-bool player::eat(item *eaten, const it_comest *comest)
-{
-    int to_eat = 1;
-    if (comest == NULL) {
-        debugmsg("player::eat(%s); comest is NULL!", eaten->tname().c_str());
-        return false;
-    }
-    if (comest->tool != "null") {
-        bool has = has_amount(comest->tool, 1);
-        if( item::count_by_charges( comest->tool ) ) {
-            has = has_charges(comest->tool, 1);
-        }
-        if (!has) {
-            add_msg_if_player(m_info, _("You need a %s to consume that!"),
-                       item::nname( comest->tool ).c_str());
-            return false;
-        }
-    }
-    if (is_underwater()) {
-        add_msg_if_player(m_info, _("You can't do that while underwater."));
-        return false;
-    }
-    // For all those folks who loved eating marloss berries.  D:< mwuhahaha
-    if (has_trait("M_DEPENDENT") && (eaten->type->id != "mycus_fruit")) {
-        add_msg_if_player(m_info, _("We can't eat that.  It's not right for us."));
-        return false;
-    }
-    // Here's why PROBOSCIS is such a negative trait.
-    if ( (has_trait("PROBOSCIS")) && (comest->comesttype == "FOOD" ||
-        eaten->has_flag("USE_EAT_VERB")) ) {
-        add_msg_if_player(m_info,  _("Ugh, you can't drink that!"));
-        return false;
-    }
-    bool overeating = (!has_trait("GOURMAND") && get_hunger() < 0 &&
-                       nutrition_for(comest) >= 5);
-    bool hiberfood = (has_active_mutation("HIBERNATE") && (get_hunger() > -60 && thirst > -60 ));
-    eaten->calc_rot( global_square_location() ); // check if it's rotten before eating!
-    bool spoiled = eaten->rotten();
-
-    last_item = itype_id(eaten->type->id);
-
-    if (overeating && !has_trait("HIBERNATE") && !has_trait("EATHEALTH") && !is_npc() &&
-        !has_trait("SLIMESPAWNER") && !query_yn(_("You're full.  Force yourself to eat?"))) {
-        return false;
-    } else if (has_trait("GOURMAND") && get_hunger() < 0 && nutrition_for(comest) >= 5) {
-        if (!query_yn(_("You're fed.  Try to pack more in anyway?"))) {
-            return false;
-        }
-    }
-
-    int temp_nutr = nutrition_for(comest);
-    int temp_quench = comest->quench;
-    if (hiberfood && !is_npc() && (((get_hunger() - temp_nutr) < -60) || ((thirst - temp_quench) < -60)) && has_active_mutation("HIBERNATE")){
-       if (!query_yn(_("You're adequately fueled. Prepare for hibernation?"))) {
-        return false;
-       }
-       else
-       if(!is_npc()) {add_memorial_log(pgettext("memorial_male", "Began preparing for hibernation."),
-                                       pgettext("memorial_female", "Began preparing for hibernation."));
-                      add_msg(_("You've begun stockpiling calories and liquid for hibernation.  You get the feeling that you should prepare for bed, just in case, but...you're hungry again, and you could eat a whole week's worth of food RIGHT NOW."));
-      }
-    }
-    if (has_trait("CARNIVORE") && (eaten->made_of("veggy") || eaten->made_of("fruit") || eaten->made_of("wheat")) &&
-      !(eaten->made_of("flesh") ||eaten->made_of("hflesh") || eaten->made_of("iflesh") || eaten->made_of("milk") ||
-      eaten->made_of("egg")) && nutrition_for(comest) > 0) {
-        add_msg_if_player(m_info, _("Eww.  Inedible plant stuff!"));
-        return false;
-    }
-    if ((!has_trait("SAPIOVORE") && !has_trait("CANNIBAL") && !has_trait("PSYCHOPATH")) && eaten->made_of("hflesh")&&
-        !is_npc() && !query_yn(_("The thought of eating that makes you feel sick.  Really do it?"))) {
-        return false;
-    }
-    if ((!has_trait("SAPIOVORE") && has_trait("CANNIBAL") && !has_trait("PSYCHOPATH") && !has_trait("SPIRITUAL")) && eaten->made_of("hflesh")&& !is_npc() &&
-        !query_yn(_("The thought of eating that makes you feel both guilty and excited.  Really do it?"))) {
-        return false;
-    }
-
-    if ((!has_trait("SAPIOVORE") && has_trait("CANNIBAL") && !has_trait("PSYCHOPATH") && has_trait("SPIRITUAL")) &&
-         eaten->made_of("hflesh")&& !is_npc() &&
-        !query_yn(_("Cannibalism is such a universal taboo.  Will you break it?"))) {
-        return false;
-    }
-
-    if (has_trait("VEGETARIAN") && eaten->made_of("flesh") && !is_npc() &&
-        !query_yn(_("Really eat that %s?  Your stomach won't be happy."), eaten->tname().c_str())) {
-        return false;
-    }
-    if (has_trait("MEATARIAN") && eaten->made_of("veggy") && !is_npc() &&
-        !query_yn(_("Really eat that %s?  Your stomach won't be happy."), eaten->tname().c_str())) {
-        return false;
-    }
-    if (has_trait("LACTOSE") && eaten->made_of("milk") && (!has_bionic("bio_digestion")) && !is_npc() &&
-        !query_yn(_("Really eat that %s?  Your stomach won't be happy."), eaten->tname().c_str())) {
-        return false;
-    }
-    if (has_trait("ANTIFRUIT") && eaten->made_of("fruit") && !is_npc() &&
-        !query_yn(_("Really eat that %s?  Your stomach won't be happy."), eaten->tname().c_str())) {
-        return false;
-    }
-    if (has_trait("ANTIJUNK") && eaten->made_of("junk") && (!has_bionic("bio_digestion")) && !is_npc() &&
-        !query_yn(_("Really eat that %s?  Your stomach won't be happy."), eaten->tname().c_str())) {
-        return false;
-    }
-    if (has_trait("ANTIWHEAT") && eaten->made_of("wheat") &&
-        (!has_bionic("bio_digestion")) && !is_npc() &&
-        !query_yn(_("Really eat that %s?  Your stomach won't be happy."), eaten->tname().c_str())) {
-        return false;
-    }
-    if (has_trait("CARNIVORE") && ((eaten->made_of("junk")) && !(eaten->made_of("flesh") ||
-      eaten->made_of("hflesh") || eaten->made_of("iflesh") || eaten->made_of("milk") ||
-      eaten->made_of("egg")) ) && (!has_bionic("bio_digestion")) && !is_npc() &&
-        !query_yn(_("Really eat that %s?  It smells completely unappealing."), eaten->tname().c_str()) ) {
-        return false;
-    }
-    // Check for eating/Food is so water and other basic liquids that do not rot don't cause problems.
-    // I'm OK with letting plants drink coffee. (Whether it would count as cannibalism is another story.)
-    if ((has_trait("SAPROPHAGE") && (!spoiled) && (!has_bionic("bio_digestion")) && !is_npc() &&
-      (eaten->has_flag("USE_EAT_VERB") || comest->comesttype == "FOOD") &&
-      !query_yn(_("Really eat that %s?  Your stomach won't be happy."), eaten->tname().c_str()))) {
-        //~ No, we don't eat "rotten" food. We eat properly aged food, like a normal person.
-        //~ Semantic difference, but greatly facilitates people being proud of their character.
-        add_msg_if_player(m_info,  _("It's too fresh, let it age a little first.  "));
-        return false;
-    }
-
-    if (spoiled) {
-        if (is_npc()) {
-            return false;
-        }
-        if ((!(has_trait("SAPROVORE") || has_trait("SAPROPHAGE"))) &&
-            !query_yn(_("This %s smells awful!  Eat it?"), eaten->tname().c_str())) {
-            return false;
-        }
-    }
-
-    //not working directly in the equation... can't imagine why
-    int temp_hunger = get_hunger() - nutrition_for(comest);
-    int temp_thirst = thirst - comest->quench;
-    int capacity = has_trait("GOURMAND") ? -60 : -20;
-    if( has_active_mutation("HIBERNATE") && !is_npc() &&
-        // If BOTH hunger and thirst are above the capacity...
-        ( get_hunger() > capacity && thirst > capacity ) &&
-        // ...and EITHER of them crosses under the capacity...
-        ( temp_hunger < capacity || temp_thirst < capacity ) ) {
-        // Prompt to make sure player wants to gorge for hibernation...
-        if( query_yn(_("Start gorging in preparation for hibernation?")) ) {
-            // ...and explain what that means.
-            add_msg(m_info, _("As you force yourself to eat, you have the feeling that you'll just be able to keep eating and then sleep for a long time."));
-        } else {
-            return false;
-        }
-    }
-
-    if ( has_active_mutation("HIBERNATE") ) {
-        capacity = -620;
-    }
-    if ( has_trait("GIZZARD") ) {
-        capacity = 0;
-    }
-
-    if( has_trait("SLIMESPAWNER") && !is_npc() ) {
-        capacity -= 40;
-        if ( (temp_hunger < capacity && temp_thirst <= (capacity + 10) ) ||
-        (temp_thirst < capacity && temp_hunger <= (capacity + 10) ) ) {
-            add_msg(m_mixed, _("You feel as though you're going to split open!  In a good way??"));
-            mod_pain(5);
-            std::vector<tripoint> valid;
-            for (int x = posx() - 1; x <= posx() + 1; x++) {
-                for (int y = posy() - 1; y <= posy() + 1; y++) {
-                    tripoint dest(x, y, posz());
-                    if (g->is_empty( dest )) {
-                        valid.push_back( dest );
-                    }
-                }
-            }
-            int numslime = 1;
-            for (int i = 0; i < numslime && !valid.empty(); i++) {
-                const tripoint target = random_entry_removed( valid );
-                if (g->summon_mon(mon_player_blob, target)) {
-                    monster *slime = g->monster_at( target );
-                    slime->friendly = -1;
-                }
-            }
-            mod_hunger(40);
-            thirst += 40;
-            //~slimespawns have *small voices* which may be the Nice equivalent
-            //~of the Rat King's ALL CAPS invective.  Probably shared-brain telepathy.
-            add_msg(m_good, _("hey, you look like me! let's work together!"));
-        }
-    }
-
-    if( ( nutrition_for(comest) > 0 && temp_hunger < capacity ) ||
-        ( comest->quench > 0 && temp_thirst < capacity ) ) {
-        if ((spoiled) && !(has_trait("SAPROPHAGE")) ){//rotten get random nutrification
-            if (!query_yn(_("You can hardly finish it all.  Consume it?"))) {
-                return false;
-            }
-        } else {
-            if ( (( nutrition_for(comest) > 0 && temp_hunger < capacity ) ||
-              ( comest->quench > 0 && temp_thirst < capacity )) &&
-              ( (!(has_trait("EATHEALTH"))) || (!(has_trait("SLIMESPAWNER"))) ) ) {
-                if (!query_yn(_("You will not be able to finish it all.  Consume it?"))) {
-                return false;
-                }
-            }
-        }
-    }
-
-    if (comest->has_use()) {
-        to_eat = comest->invoke( this, eaten, pos() );
-        if( to_eat <= 0 ) {
-            return false;
-        }
-    }
-
-    if ( (spoiled) && !(has_trait("SAPROPHAGE")) ) {
-        add_msg(m_bad, _("Ick, this %s doesn't taste so good..."), eaten->tname().c_str());
-        if (!has_trait("SAPROVORE") && !has_trait("EATDEAD") &&
-       (!has_bionic("bio_digestion") || one_in(3))) {
-            add_effect( effect_foodpoison, rng(60, (nutrition_for(comest) + 1) * 60));
-        }
-        consume_effects(eaten, comest, spoiled);
-    } else if ((spoiled) && has_trait("SAPROPHAGE")) {
-        add_msg(m_good, _("Mmm, this %s tastes delicious..."), eaten->tname().c_str());
-        consume_effects(eaten, comest, spoiled);
-    } else {
-        consume_effects(eaten, comest);
-        if (!(has_trait("GOURMAND") || has_active_mutation("HIBERNATE") || has_trait("EATHEALTH"))) {
-            if ((overeating && rng(-200, 0) > get_hunger())) {
-                vomit();
-            }
-        }
-    }
-    // At this point, we've definitely eaten the item, so use up some turns.
-    int mealtime = 250;
-      if (has_trait("MOUTH_TENTACLES")  || has_trait ("MANDIBLES")) {
-        mealtime /= 2;
-    } if (has_trait("GOURMAND")) {
-        mealtime -= 100;
-    } if ((has_trait("BEAK_HUM")) &&
-      (comest->comesttype == "FOOD" || eaten->has_flag("USE_EAT_VERB")) ) {
-        mealtime += 200; // Much better than PROBOSCIS but still optimized for fluids
-    } if (has_trait("SABER_TEETH")) {
-        mealtime += 250; // They get In The Way
-    } if (has_trait("AMORPHOUS")) {
-        mealtime *= 1.1; // Minor speed penalty for having to flow around it
-                          // rather than just grab & munch
-    }
-        moves -= (mealtime);
-
-    // If it's poisonous... poison us.  TODO: More several poison effects
-    if (eaten->poison > 0) {
-        if (!has_trait("EATPOISON") && !has_trait("EATDEAD")) {
-            if (eaten->poison >= rng(2, 4)) {
-                add_effect( effect_poison, eaten->poison * 100);
-            }
-            add_effect( effect_foodpoison, eaten->poison * 300);
-        }
-    }
-
-
-    if (has_trait("AMORPHOUS")) {
-        add_msg_player_or_npc(_("You assimilate your %s."), _("<npcname> assimilates a %s."),
-                                  eaten->tname().c_str());
-    } else if (comest->comesttype == "DRINK" && !eaten->has_flag("USE_EAT_VERB")) {
-        add_msg_player_or_npc( _("You drink your %s."), _("<npcname> drinks a %s."),
-                                  eaten->tname().c_str());
-    } else if (comest->comesttype == "FOOD" || eaten->has_flag("USE_EAT_VERB")) {
-        add_msg_player_or_npc( _("You eat your %s."), _("<npcname> eats a %s."),
-                                  eaten->tname().c_str());
-    }
-
-    // Moved this later in the process, so you actually eat it before converting to HP
-    if ( (has_trait("EATHEALTH")) && ( nutrition_for(comest) > 0 && temp_hunger < capacity ) ) {
-        int room = (capacity - temp_hunger);
-        int excess_food = ((nutrition_for(comest)) - room);
-        add_msg_player_or_npc( _("You feel the %s filling you out."),
-                                 _("<npcname> looks better after eating the %s."),
-                                  eaten->tname().c_str());
-        // Guaranteed 1 HP healing, no matter what.  You're welcome.  ;-)
-        if (excess_food <= 5) {
-            healall(1);
-        }
-        // Straight conversion, except it's divided amongst all your body parts.
-        else healall(excess_food /= 5);
-    }
-
-    if (item::find_type( comest->tool )->is_tool() ) {
-        use_charges(comest->tool, 1); // Tools like lighters get used
-    }
-
-    if( has_bionic("bio_ethanol") && comest->can_use( "ALCOHOL" ) ) {
-        charge_power(rng(50, 200));
-    }
-    if( has_bionic("bio_ethanol") && comest->can_use( "ALCOHOL_WEAK" ) ) {
-        charge_power(rng(25, 100));
-    }
-    if( has_bionic("bio_ethanol") && comest->can_use( "ALCOHOL_STRONG" ) ) {
-        charge_power(rng(75, 300));
-    }
-    //eating plant fertilizer stops here
-    if (has_trait("THRESH_PLANT") && comest->can_use( "PLANTBLECH" )){
-        return true;
-    }
-    if (eaten->made_of("hflesh") && !has_trait("SAPIOVORE")) {
-    // Sapiovores don't recognize humans as the same species.
-    // It's not cannibalism if you're not eating your own kind.
-      if (has_trait("CANNIBAL") && has_trait("PSYCHOPATH") && has_trait("SPIRITUAL")) {
-          add_msg_if_player(m_good, _("You feast upon the human flesh, and in doing so, devour their spirit."));
-          add_morale(MORALE_CANNIBAL, 25, 300); // You're not really consuming anything special; you just think you are.
-      } else if (has_trait("CANNIBAL") && has_trait("PSYCHOPATH")) {
-          add_msg_if_player(m_good, _("You feast upon the human flesh."));
-          add_morale(MORALE_CANNIBAL, 15, 200);
-      } else if (has_trait("PSYCHOPATH") && !has_trait("CANNIBAL") && has_trait("SPIRITUAL")) {
-          add_msg_if_player( _("You greedily devour the taboo meat."));
-          add_morale(MORALE_CANNIBAL, 5, 50); // Small bonus for violating a taboo.
-      } else if (has_trait("PSYCHOPATH") && !has_trait("CANNIBAL")) {
-          add_msg_if_player( _("Meh. You've eaten worse."));
-      } else if (!has_trait("PSYCHOPATH") && has_trait("CANNIBAL") && has_trait("SPIRITUAL")) {
-          add_msg_if_player(m_good, _("You consume the sacred human flesh."));
-          add_morale(MORALE_CANNIBAL, 15, 200); // Boosted because you understand the philosophical implications of your actions, and YOU LIKE THEM.
-      } else if (!has_trait("PSYCHOPATH") && has_trait("CANNIBAL")) {
-          add_msg_if_player(m_good, _("You indulge your shameful hunger."));
-          add_morale(MORALE_CANNIBAL, 10, 50);
-      } else if (!has_trait("PSYCHOPATH") && has_trait("SPIRITUAL")) {
-          add_msg_if_player(m_bad, _("This is probably going to count against you if there's still an afterlife."));
-          add_morale(MORALE_CANNIBAL, -60, -400, 600, 300);
-      } else {
-          add_msg_if_player(m_bad, _("You feel horrible for eating a person."));
-          add_morale(MORALE_CANNIBAL, -60, -400, 600, 300);
-      }
-    }
-    if (has_trait("VEGETARIAN") && (eaten->made_of("flesh") || eaten->made_of("hflesh") || eaten->made_of("iflesh"))) {
-        add_msg_if_player(m_bad, _("Yuck! How can anybody eat this stuff?"));
-        add_morale(MORALE_VEGETARIAN, -75, -400, 300, 240);
-    }
-    if (has_trait("MEATARIAN") && eaten->made_of("veggy")) {
-        add_msg_if_player(m_bad, _("Yuck! How can anybody eat this stuff?"));
-        add_morale(MORALE_MEATARIAN, -75, -400, 300, 240);
-    }
-    if (has_trait("LACTOSE") && eaten->made_of("milk")) {
-        add_msg_if_player(m_bad, _("Your stomach begins gurgling and you feel bloated and ill."));
-        add_morale(MORALE_LACTOSE, -75, -400, 300, 240);
-    }
-    if (has_trait("ANTIFRUIT") && eaten->made_of("fruit")) {
-        add_msg_if_player(m_bad, _("Yuck! How can anybody eat this stuff?"));
-        add_morale(MORALE_ANTIFRUIT, -75, -400, 300, 240);
-    }
-    if (has_trait("ANTIJUNK") && eaten->made_of("junk")) {
-        add_msg_if_player(m_bad, _("Yuck! How can anybody eat this stuff?"));
-        add_morale(MORALE_ANTIJUNK, -75, -400, 300, 240);
-    }
-    if (has_trait("ANTIWHEAT") && eaten->made_of("wheat")) {
-        add_msg_if_player(m_bad, _("Your stomach begins gurgling and you feel bloated and ill."));
-        add_morale(MORALE_ANTIWHEAT, -75, -400, 300, 240);
-    }
-    // Carnivores CAN eat junk food, but they won't like it much.
-    // Pizza-scraping happens in consume_effects.
-    if (has_trait("CARNIVORE") && ((eaten->made_of("junk")) && !(eaten->made_of("flesh") ||
-    eaten->made_of("hflesh") || eaten->made_of("iflesh") || eaten->made_of("milk") ||
-    eaten->made_of("egg")) ) ) {
-        add_msg_if_player(m_bad, _("Your stomach begins gurgling and you feel bloated and ill."));
-        add_morale(MORALE_NO_DIGEST, -25, -125, 300, 240);
-    }
-    if (has_trait("SAPROPHAGE") && !(spoiled) && (eaten->has_flag("USE_EAT_VERB") ||
-    comest->comesttype == "FOOD")) {
-    // It's OK to *drink* things that haven't rotted.  Alternative is to ban water.  D:
-        add_msg_if_player(m_bad, _("Your stomach begins gurgling and you feel bloated and ill."));
-        add_morale(MORALE_NO_DIGEST, -75, -400, 300, 240);
-    }
-    if ((!crossed_threshold() || has_trait("THRESH_URSINE")) && mutation_category_level["MUTCAT_URSINE"] > 40
-        && eaten->made_of("honey")) {
-        //Need at least 5 bear muts for effect to show, to filter out mutations in common with other mutcats
-        int honey_fun = has_trait("THRESH_URSINE") ?
-            std::min(mutation_category_level["MUTCAT_URSINE"]/8, 20) :
-            mutation_category_level["MUTCAT_URSINE"]/12;
-        if (honey_fun < 10)
-            add_msg_if_player(m_good, _("You find the sweet taste of honey surprisingly palatable."));
-        else
-            add_msg_if_player(m_good, _("You feast upon the sweet honey."));
-        add_morale(MORALE_HONEY, honey_fun, 100);
-    }
-    if( (has_trait("HERBIVORE") || has_trait("RUMINANT")) &&
-        (eaten->made_of("flesh") || eaten->made_of("egg")) ) {
-        add_msg_if_player(m_bad, _("Your stomach immediately revolts, you can't keep this disgusting stuff down."));
-        if( !one_in(3) ) {
-            vomit();
-        }
-    }
-    return true;
-}
-
-int player::nutrition_for(const it_comest *comest)
-{
-    // First value is hunger, second is nutrition multiplier
-    using threshold_pair = std::pair<int, float>;
-    static const std::array<threshold_pair, 7> thresholds = {{
-        { INT_MIN, 1.0f },
-        { 100, 1.0f },
-        { 300, 2.0f },
-        { 1400, 4.0f },
-        { 2800, 6.0f },
-        { 6000, 10.0f },
-        { INT_MAX, 10.0f }
-    }};
-
-    const int hng = get_hunger();
-    // Find the first threshold > hunger
-    int i = 1;
-    while( thresholds[i].first <= hng ) {
-        i++;
-    }
-
-    // How far are we along the way from last threshold to current one
-    const float t = (hng - thresholds[i - 1].first) /
-            (thresholds[i].first - thresholds[i - 1].first);
-
-    // Linear interpolation of values at relevant thresholds
-    const float modifier = (t * thresholds[i].second) +
-        ((1 - t) * thresholds[i - 1].second);
-
-    return (int)(comest->get_nutrition() * modifier);
-}
-
-void player::consume_effects(item *eaten, const it_comest *comest, bool rotten)
-{
-    if (has_trait("THRESH_PLANT") && comest->can_use( "PLANTBLECH" )) {
-        return;
-    }
-    if( (has_trait("HERBIVORE") || has_trait("RUMINANT")) &&
-        (eaten->made_of("flesh") || eaten->made_of("egg")) ) {
-        // No good can come of this.
-        return;
-    }
-    float factor = 1.0;
-    float hunger_factor = 1.0;
-    bool unhealthy_allowed = true;
-
-    if (has_trait("GIZZARD")) {
-        factor *= .6;
-    }
-    if (has_trait("CARNIVORE")) {
-        // At least partially edible
-        if(eaten->made_of("flesh") || eaten->made_of("hflesh") || eaten->made_of("iflesh") ||
-              eaten->made_of("milk") || eaten->made_of("egg")) {
-            // Other things are in it, we only get partial benefits
-            if ((eaten->made_of("veggy") || eaten->made_of("fruit") || eaten->made_of("wheat"))) {
-                factor *= .5;
-            } else {
-                // Carnivores don't get unhealthy off pure meat diets
-                unhealthy_allowed = false;
-            }
-        }
-    }
-    // Saprophages get full nutrition from rotting food
-    if (rotten && !has_trait("SAPROPHAGE")) {
-        // everyone else only gets a portion of the nutrition
-        hunger_factor *= rng_float(0, 1);
-        // and takes a health penalty if they aren't adapted
-        if (!has_trait("SAPROVORE") && !has_bionic("bio_digestion")) {
-            mod_healthy_mod(-30, -200);
-        }
-    }
-
-    // Bio-digestion gives extra nutrition
-    if (has_bionic("bio_digestion")) {
-        hunger_factor += rng_float(0, 1);
-    }
-
-    mod_hunger(-nutrition_for(comest) * factor * hunger_factor);
-    thirst -= comest->quench * factor;
-    mod_stomach_food(nutrition_for(comest) * factor * hunger_factor);
-    mod_stomach_water(comest->quench * factor);
-    if( unhealthy_allowed || comest->healthy > 0 ) {
-        // Effectively no upper cap on healthy food, moderate cap on unhealthy food.
-        mod_healthy_mod( comest->healthy, (comest->healthy >= 0) ? 200 : -50 );
-    }
-
-    if (comest->stim != 0) {
-        if (abs(stim) < (abs(comest->stim) * 3)) {
-            if (comest->stim < 0) {
-                stim = std::max(comest->stim * 3, stim + comest->stim);
-            } else {
-                stim = std::min(comest->stim * 3, stim + comest->stim);
-            }
-        }
-    }
-    add_addiction(comest->add, comest->addict);
-    if (addiction_craving(comest->add) != MORALE_NULL) {
-        rem_morale(addiction_craving(comest->add));
-    }
-    if (eaten->has_flag("HOT") && eaten->has_flag("EATEN_HOT")) {
-        add_morale(MORALE_FOOD_HOT, 5, 10);
-    }
-    auto fun = comest->fun;
-    if (eaten->has_flag("COLD") && eaten->has_flag("EATEN_COLD") && fun > 0) {
-            add_morale(MORALE_FOOD_GOOD, fun * 3, fun * 3, 60, 30, false, comest);
-    }
-    if (eaten->has_flag("COLD") && eaten->has_flag("EATEN_COLD") && fun <= 0) {
-            fun = 1;
-    }
-    if (has_trait("GOURMAND")) {
-        if (fun < -2) {
-            add_morale(MORALE_FOOD_BAD, fun * 0.5, fun, 60, 30, false, comest);
-        } else if (fun > 0) {
-            add_morale(MORALE_FOOD_GOOD, fun * 3, fun * 6, 60, 30, false, comest);
-        }
-        if (has_trait("GOURMAND") && !(has_active_mutation("HIBERNATE"))) {
-            if ((nutrition_for(comest) > 0 && get_hunger() < -60) || (comest->quench > 0 && thirst < -60)) {
-                add_msg_if_player(_("You can't finish it all!"));
-            }
-            if (get_hunger() < -60) {
-                set_hunger(-60);
-            }
-            if (thirst < -60) {
-                thirst = -60;
-            }
-        }
-    } if (has_active_mutation("HIBERNATE")) {
-         if ((nutrition_for(comest) > 0 && get_hunger() < -60) || (comest->quench > 0 && thirst < -60)) { //Tell the player what's going on
-            add_msg_if_player(_("You gorge yourself, preparing to hibernate."));
-            if (one_in(2)) {
-                (fatigue += (nutrition_for(comest))); //50% chance of the food tiring you
-            }
-        }
-        if ((nutrition_for(comest) > 0 && get_hunger() < -200) || (comest->quench > 0 && thirst < -200)) { //Hibernation should cut burn to 60/day
-            add_msg_if_player(_("You feel stocked for a day or two. Got your bed all ready and secured?"));
-            if (one_in(2)) {
-                (fatigue += (nutrition_for(comest))); //And another 50%, intended cumulative
-            }
-        }
-
-        if ((nutrition_for(comest) > 0 && get_hunger() < -400) || (comest->quench > 0 && thirst < -400)) {
-            add_msg_if_player(_("Mmm.  You can still fit some more in...but maybe you should get comfortable and sleep."));
-             if (!(one_in(3))) {
-                (fatigue += (nutrition_for(comest))); //Third check, this one at 66%
-            }
-        }
-        if ((nutrition_for(comest) > 0 && get_hunger() < -600) || (comest->quench > 0 && thirst < -600)) {
-            add_msg_if_player(_("That filled a hole!  Time for bed..."));
-            fatigue += (nutrition_for(comest)); //At this point, you're done.  Schlaf gut.
-        }
-        if ((nutrition_for(comest) > 0 && get_hunger() < -620) || (comest->quench > 0 && thirst < -620)) {
-            add_msg_if_player(_("You can't finish it all!"));
-        }
-        if (get_hunger() < -620) {
-            set_hunger(-620);
-        }
-        if (thirst < -620) {
-            thirst = -620;
-        }
-    } else {
-        if (fun < 0) {
-            add_morale(MORALE_FOOD_BAD, fun, fun * 6, 60, 30, false, comest);
-        } else if (fun > 0) {
-            add_morale(MORALE_FOOD_GOOD, fun, fun * 4, 60, 30, false, comest);
-        }
-        if ((nutrition_for(comest) > 0 && get_hunger() < -20) || (comest->quench > 0 && thirst < -20)) {
-            add_msg_if_player(_("You can't finish it all!"));
-        }
-        if (get_hunger() < -20) {
-            set_hunger(-20);
-        }
-        if (thirst < -20) {
-            thirst = -20;
-        }
-    }
-}
-
 void player::rooted_message() const
 {
     if( (has_trait("ROOTS2") || has_trait("ROOTS3") ) &&
@@ -10491,15 +9697,21 @@ void player::rooted()
 
 bool player::can_wield( const item &it, bool alert ) const
 {
-    if( it.is_two_handed(*this) && !has_two_arms() ) {
+    if( it.is_two_handed(*this) && ( !has_two_arms() || worn_with_flag("RESTRICT_HANDS") ) ) {
         if( it.has_flag("ALWAYS_TWOHAND") ) {
             if( alert ) {
                 add_msg( m_info, _("The %s can't be wielded with only one arm."), it.tname().c_str() );
+            }
+            if( worn_with_flag("RESTRICT_HANDS") ) {
+                add_msg( m_info, _("Something you are wearing hinders the use of both hands.") );
             }
         } else {
             if( alert ) {
                 add_msg( m_info, _("You are too weak to wield %s with only one arm."),
                          it.tname().c_str() );
+            }
+            if( worn_with_flag("RESTRICT_HANDS") ) {
+                add_msg( m_info, _("Something you are wearing hinders the use of both hands.") );
             }
         }
         return false;
@@ -10590,7 +9802,7 @@ bool player::wield( item& target )
     if( is_worn( target ) ) {
         target.on_takeoff( *this );
     } else {
-        mv *= 2;
+        mv *= INVENTORY_HANDLING_FACTOR;
     }
 
     moves -= mv;
@@ -10762,6 +9974,11 @@ hint_rating player::rate_action_wear( const item &it ) const
         if (!(it.covers(bp_torso) && it.color() == c_green)) {
             return HINT_IFFY;
         }
+    }
+
+    // Check if we have a hand free to wear a briefcase or shield, including if we're already wearing such a thing.
+    if (it.has_flag("RESTRICT_HANDS") &&  ( !has_two_arms() || worn_with_flag("RESTRICT_HANDS") || weapon.is_two_handed( *this ) )) {
+        return HINT_IFFY;
     }
 
     // Make sure we're not wearing 2 of the item already
@@ -10941,29 +10158,25 @@ bool player::wear(int inventory_position, bool interactive)
 bool player::wear_item( const item &to_wear, bool interactive )
 {
     if( !to_wear.is_armor() ) {
-        add_msg_if_player(m_info, _("Putting on a %s would be tricky."), to_wear.tname().c_str());
+        add_msg_if_player( m_info, _( "Putting on a %s would be tricky." ), to_wear.tname().c_str() );
         return false;
     }
 
     // are we trying to put on power armor? If so, make sure we don't have any other gear on.
-    if (to_wear.is_power_armor())
-    {
+    if( to_wear.is_power_armor() ) {
         for( auto &elem : worn ) {
             if( ( elem.get_covered_body_parts() & to_wear.get_covered_body_parts() ).any() ) {
-                if(interactive)
-                {
-                    add_msg_if_player(m_info, _("You can't wear power armor over other gear!"));
+                if( interactive ) {
+                    add_msg_if_player( m_info, _( "You can't wear power armor over other gear!" ) );
                 }
                 return false;
             }
         }
 
-        if (!(to_wear.covers(bp_torso)))
-        {
+        if( !to_wear.covers( bp_torso ) ) {
             bool power_armor = false;
 
-            if (worn.size())
-            {
+            if( worn.size() ) {
                 for( auto &elem : worn ) {
                     if( elem.is_power_armor() ) {
                         power_armor = true;
@@ -10972,45 +10185,48 @@ bool player::wear_item( const item &to_wear, bool interactive )
                 }
             }
 
-            if (!power_armor)
-            {
-                if(interactive)
-                {
-                    add_msg_if_player(m_info, _("You can only wear power armor components with power armor!"));
+            if( !power_armor ) {
+                if( interactive ) {
+                    add_msg_if_player( m_info, _( "You can only wear power armor components with power armor!" ) );
                 }
                 return false;
             }
         }
 
-        for (auto &i : worn)
-        {
-            if (i.is_power_armor() && i.typeId() == to_wear.typeId() )
-            {
-                if(interactive)
-                {
-                    add_msg_if_player(m_info, _("You cannot wear more than one %s!"), to_wear.tname().c_str());
+        for( auto &i : worn ) {
+            if( i.is_power_armor() && i.typeId() == to_wear.typeId() ) {
+                if( interactive ) {
+                    add_msg_if_player( m_info, _( "You cannot wear more than one %s!" ),
+                                       to_wear.tname().c_str() );
                 }
                 return false;
             }
         }
-    }
-    else
-    {
-        // Only headgear can be worn with power armor, except other power armor components
-        if(!to_wear.covers(bp_head) && !to_wear.covers(bp_eyes) && !to_wear.covers(bp_mouth))
-        {
-            for (auto &i : worn)
-            {
-                if( i.is_power_armor() )
-                {
-                    if(interactive)
-                    {
-                        add_msg_if_player(m_info, _("You can't wear %s with power armor!"), to_wear.tname().c_str());
+    } else {
+        // Only headgear can be worn with power armor, except other power armor components.
+        // You can't wear headgear if power armor helmet is already sitting on your head.
+        if( is_wearing_on_bp( "power_armor_helmet_basic", bp_head ) == true ||
+            is_wearing_on_bp( "power_armor_helmet_light", bp_head ) == true ||
+            is_wearing_on_bp( "power_armor_helmet_heavy", bp_head ) == true ||
+            !to_wear.covers( bp_head ) || !to_wear.covers( bp_mouth ) || !to_wear.covers( bp_eyes ) ) {
+            for( auto &i : worn ) {
+                if( i.is_power_armor() ) {
+                    if( interactive ) {
+                        add_msg_if_player( m_info, _( "You can't wear %s with power armor!" ),
+                                           to_wear.tname().c_str() );
                     }
                     return false;
                 }
             }
         }
+    }
+
+    // Check if we don't have both hands available before wearing a briefcase, shield, etc. Also occurs if we're already wearing one.
+    if (to_wear.has_flag("RESTRICT_HANDS") && ( !has_two_arms() || worn_with_flag("RESTRICT_HANDS") || weapon.is_two_handed( *this ) )) {
+        if(interactive) {
+            add_msg_if_player( m_info, _("You don't have a hand free to wear that.") );
+        }
+        return false;
     }
 
     // Make sure we're not wearing 2 of the item already
@@ -11369,11 +10585,6 @@ hint_rating player::rate_action_reload( const item &it ) const
 
     // Guns may contain additional reloadable mods so check these first
     for( const auto& mod : it.contents ) {
-        // @todo deprecate spare magazine
-        if( mod.typeId() == "spare_mag" && mod.charges < it.ammo_capacity() ) {
-            return HINT_GOOD;
-        }
-
         if( mod.is_auxiliary_gunmod() ) {
             switch( rate_action_reload( mod ) ) {
                 case HINT_GOOD:
@@ -11476,7 +10687,7 @@ bool player::has_enough_charges( const item &it, bool show_msg ) const
         return true;
     }
     if( it.has_flag( "USE_UPS" ) ) {
-        if( has_charges( "UPS", tool->charges_per_use ) ) {
+        if( has_charges( "UPS", tool->charges_per_use ) || it.charges >= tool->charges_per_use ) {
             return true;
         }
         if( show_msg ) {
@@ -11500,42 +10711,44 @@ bool player::has_enough_charges( const item &it, bool show_msg ) const
     return true;
 }
 
-bool player::consume_charges(item *used, long charges_used)
+bool player::consume_charges( item& used, long qty )
 {
-    // Non-tools can use charges too - when they're comestibles
-    const auto tool = dynamic_cast<const it_tool*>(used->type);
-    const auto comest = dynamic_cast<const it_comest*>(used->type);
-    if( charges_used <= 0 || (tool == nullptr && comest == nullptr) ) {
+    if( qty < 0 ) {
+        debugmsg( "Tried to consume negative charges" );
         return false;
     }
 
-    if( tool != nullptr && tool->charges_per_use <= 0 ) {
-        // An item that doesn't normally expend charges is destroyed instead.
-        /* We can't be certain the item is still in the same position,
-         * as other items may have been consumed as well, so remove
-         * the item directly instead of by its position. */
-        i_rem( used );
-        return true;
+    if( !used.is_tool() && !used.is_food() ) {
+        debugmsg( "Tried to consume charges for non-tool, non-food item" );
+        return false;
     }
 
-    if( used->has_flag( "USE_UPS" ) ) {
-        use_charges( "UPS", charges_used );
-        //Replace 1 with charges it needs to use.
-        if( used->active && used->charges <= 1 && !has_charges( "UPS", 1 ) ) {
-            add_msg_if_player( m_info, _( "You need an UPS of some kind for this %s to work continuously." ), used->tname().c_str() );
+    if( qty == 0 ) {
+        return false;
+    }
+
+    // Consume comestibles destroying them if no charges remain
+    if( used.is_food() ) {
+        used.charges -= qty;
+        if( used.charges <= 0 ) {
+            i_rem( &used );
+            return true;
         }
-    } else {
-        used->charges -= std::min( used->charges, charges_used );
+        return false;
     }
 
-    if( comest != nullptr && used->charges <= 0 ) {
-        i_rem( used );
+    // Tools which don't require ammo are instead destroyed
+    if( used.is_tool() && !used.ammo_required() ) {
+        i_rem( &used );
         return true;
     }
 
-    // We may have fiddled with the state of the item in the iuse method,
-    // so restack to sort things out.
-    inv.restack();
+    // USE_UPS never occurs on base items but is instead added by the UPS tool mod
+    if( used.has_flag( "USE_UPS" ) ) {
+        use_charges( "UPS", qty );
+    } else {
+        used.ammo_consume( std::min( qty, used.ammo_remaining() ), pos() );
+    }
     return false;
 }
 
@@ -11559,113 +10772,27 @@ void player::use(int inventory_position)
 
         invoke_item( used );
     } else if (used->is_gunmod()) {
-        const auto mod = used->type->gunmod.get();
+
         ///\EFFECT_GUN allows installation of more difficult gun mods
-        if (!(get_skill_level( skill_gun ) >= mod->req_skill)) {
-            add_msg(m_info, _("You need to be at least level %d in the marksmanship skill before you \
-can install this mod."), mod->req_skill);
+        if( !( get_skill_level( skill_gun ) >= used->type->gunmod->req_skill ) ) {
+            add_msg( m_info, _( "You need to be at least level %d in the marksmanship skill "
+                                "before you can install this mod." ), used->type->gunmod->req_skill);
             return;
         }
-        int gunpos = g->inv(_("Select gun to modify:"));
-        item* gun = &(i_at(gunpos));
-        if (gun->is_null()) {
-            add_msg(m_info, _("You do not have that item."));
-            return;
-        } else if (!gun->is_gun()) {
-            add_msg(m_info, _("That %s is not a weapon."), gun->tname().c_str());
-            return;
-        } else if( gun->is_gunmod() ) {
-            add_msg(m_info, _("That %s is a gunmod, it can not be modded."), gun->tname().c_str());
+
+        int gunpos = g->inv_for_filter( _("Select gun to modify:" ), [&used]( const item& e ) {
+            return e.gunmod_compatible( *used, false );
+        } );
+
+        if( gunpos == INT_MIN ) {
+            add_msg_if_player( m_info, _( "Never mind." ) );
             return;
         }
-        islot_gun* guntype = gun->type->gun.get();
-        if (guntype->skill_used == skill_id("pistol") && !mod->used_on_pistol) {
-            add_msg(m_info, _("That %s cannot be attached to a handgun."),
-                       used->tname().c_str());
-            return;
-        } else if (guntype->skill_used == skill_id("shotgun") && !mod->used_on_shotgun) {
-            add_msg(m_info, _("That %s cannot be attached to a shotgun."),
-                       used->tname().c_str());
-            return;
-        } else if (guntype->skill_used == skill_id("smg") && !mod->used_on_smg) {
-            add_msg(m_info, _("That %s cannot be attached to a submachine gun."),
-                       used->tname().c_str());
-            return;
-        } else if (guntype->skill_used == skill_id("rifle") && !mod->used_on_rifle) {
-            add_msg(m_info, _("That %s cannot be attached to a rifle."),
-                       used->tname().c_str());
-            return;
-        } else if (guntype->skill_used == skill_id("archery") && !mod->used_on_bow && guntype->ammo == "arrow") {
-            add_msg(m_info, _("That %s cannot be attached to a bow."),
-                       used->tname().c_str());
-            return;
-        } else if (guntype->skill_used == skill_id("archery") && !mod->used_on_crossbow && (guntype->ammo == "bolt" || gun->typeId() == "bullet_crossbow")) {
-            add_msg(m_info, _("That %s cannot be attached to a crossbow."),
-                       used->tname().c_str());
-            return;
-        } else if (guntype->skill_used == skill_id("launcher") && !mod->used_on_launcher) {
-            add_msg(m_info, _("That %s cannot be attached to a launcher."),
-                       used->tname().c_str());
-            return;
-        } else if ( !mod->acceptable_ammo_types.empty() &&
-                    mod->acceptable_ammo_types.count(guntype->ammo) == 0 ) {
-                add_msg(m_info, _("That %1$s cannot be used on a %2$s."), used->tname().c_str(),
-                       ammo_name(guntype->ammo).c_str());
-                return;
-        } else if (guntype->valid_mod_locations.count(mod->location) == 0) {
-            add_msg(m_info, _("Your %s doesn't have a slot for this mod."), gun->tname().c_str());
-            return;
-        } else if (gun->get_free_mod_locations(mod->location) <= 0) {
-            add_msg(m_info, _("Your %1$s doesn't have enough room for another %2$s mod. To remove the mods, \
-activate your weapon."), gun->tname().c_str(), _(mod->location.c_str()));
-            return;
+
+        item& gun = i_at( gunpos );
+        if( gun.gunmod_compatible( *used ) ) {
+            gunmod_add( gun, *used );
         }
-        if (used->typeId() == "spare_mag" && gun->has_flag("RELOAD_ONE")) {
-            add_msg(m_info, _("You can not use a spare magazine in your %s."),
-                       gun->tname().c_str());
-            return;
-        }
-        if (mod->location == "magazine" &&
-            gun->clip_size() <= 2) {
-            add_msg(m_info, _("You can not extend the ammo capacity of your %s."),
-                       gun->tname().c_str());
-            return;
-        }
-        if (used->typeId() == "waterproof_gunmod" && gun->has_flag("WATERPROOF_GUN")) {
-            add_msg(m_info, _("Your %s is already waterproof."),
-                       gun->tname().c_str());
-            return;
-        }
-        if (used->typeId() == "tuned_mechanism" && gun->has_flag("NEVER_JAMS")) {
-            add_msg(m_info, _("This %s is eminently reliable. You can't improve upon it this way."),
-                       gun->tname().c_str());
-            return;
-        }
-        if (gun->typeId() == "hand_crossbow" && !mod->used_on_pistol) {
-          add_msg(m_info, _("Your %s isn't big enough to use that mod.'"), gun->tname().c_str(),
-          used->tname().c_str());
-          return;
-        }
-        if (used->typeId() == "brass_catcher" && gun->has_flag("RELOAD_EJECT")) {
-            add_msg(m_info, _("You cannot attach a brass catcher to your %s."),
-                       gun->tname().c_str());
-            return;
-        }
-        for (auto &i : gun->contents) {
-            if (i.type->id == used->type->id) {
-                add_msg(m_info, _("Your %1$s already has a %2$s."), gun->tname().c_str(),
-                           used->tname().c_str());
-                return;
-            } else if ((used->typeId() == "clip" || used->typeId() == "clip2") &&
-                       (i.type->id == "clip" || i.type->id == "clip2")) {
-                add_msg(m_info, _("Your %s already has an extended magazine."),
-                           gun->tname().c_str());
-                return;
-            }
-        }
-        add_msg(_("You attach the %1$s to your %2$s."), used->tname().c_str(),
-                   gun->tname().c_str());
-        gun->contents.push_back(i_rem(used));
         return;
 
     } else if (used->is_bionic()) {
@@ -11680,15 +10807,13 @@ activate your weapon."), gun->tname().c_str(), _(mod->location.c_str()));
         read(inventory_position);
         return;
     } else if (used->is_gun()) {
-        std::vector<item> &mods = used->contents;
-        unsigned imodcount = 0;
-        for( auto &gm : mods ){
-            if( gm.has_flag("IRREMOVABLE") ){
-                imodcount++;
-            }
-        }
-        // Get weapon mod names.
-        if (mods.empty() || mods.size() == imodcount ) {
+
+        auto& mods = used->contents;
+
+        bool can_remove = std::any_of( mods.begin(), mods.end(), []( const item& e ) {
+            return e.is_gunmod() && !e.has_flag( "IRREMOVABLE" );
+        } );
+        if( !can_remove ) {
             add_msg(m_info, _("Your %s doesn't appear to be modded."), used->tname().c_str());
             return;
         }
@@ -11697,40 +10822,50 @@ activate your weapon."), gun->tname().c_str(), _(mod->location.c_str()));
             add_msg( _( "You can not modify your %s while it's worn." ), used->tname().c_str() );
             return;
         }
-        // Create menu.
-        int choice = -1;
-
-        uimenu kmenu;
-        kmenu.selected = 0;
-        kmenu.text = _("Remove which modification?");
-        for (size_t i = 0; i < mods.size(); i++) {
-            if( !mods[i].has_flag("IRREMOVABLE") ){
-                kmenu.addentry( i, true, -1, mods[i].tname() );
-            }
-        }
-        kmenu.addentry( mods.size(), true, 'r', _("Remove all") );
-        kmenu.addentry( mods.size() + 1, true, 'q', _("Cancel") );
-        kmenu.query();
-        choice = kmenu.ret;
-
-        if (choice < int(mods.size())) {
-            const std::string mod = used->contents[choice].tname();
-            remove_gunmod(used, unsigned(choice));
-            add_msg(_("You remove your %1$s from your %2$s."), mod.c_str(), used->tname().c_str());
-        } else if (choice == int(mods.size())) {
-            for (int i = used->contents.size() - 1; i >= 0; i--) {
-                if( !used->contents[i].has_flag("IRREMOVABLE") ){
-                    remove_gunmod(used, i);
-                }
-            }
-            add_msg(_("You remove all the modifications from your %s."), used->tname().c_str());
-        } else {
-            add_msg(_("Never mind."));
+        if( used->ammo_remaining() > 0 || used->magazine_current() ) {
+            // Prevent removal of a ammo type conversion whilst the gun is loaded
+            add_msg( _( "Unload your %s before trying to modify it." ), used->tname().c_str() );
             return;
         }
-        // Removing stuff from a gun takes time.
-        moves -= int(used->reload_time(*this) / 2);
+
+        uimenu prompt;
+        prompt.selected = 0;
+        prompt.text = _( "Remove which modification?" );
+        prompt.return_invalid = true;
+
+        for( decltype( mods.size() ) i = 0; i != mods.size(); ++i ) {
+            if( mods[i].is_gunmod() && !mods[i].has_flag( "IRREMOVABLE" ) ) {
+                prompt.addentry( i + 1, true, -1, mods[i].tname() );
+            }
+        }
+
+        prompt.addentry( 0, true, 'r', _("Remove all") );
+        prompt.query();
+
+        if( prompt.ret > 0 ) {
+            add_msg( _( "You remove your %1$s from your %2$s." ),
+                     mods[ prompt.ret - 1 ].tname().c_str(), used->tname().c_str() );
+
+            remove_gunmod( used, prompt.ret - 1 );
+
+        } else if( prompt.ret == 0 ) {
+            add_msg( _( "You remove all the modifications from your %s." ), used->tname().c_str() );
+
+            for( int i = mods.size() - 1; i >= 0; --i ) {
+                if( mods[i].is_gunmod() && !mods[i].has_flag( "IRREMOVABLE" ) ) {
+                    remove_gunmod( used, i );
+                }
+            }
+
+        } else {
+            add_msg( _( "Never mind." ) );
+            return;
+        }
+
+        // @todo implement sensible time penalty
+        moves -= int( used->reload_time( *this ) / 2 );
         return;
+
     } else if ( used->type->has_use() ) {
         invoke_item( used );
         return;
@@ -11754,7 +10889,7 @@ bool player::invoke_item( item* used, const tripoint &pt )
 
     if( used->type->use_methods.size() < 2 ) {
         const long charges_used = used->type->invoke( this, used, pt );
-        return consume_charges( used, charges_used );
+        return ( used->is_tool() || used->is_food() ) && consume_charges( *used, charges_used );
     }
 
     // Food can't be invoked here - it is already invoked as a part of consumption
@@ -11781,7 +10916,7 @@ bool player::invoke_item( item* used, const tripoint &pt )
 
     const std::string &method = used->type->use_methods[choice].get_type_name();
     long charges_used = used->type->invoke( this, used, pt, method );
-    return consume_charges( used, charges_used );
+    return ( used->is_tool() || used->is_food() ) && consume_charges( *used, charges_used );
 }
 
 bool player::invoke_item( item* used, const std::string &method )
@@ -11807,29 +10942,29 @@ bool player::invoke_item( item* used, const std::string &method, const tripoint 
     }
 
     long charges_used = actually_used->type->invoke( this, actually_used, pt, method );
-    return consume_charges( actually_used, charges_used );
+    return consume_charges( *actually_used, charges_used );
 }
 
-void player::remove_gunmod(item *weapon, unsigned id)
+void player::remove_gunmod( item *weapon, unsigned id )
 {
-    if (id >= weapon->contents.size()) {
+    if( id >= weapon->contents.size() ) {
         return;
     }
     item *gunmod = &weapon->contents[id];
     item ammo;
-    if (gunmod->charges > 0) {
+    if( gunmod->charges > 0 ) {
         if( gunmod->ammo_current() != "null" ) {
             ammo = item( gunmod->ammo_current(), calendar::turn );
         } else {
-            ammo = item(default_ammo(weapon->ammo_type()), calendar::turn);
+            ammo = item( default_ammo( weapon->ammo_type() ), calendar::turn );
         }
         ammo.charges = gunmod->charges;
-        if (ammo.made_of(LIQUID)) {
-            while(!g->handle_liquid(ammo, false, false)) {
+        if( ammo.made_of( LIQUID ) ) {
+            while( !g->handle_liquid( ammo, false, false ) ) {
                 // handled only part of it, retry
             }
         } else {
-            i_add_or_drop(ammo);
+            i_add_or_drop( ammo );
         }
         gunmod->unset_curammo();
         gunmod->charges = 0;
@@ -11837,15 +10972,117 @@ void player::remove_gunmod(item *weapon, unsigned id)
     if( gunmod->is_in_auxiliary_mode() ) {
         weapon->next_mode();
     }
-    i_add_or_drop(*gunmod);
-    weapon->contents.erase(weapon->contents.begin()+id);
-    // gunmod removal decreased the gun's clip_size, move ammo to inventory
-    if ( weapon->clip_size() < weapon->charges ) {
-        ammo = item( weapon->ammo_current(), calendar::turn );
-        ammo.charges = weapon->charges - weapon->clip_size();
-        weapon->charges = weapon->clip_size();
-        i_add_or_drop(ammo);
+    i_add_or_drop( *gunmod );
+    weapon->contents.erase( weapon->contents.begin() + id );
+}
+
+void player::gunmod_add( item &gun, item &mod )
+{
+    if( !gun.gunmod_compatible( mod, false ) ) {
+        debugmsg( "Tried to add incompatible gunmod" );
+        return;
     }
+
+    if( !has_item( &gun ) && !has_item( &mod ) ) {
+        debugmsg( "Tried gunmod installation but mod/gun not in player possession" );
+        return;
+    }
+
+    // first check at least the minimum requirements are met
+    if( !can_use( mod ) ) {
+        return;
+    }
+
+    int roll = 100; // chance of success (%)
+    int risk = 0;   // chance of failure (%)
+
+    // any (optional) tool charges that are used during installation
+    std::string tool;
+    int qty = 0;
+
+    // Mods with INSTALL_DIFFICULT have a chance to fail, potentially damaging the gun
+    if( mod.has_flag( "INSTALL_DIFFICULT" ) ) {
+        int chances = 1; // start with 1 in 6 (~17% chance)
+
+        for( const auto &sk : mod.type->min_skills ) {
+            // gain an additional chance for every level above the minimum requirement
+            chances += std::max( get_skill_level( sk.first ) - sk.second, 0 );
+        }
+
+        // cap success from skill alone to 1 in 5 (~83% chance)
+        roll = std::min( double( chances ), 5.0 ) / 6.0 * 100;
+
+        // focus is either a penalty or bonus of at most +/-10%
+        roll += ( std::min( std::max( focus_pool, 140 ), 60 ) - 100 ) / 4;
+
+        // dexterity and intelligence give +/-2% for each point above or below 12
+        roll += ( get_dex() - 12 ) * 2;
+        roll += ( get_int() - 12 ) * 2;
+
+        // each point of damage to the base gun reduces success by 10%
+        roll -= std::min( gun.damage, 0 ) * 10;
+
+        roll = std::min( roll, 100 );
+
+        // risk of causing damage on failure increases with less durable guns
+        risk = ( 100 - roll ) * ( ( 10.0 - std::min( gun.type->gun->durability, 9 ) ) / 10.0 );
+    }
+
+    if( mod.has_flag( "IRREMOVABLE" ) ) {
+        if( !query_yn( _( "Permanently install your %1$s in your %2$s?" ), mod.tname().c_str(),
+                       gun.tname().c_str() ) ) {
+            add_msg_if_player( _( "Never mind." ) );
+            return; // player cancelled installation
+        }
+    }
+
+    // if chance of success <100% prompt user to continue
+    if( roll < 100 ) {
+        uimenu prompt;
+        prompt.return_invalid = true;
+        prompt.text = string_format( _( "Attach your %1$s to your %2$s?" ), mod.tname().c_str(),
+                                     gun.tname().c_str() );
+
+        std::vector<std::function<void()>> actions;
+
+        prompt.addentry( -1, true, 'w',
+                         string_format( _( "Try without tools (%i%%) risking damage (%i%%)" ), roll, risk ) );
+        actions.push_back( [&] {} );
+
+        prompt.addentry( -1, has_charges( "small_repairkit", 100 ), 'f',
+                         string_format( _( "Use 100 charges of firearm repair kit (%i%%)" ), std::min( roll * 2, 100 ) ) );
+
+        actions.push_back( [&] {
+            tool = "small_repairkit";
+            qty = 100;
+            roll *= 2; // firearm repair kit improves success...
+            risk /= 2; // ...and reduces the risk of damage upon failure
+        } );
+
+        prompt.addentry( -1, has_charges( "large_repairkit", 25 ), 'g',
+                         string_format( _( "Use 25 charges of gunsmith repair kit (%i%%)" ), std::min( roll * 3, 100 ) ) );
+
+        actions.push_back( [&] {
+            tool = "large_repairkit";
+            qty = 25;
+            roll *= 3; // gunsmith repair kit improves success markedly...
+            risk = 0;  // ...and entirely prevents damage upon failure
+        } );
+
+        prompt.query();
+        if( prompt.ret < 0 ) {
+            add_msg_if_player( _( "Never mind." ) );
+            return; // player cancelled installation
+        }
+        actions[ prompt.ret ]();
+    }
+
+    assign_activity( ACT_GUNMOD_ADD, mod.type->gunmod->install_time, -1, get_item_position( &gun ),
+                     tool );
+    activity.values.push_back( get_item_position( &mod ) );
+    activity.values.push_back( roll ); // chance of success (%)
+    activity.values.push_back( risk ); // chance of damage (%)
+    activity.values.push_back( qty ); // tool charges
 }
 
 hint_rating player::rate_action_read( const item &it ) const
@@ -12237,6 +11474,7 @@ void player::do_read( item *book )
                                    pgettext("memorial_female", "Reached skill level %1$d in %2$s."),
                                    new_skill_level, skill.obj().name().c_str());
             }
+            lua_callback("on_skill_increased");
         }
 
         if( skill_level == reading->level || !skill_level.can_train() ) {
@@ -13598,6 +12836,7 @@ void player::practice( const Skill* s, int amount, int cap )
         int newLevel = get_skill_level(s);
         if (is_player() && newLevel > oldLevel) {
             add_msg(m_good, _("Your skill in %s has increased to %d!"), s->name().c_str(), newLevel);
+            lua_callback("on_skill_increased");
         }
         if(is_player() && newLevel > cap) {
             //inform player immediately that the current recipe can't be used to train further
@@ -13649,7 +12888,7 @@ bool player::knows_recipe(const recipe *rec) const
         return true;
     }
 
-    if( learned_recipes.find( rec->ident ) != learned_recipes.end() ) {
+    if( learned_recipes.find( rec->ident() ) != learned_recipes.end() ) {
         return true;
     }
 
@@ -13678,7 +12917,7 @@ int player::has_recipe( const recipe *r, const inventory &crafting_inv ) const
             }
         } else {
             if (candidate.has_flag("HAS_RECIPE")){
-                if (candidate.get_var("RECIPE") == r->ident){
+                if (candidate.get_var("RECIPE") == r->ident()){
                     if (difficulty == -1) difficulty = r->difficulty;
                 }
             }
@@ -13690,9 +12929,9 @@ int player::has_recipe( const recipe *r, const inventory &crafting_inv ) const
 void player::learn_recipe( const recipe * const rec, bool force )
 {
     if( force || rec->valid_learn() ) {
-        learned_recipes[rec->ident] = rec;
+        learned_recipes[rec->ident()] = rec;
     } else {
-        debugmsg( "Tried to learn unlearnable recipe %s", rec->ident.c_str() );
+        debugmsg( "Tried to learn unlearnable recipe %s", rec->ident().c_str() );
     }
 }
 
@@ -13772,11 +13011,6 @@ std::string player::weapname() const
                 if( weapon.magazine_integral() ) {
                     str << "/" << weapon.ammo_capacity();
                 }
-                // @todo deprecate handling of spare magazine
-                int spare_mag = weapon.has_gunmod( "spare_mag" );
-                if( spare_mag != -1 ) {
-                    str << " +" << weapon.contents[spare_mag].charges;
-                }
             } else {
                 str << "---";
             }
@@ -13844,10 +13078,16 @@ bool player::wield_contents( item *container, int pos, int factor, bool effects 
     last_item = itype_id( weapon.type->id );
     container->contents.erase( container->contents.begin() + pos );
 
-    // TODO Doxygen comment covering all possible gun and weapon skills
-    // documenting decrease in time spent wielding from a container
-    int lvl = std::max( (int) get_skill_level( weapon.is_gun() ? weapon.gun_skill() : weapon.weap_skill() ), 1);
-    mv += item_handling_cost( weapon, effects, factor ) / lvl;
+    ///\EFFECT_PISTOL decreases time taken to draw pistols from holsters
+    ///\EFFECT_SMG decreases time taken to draw smgs from holsters
+    ///\EFFECT_RIFLE decreases time taken to draw rifles from holsters
+    ///\EFFECT_SHOTGUN decreases time taken to draw shotguns from holsters
+    ///\EFFECT_LAUNCHER decreases time taken to draw launchers from holsters
+    ///\EFFECT_STABBING decreases time taken to draw stabbing weapons from sheathes
+    ///\EFFECT_CUTTING decreases time taken to draw cutting weapons from scabbards
+    ///\EFFECT_BASHING decreases time taken to draw bashing weapons from holsters
+    int lvl = get_skill_level( weapon.is_gun() ? weapon.gun_skill() : weapon.weap_skill() );
+    mv += item_handling_cost( weapon, effects, factor ) / std::max( sqrt( ( lvl + 3 ) / 3 ), 1.0 );
 
     moves -= mv;
 
@@ -13858,8 +13098,16 @@ bool player::wield_contents( item *container, int pos, int factor, bool effects 
 
 void player::store(item* container, item* put, int factor, bool effects)
 {
-    int lvl = std::max( (int) get_skill_level( put->is_gun() ? put->gun_skill() : put->weap_skill() ), 1 );
-    moves -= item_handling_cost( *put, effects, factor ) / lvl;
+    ///\EFFECT_PISTOL decreases time taken to holster a pistol
+    ///\EFFECT_SMG decreases time taken to holster an SMG
+    ///\EFFECT_RIFLE decreases time taken to holster a rifle
+    ///\EFFECT_SHOTGUN decreases time taken to holster a shotgun
+    ///\EFFECT_LAUNCHER decreases time taken to holster a launcher
+    ///\EFFECT_STABBING decreases time taken to sheath a stabbing weapon
+    ///\EFFECT_CUTTING decreases time taken to sheath a cutting weapon
+    ///\EFFECT_BASHING decreases time taken to holster a bashing weapon
+    int lvl = get_skill_level( put->is_gun() ? put->gun_skill() : put->weap_skill() );
+    moves -= item_handling_cost( *put, effects, factor ) / std::max( sqrt( ( lvl + 3 ) / 3 ), 1.0 );
     container->put_in(i_rem(put));
 }
 
@@ -14149,14 +13397,30 @@ int player::get_stamina_max() const
 
 void player::burn_move_stamina( int moves )
 {
+    int overburden_percentage = 0;
+    int current_weight = weight_carried();
+    int max_weight = weight_capacity();
+    if (current_weight > max_weight) {
+        overburden_percentage = (current_weight - max_weight) * 100 / max_weight;
+    }
     // Regain 10 stamina / turn
     // 7/turn walking
     // 20/turn running
     int burn_ratio = 7;
+    burn_ratio += overburden_percentage;
     if( move_mode == "run" ) {
-        burn_ratio = 20;
+        burn_ratio = burn_ratio * 3 - 1;
     }
     mod_stat( "stamina", -((moves * burn_ratio) / 100) );
+    // Chance to suffer pain if overburden and stamina runs out or has trait BADBACK
+    // Starts at 1 in 25, goes down by 5 for every 50% more carried
+    if ((current_weight > max_weight) && (has_trait("BADBACK") || stamina == 0) && one_in(35 - 5 * current_weight / (max_weight / 2))) {
+        add_msg_if_player(m_bad, _("Your body strains under the weight!"));
+        // 1 more pain for every 800 grams more (5 per extra STR needed)
+        if ( ((current_weight - max_weight) / 800 > pain && pain < 100)) {
+            mod_pain(1);
+        }
+    }
 }
 
 field_id player::playerBloodType() const
@@ -14480,8 +13744,7 @@ std::vector<Creature *> player::get_hostile_creatures() const
 void player::place_corpse()
 {
     std::vector<item *> tmp = inv_dump();
-    item body;
-    body.make_corpse( NULL_ID, calendar::turn, name );
+    item body = item::make_corpse( NULL_ID, calendar::turn, name );
     for( auto itm : tmp ) {
         g->m.add_item_or_charges( pos(), *itm );
     }
@@ -14538,7 +13801,8 @@ std::vector<std::string> player::get_overlay_ids() const {
 
 void player::spores()
 {
-    sounds::sound( pos(), 10, _("Pouf!")); //~spore-release sound
+    //~spore-release sound
+    sounds::sound( pos(), 10, _("Pouf!"));
     for (int i = -1; i <= 1; i++) {
         for (int j = -1; j <= 1; j++) {
             if (i == 0 && j == 0) {
@@ -14613,6 +13877,18 @@ float player::power_rating() const
     return ret;
 }
 
+float player::speed_rating() const
+{
+    float ret = 1.0f / get_speed();
+    ret *= 100.0f / run_cost( 100, false );
+    // Adjustment for player being able to run, but not doing so at the moment
+    if( move_mode != "run" ) {
+        ret *= 1.0f + ((float)stamina / (float)get_stamina_max());
+    }
+
+    return ret;
+}
+
 std::vector<const item *> player::all_items_with_flag( const std::string flag ) const
 {
     return items_with( [&flag]( const item & it ) {
@@ -14629,9 +13905,10 @@ bool player::has_item_with_flag( std::string flag ) const
 
 bool player::has_items_with_quality( const std::string &quality_id, int level, int amount ) const
 {
-    visit_items( [&quality_id, level, &amount]( const item &it ) {
-        if( it.has_quality( quality_id, level ) ) {
-            // Each suitable item decreases the require count until it reaches 0, where the requirement is fulfilled.
+    visit_items_const( [&quality_id, level, &amount]( const item *node ) {
+        if( node->has_quality( quality_id, level ) ) {
+            // Each suitable item decreases the require count until it reaches 0,
+            // where the requirement is fulfilled.
             if( --amount <= 0) {
                 return VisitResponse::ABORT;
             }

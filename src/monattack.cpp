@@ -398,6 +398,7 @@ bool mattack::acid(monster *z)
     projectile proj;
     proj.speed = 10;
     proj.impact.add_damage( DT_ACID, 5 ); // Mostly just for momentum
+    proj.range = 10;
     auto dealt = z->projectile_attack( proj, target->pos(), 5400 );
     const tripoint &hitp = dealt.end_point;
     const Creature *hit_critter = dealt.hit_critter;
@@ -499,6 +500,7 @@ bool mattack::acid_accurate(monster *z)
 
     projectile proj;
     proj.speed = 10;
+    proj.range = 12;
     proj.proj_effects.insert( "BLINDS_EYES" );
     proj.impact.add_damage( DT_ACID, rng( 5, 10 ) );
     z->projectile_attack( proj, target->pos(), rng( 150, 1200 ) );
@@ -1293,8 +1295,8 @@ bool mattack::vine(monster *z)
             }
 
             body_part bphit = critter->get_random_body_part();
-            //~ 1$s monster name(vine), 2$s bodypart in accusative
             critter->add_msg_player_or_npc( m_bad,
+                //~ 1$s monster name(vine), 2$s bodypart in accusative
                 _("The %1$s lashes your %2$s!"),
                 _("The %1$s lashes <npcname>'s %2$s!"),
                 z->name().c_str(),
@@ -1360,6 +1362,7 @@ bool mattack::spit_sap(monster *z)
 
     projectile proj;
     proj.speed = 10;
+    proj.range = 12;
     proj.proj_effects.insert( "APPLY_SAP" );
     proj.impact.add_damage( DT_ACID, rng( 5, 10 ) );
     z->projectile_attack( proj, target->pos(), 150 );
@@ -2787,7 +2790,7 @@ bool mattack::smg(monster *z)
     tmp.weapon.set_curammo( ammo_type );
     tmp.weapon.charges = std::max(z->ammo[ammo_type], 10);
     z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( target->pos(), true );
+    tmp.fire_gun( target->pos(), tmp.weapon.burst_size() );
     z->ammo[ammo_type] += tmp.weapon.charges;
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
@@ -2852,7 +2855,7 @@ bool mattack::laser(monster *z)
     tmp.weapon = item("cerberus_laser", 0);
     tmp.weapon.set_curammo( "laser_capacitor" );
     tmp.weapon.charges = 100;
-    tmp.fire_gun( target->pos(), true );
+    tmp.fire_gun( target->pos(), tmp.weapon.burst_size() );
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
     }
@@ -2934,7 +2937,7 @@ void mattack::rifle( monster *z, Creature *target )
     tmp.weapon.set_curammo( ammo_type );
     tmp.weapon.charges = std::max(z->ammo[ammo_type], 30);
     z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( target->pos(), true );
+    tmp.fire_gun( target->pos(), tmp.weapon.burst_size() );
     z->ammo[ammo_type] += tmp.weapon.charges;
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
@@ -2983,7 +2986,7 @@ void mattack::frag( monster *z, Creature *target ) // This is for the bots, not 
     tmp.weapon.set_curammo( ammo_type );
     tmp.weapon.charges = std::max(z->ammo[ammo_type], 30);
     z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( target->pos(), true );
+    tmp.fire_gun( target->pos(), tmp.weapon.burst_size() );
     z->ammo[ammo_type] += tmp.weapon.charges;
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
@@ -3056,7 +3059,7 @@ bool mattack::bmg_tur(monster *z)
     tmp.weapon.set_curammo( ammo_type );
     tmp.weapon.charges = std::max(z->ammo[ammo_type], 30);
     z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( target->pos(), false );
+    tmp.fire_gun( target->pos() );
     z->ammo[ammo_type] += tmp.weapon.charges;
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
@@ -3123,7 +3126,7 @@ void mattack::tankgun( monster *z, Creature *target )
     tmp.weapon.set_curammo( ammo_type );
     tmp.weapon.charges = std::max(z->ammo[ammo_type], 5);
     z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( aim_point, false );
+    tmp.fire_gun( aim_point );
     z->ammo[ammo_type] += tmp.weapon.charges;
 }
 
@@ -3752,71 +3755,6 @@ bool mattack::breathe(monster *z)
     return true;
 }
 
-bool mattack::bite(monster *z)
-{
-    if( !z->can_act() ) {
-        return false;
-    }
-
-    // Let it be used on non-player creatures
-    Creature *target = z->attack_target();
-    if( target == nullptr || !is_adjacent( z, target, false ) ) {
-        return false;
-    }
-
-    z->moves -= 100;
-    bool uncanny = target->uncanny_dodge();
-    // Can we dodge the attack? Uses player dodge function % chance (melee.cpp)
-    if( uncanny || dodge_check(z, target) ){
-        auto msg_type = target == &g->u ? m_warning : m_info;
-        sfx::play_variant_sound( "mon_bite", "bite_miss", sfx::get_heard_volume(z->pos()), sfx::get_heard_angle(z->pos()));
-        target->add_msg_player_or_npc( msg_type, _("The %s lunges at you, but you dodge!"),
-                                              _("The %s lunges at <npcname>, but they dodge!"),
-                                    z->name().c_str() );
-        if( !uncanny ) {
-            target->on_dodge( z, z->type->melee_skill * 2 );
-        }
-        return true;
-    }
-
-    body_part hit = target->get_random_body_part();
-    int dam = rng(5, 10);
-    dam = target->deal_damage( z, hit, damage_instance( DT_BASH, dam ) ).total_damage();
-
-    if( dam > 0 ) {
-        auto msg_type = target == &g->u ? m_bad : m_info;
-        //~ 1$s is monster name, 2$s bodypart in accusative
-        if ( target->is_player()) {
-            sfx::play_variant_sound( "mon_bite", "bite_hit", sfx::get_heard_volume(z->pos()), sfx::get_heard_angle(z->pos()));
-            sfx::do_player_death_hurt( *dynamic_cast<player*>( target ), 0 );
-        }
-        target->add_msg_player_or_npc( msg_type,
-                                    _("The %1$s bites your %2$s!"),
-                                    _("The %1$s bites <npcname>'s %2$s!"),
-                                    z->name().c_str(),
-                                    body_part_name_accusative( hit ).c_str() );
-        if( one_in( 14 - dam ) ) {
-            if( target->has_effect( effect_bite, hit)) {
-                target->add_effect( effect_bite, 400, hit, true);
-            } else if( target->has_effect( effect_infected, hit ) ) {
-                target->add_effect( effect_infected, 250, hit, true );
-            } else {
-                target->add_effect( effect_bite, 1, hit, true );
-            }
-        }
-    } else {
-        sfx::play_variant_sound( "mon_bite", "bite_miss", sfx::get_heard_volume(z->pos()), sfx::get_heard_angle(z->pos()));
-        target->add_msg_player_or_npc( _("The %1$s bites your %2$s, but fails to penetrate armor!"),
-                                    _("The %1$s bites <npcname>'s %2$s, but fails to penetrate armor!"),
-                                    z->name().c_str(),
-                                    body_part_name_accusative( hit ).c_str() );
-    }
-
-    target->on_hit( z, hit, z->type->melee_skill );
-
-    return true;
-}
-
 bool mattack::stretch_bite(monster *z)
 {
     if( !z->can_act() ) {
@@ -4182,16 +4120,18 @@ bool mattack::slimespring(monster *z)
     // This morale buff effect could get spammy
     if (g->u.morale_level() <= 1) {
         switch (rng(1, 3)) { //~ Your slimes try to cheer you up!
-        //~ Lowercase is intended: they're small voices.
         case 1:
+            //~ Lowercase is intended: they're small voices.
             add_msg(m_good, _("\"hey, it's gonna be all right!\""));
             g->u.add_morale(MORALE_SUPPORT, 10, 50);
             break;
         case 2:
+            //~ Lowercase is intended: they're small voices.
             add_msg(m_good, _("\"we'll get through this!\""));
             g->u.add_morale(MORALE_SUPPORT, 10, 50);
             break;
         case 3:
+            //~ Lowercase is intended: they're small voices.
             add_msg(m_good, _("\"i'm here for you!\""));
             g->u.add_morale(MORALE_SUPPORT, 10, 50);
             break;
@@ -4199,6 +4139,7 @@ bool mattack::slimespring(monster *z)
     }
     if( rl_dist( z->pos(), g->u.pos() ) <= 3 && z->sees( g->u ) ) {
         if ( (g->u.has_effect( effect_bleed )) || (g->u.has_effect( effect_bite )) ) {
+            //~ Lowercase is intended: they're small voices.
             add_msg(_("\"let me help!\""));
             // Yes, your slimespring(s) handle/don't all Bad Damage at the same time.
             if (g->u.has_effect( effect_bite )) {

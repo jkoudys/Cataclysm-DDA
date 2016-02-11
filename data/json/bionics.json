@@ -494,7 +494,6 @@
         "type": "bionic",
         "id": "bio_fingerhack",
         "name": "Fingerhack",
-        "act_cost": 25,
         "description": "One of your fingers has an electrohack embedded in it; an all-purpose hacking unit used to override control panels and the like (but not computers).  Skill in computers is important, and a failed use may damage your circuits."
     },{
         "type": "bionic",
@@ -587,6 +586,7 @@
         "type": "bionic",
         "id": "bio_ups",
         "name": "Internal Unified Power System",
+        "toggled": true,
         "description": "You have a unified power system wired into your power banks.  Objects that run on a UPS can now draw directly from your internal power supply."
     },{
         "type": "bionic",

@@ -382,6 +382,7 @@
 		<Unit filename="src/computer.h" />
 		<Unit filename="src/construction.cpp" />
 		<Unit filename="src/construction.h" />
+		<Unit filename="src/consumption.cpp" />
 		<Unit filename="src/coordinates.h" />
 		<Unit filename="src/craft_command.cpp" />
 		<Unit filename="src/craft_command.h" />
@@ -477,6 +478,7 @@
 		<Unit filename="src/main_menu.cpp" />
 		<Unit filename="src/map.cpp" />
 		<Unit filename="src/map.h" />
+		<Unit filename="src/map_selector.h" />
 		<Unit filename="src/mapbuffer.cpp" />
 		<Unit filename="src/mapbuffer.h" />
 		<Unit filename="src/mapdata.cpp" />
@@ -524,6 +526,7 @@
 		<Unit filename="src/monster.h" />
 		<Unit filename="src/monstergenerator.cpp" />
 		<Unit filename="src/monstergenerator.h" />
+		<Unit filename="src/morale.cpp" />
 		<Unit filename="src/morale.h" />
 		<Unit filename="src/moraledata.h" />
 		<Unit filename="src/mtype.cpp" />
@@ -547,6 +550,7 @@
 		<Unit filename="src/output.h" />
 		<Unit filename="src/overmap.cpp" />
 		<Unit filename="src/overmap.h" />
+		<Unit filename="src/overmap_types.h" />
 		<Unit filename="src/overmapbuffer.cpp" />
 		<Unit filename="src/overmapbuffer.h" />
 		<Unit filename="src/path_info.cpp" />
@@ -617,6 +621,8 @@
 		<Unit filename="src/vehicle_group.cpp" />
 		<Unit filename="src/vehicle_group.h" />
 		<Unit filename="src/version.cpp" />
+		<Unit filename="src/visitable.cpp" />
+		<Unit filename="src/visitable.h" />
 		<Unit filename="src/wcwidth.h" />
 		<Unit filename="src/wdirent.h" />
 		<Unit filename="src/weather.cpp" />

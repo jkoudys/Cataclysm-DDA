@@ -24,6 +24,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 
 const skill_id skill_speech( "speech" );
 const skill_id skill_barter( "barter" );
@@ -628,7 +629,7 @@ void npc::talk_to_u()
     }
 
     if( d.topic_stack.back() == "TALK_NONE" ) {
-        d.topic_stack.back() = pick_talk_topic(&(g->u));
+        d.topic_stack.back() = pick_talk_topic( g->u );
     }
 
     moves -= 100;
@@ -1544,6 +1545,8 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
                         return _("I'm just watching the world burn.");
                     case NC_HUNTER:
                         return _("I'm tracking game.");
+                    case NC_BARTENDER:
+                        return _("I'm looking for new drink recipes.");
                     case NC_MAX:
                         return _("I should not be able to exist!");
                     case NC_NONE:
@@ -2666,8 +2669,14 @@ void dialogue::gen_responses( const std::string &topic )
             add_response_done( _("See you around.") );
 
     } else if( topic == "TALK_FRIEND" ) {
+        if( p->is_following() ) {
             add_response( _("Combat commands..."), "TALK_COMBAT_COMMANDS" );
-            add_response( _("Can I do anything for you?"), "TALK_MISSION_LIST" );
+        }
+
+        add_response( _("Can I do anything for you?"), "TALK_MISSION_LIST" );
+        if( p->is_following() ) {
+            // TODO: Allow NPCs to break training properly
+            // Don't allow them to walk away in the middle of training
             RESPONSE(_("Can you teach me anything?"));
             if( !p->has_effect( effect_asked_to_train ) ) {
                 int commitment = 2 * p->op_of_u.trust + 1 * p->op_of_u.value -
@@ -2679,42 +2688,44 @@ void dialogue::gen_responses( const std::string &topic )
             } else {
                 SUCCESS("TALK_DENY_TRAIN");
             }
-            add_response( _("Let's trade items."), "TALK_NONE", &talk_function::start_trade );
-            if (p->is_following() && g->m.camp_at( g->u.pos() )) {
-                add_response( _("Wait at this base."), "TALK_DONE", &talk_function::assign_base );
+        }
+        add_response( _("Let's trade items."), "TALK_NONE", &talk_function::start_trade );
+        if (p->is_following() && g->m.camp_at( g->u.pos() )) {
+            add_response( _("Wait at this base."), "TALK_DONE", &talk_function::assign_base );
+        }
+        if (p->is_following()) {
+            int loyalty = 3 * p->op_of_u.trust + 1 * p->op_of_u.value -
+                          1 * p->op_of_u.anger + p->op_of_u.owed / 50;
+            RESPONSE(_("Guard this position."));
+                TRIAL(TALK_TRIAL_PERSUADE, loyalty * 2);
+                    SUCCESS("TALK_FRIEND_GUARD");
+                        SUCCESS_ACTION(&talk_function::assign_guard);
+                    FAILURE("TALK_DENY_GUARD");
+                        FAILURE_OPINION(-1, -2, -1, 1, 0);
+
+            RESPONSE(_("I'd like to know a bit more about you..."));
+            if( !p->has_effect( effect_asked_personal_info ) ) {
+                TRIAL(TALK_TRIAL_PERSUADE, loyalty * 2);
+                    SUCCESS("TALK_FRIEND");
+                        SUCCESS_ACTION(&talk_function::reveal_stats);
+                    FAILURE("TALK_DENY_PERSONAL");
+                        FAILURE_ACTION(&talk_function::deny_personal_info);
+            } else {
+                SUCCESS ("TALK_FRIEND_UNCOMFORTABLE");
             }
-            if (p->is_following()) {
-                RESPONSE(_("Guard this position."));
-                int loyalty = 3 * p->op_of_u.trust + 1 * p->op_of_u.value -
-                              1 * p->op_of_u.anger + p->op_of_u.owed / 50;
-                    TRIAL(TALK_TRIAL_PERSUADE, loyalty * 2);
-                        SUCCESS("TALK_FRIEND_GUARD");
-                            SUCCESS_ACTION(&talk_function::assign_guard);
-                        FAILURE("TALK_DENY_GUARD");
-                            FAILURE_OPINION(-1, -2, -1, 1, 0);
-            }
-            if (p->is_following()) {
-                RESPONSE(_("I'd like to know a bit more about you..."));
-                if( !p->has_effect( effect_asked_personal_info ) ) {
-                    int loyalty = 3 * p->op_of_u.trust + 1 * p->op_of_u.value -
-                                    3 * p->op_of_u.anger + p->op_of_u.owed / 25;
-                    TRIAL(TALK_TRIAL_PERSUADE, loyalty * 2);
-                        SUCCESS("TALK_FRIEND");
-                            SUCCESS_ACTION(&talk_function::reveal_stats);
-                        FAILURE("TALK_DENY_PERSONAL");
-                            FAILURE_ACTION(&talk_function::deny_personal_info);
-                } else {
-                    SUCCESS ("TALK_FRIEND_UNCOMFORTABLE");
-                }
-            }
-            if( p->is_following() ) {
-                add_response( _("I want you to use this item"), "TALK_USE_ITEM" );
-                add_response( _("Hold on to this item"), "TALK_GIVE_ITEM" );
-                add_response( _("Miscellaneous rules..."), "TALK_MISC_RULES" );
-            }
+
+            add_response( _("I want you to use this item"), "TALK_USE_ITEM" );
+            add_response( _("Hold on to this item"), "TALK_GIVE_ITEM" );
+            add_response( _("Miscellaneous rules..."), "TALK_MISC_RULES" );
 
             add_response( _("I'm going to go my own way for a while."), "TALK_LEAVE" );
             add_response_done( _("Let's go.") );
+        }
+
+        if( !p->is_following() ) {
+            add_response( _("I need you to come with me."), "TALK_FRIEND", &talk_function::stop_guard );
+            add_response_done( _("Bye.") );
+        }
 
     } else if( topic == "TALK_FRIEND_UNCOMFORTABLE" ) {
             add_response( _("I'll give you some space."), "TALK_FRIEND" );
@@ -3025,8 +3036,6 @@ int talk_trial::calc_chance( const dialogue &d ) const
         if (u.has_trait("ELFAEYES")) {
           chance += 10;
         }
-        //if (p.has_trait("TERRIFYING")) // This appears to do nothing, since NPCs don't seem to actually check for it.
-        // chance -= 15;
         if (u.has_trait("GROWL")) {
           chance += 15;
         }
@@ -3582,8 +3591,8 @@ void talk_function::flee(npc *p)
 
 void talk_function::leave(npc *p)
 {
- add_msg(_("%s leaves."), p->name.c_str());
- p->attitude = NPCATT_NULL;
+    add_msg(_("%s leaves."), p->name.c_str());
+    p->attitude = NPCATT_NULL;
 }
 
 void talk_function::stranger_neutral(npc *p)
@@ -3608,7 +3617,7 @@ void talk_function::player_leaving(npc *p)
 
 void talk_function::drop_weapon(npc *p)
 {
- g->m.add_item_or_charges(p->posx(), p->posy(), p->remove_weapon());
+ g->m.add_item_or_charges(p->pos(), p->remove_weapon());
 }
 
 void talk_function::player_weapon_away(npc *p)
@@ -3620,7 +3629,7 @@ void talk_function::player_weapon_away(npc *p)
 void talk_function::player_weapon_drop(npc *p)
 {
     (void)p; // unused
-    g->m.add_item_or_charges(g->u.posx(), g->u.posy(), g->u.remove_weapon());
+    g->m.add_item_or_charges(g->u.pos(), g->u.remove_weapon());
 }
 
 void talk_function::lead_to_safety(npc *p)
@@ -4605,7 +4614,7 @@ bool try_consume( npc &p, item &it, bool &used, std::string &reason )
     // TODO: Make it not a copy+paste from player::consume_item
     int amount_used = 1;
     if( comest->comesttype == "FOOD" || comest->comesttype == "DRINK" ) {
-        if( !p.eat( &to_eat, comest ) ) {
+        if( !p.eat( to_eat ) ) {
             reason = _("It doesn't look like a good idea to consume this...");
             return false;
         }
@@ -4630,7 +4639,7 @@ bool try_consume( npc &p, item &it, bool &used, std::string &reason )
             }
         }
 
-        p.consume_effects( &to_eat, comest );
+        p.consume_effects( to_eat, comest );
         p.moves -= 250;
     } else {
         debugmsg("Unknown comestible type of item: %s\n", to_eat.tname().c_str());

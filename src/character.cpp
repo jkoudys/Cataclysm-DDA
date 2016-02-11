@@ -115,6 +115,28 @@ void Character::mod_stat( const std::string &stat, int modifier )
     }
 }
 
+int Character::aim_per_time( const item& gun, int recoil ) const
+{
+    int penalty = 0;
+
+    // Range [0 - 10] after adjustment
+    penalty += skill_dispersion( gun, false ) / 60;
+
+    // Ranges [0 - 12] after adjustment
+    penalty += ranged_dex_mod() / 15;
+
+    // Range [0 - 10]
+    penalty += gun.aim_speed( recoil );
+
+    // @todo consider character status effects
+
+    // always improve by at least 1MOC
+    penalty = std::max( 1, 32 - penalty );
+
+    // improvement capped by max aim level of the gun sight being used.
+    return std::min( penalty, recoil - gun.sight_dispersion( recoil ) );
+}
+
 bool Character::move_effects(bool attacking)
 {
     if (has_effect( effect_downed )) {
@@ -469,41 +491,26 @@ bool Character::has_active_bionic(const std::string & b) const
     return false;
 }
 
-VisitResponse Character::visit_items( const std::function<VisitResponse( item& )>& func )
+map_selector Character::nearby( int radius, bool accessible )
 {
-    if( !weapon.is_null() && weapon.visit_items( func ) == VisitResponse::ABORT ) {
-        return VisitResponse::ABORT;
-    }
-
-    for( auto& e : worn ) {
-        if( e.visit_items( func ) == VisitResponse::ABORT ) {
-            return VisitResponse::ABORT;
-        }
-    }
-
-    return inv.visit_items( func );
-}
-
-VisitResponse Character::visit_items( const std::function<VisitResponse( const item& )>& func ) const
-{
-    return const_cast<Character *>( this )->visit_items( static_cast<const std::function<VisitResponse(item&)>&>( func ) );
+    return map_selector( g->m, pos(), radius, accessible );
 }
 
 std::vector<item *> Character::items_with( const std::function<bool(const item&)>& filter )
 {
     auto res = inv.items_with( filter );
 
-    weapon.visit_items( [&res, &filter]( item& it ) {
-        if( filter( it ) ) {
-            res.emplace_back( &it );
+    weapon.visit_items( [&res, &filter]( item *node ) {
+        if( filter( *node ) ) {
+            res.emplace_back( node );
         }
         return VisitResponse::NEXT;
     });
 
     for( auto &e : worn ) {
-        e.visit_items( [&res, &filter]( item& it ) {
-            if( filter( it ) ) {
-                res.emplace_back( &it );
+        e.visit_items( [&res, &filter]( item *node ) {
+            if( filter( *node ) ) {
+                res.emplace_back( node );
             }
             return VisitResponse::NEXT;
         });
@@ -516,30 +523,23 @@ std::vector<const item *> Character::items_with( const std::function<bool(const 
 {
     auto res = inv.items_with( filter );
 
-    weapon.visit_items( [&res, &filter]( const item& it ) {
-        if( filter( it ) ) {
-            res.emplace_back( &it );
+    weapon.visit_items_const( [&res, &filter]( const item *node ) {
+        if( filter( *node ) ) {
+            res.emplace_back( node );
         }
         return VisitResponse::NEXT;
     });
 
     for( const auto &e : worn ) {
-        e.visit_items( [&res, &filter]( const item& it ) {
-            if( filter( it ) ) {
-                res.emplace_back( &it );
+        e.visit_items_const( [&res, &filter]( const item *node ) {
+            if( filter( *node ) ) {
+                res.emplace_back( node );
             }
             return VisitResponse::NEXT;
         });
     }
 
     return res;
-}
-
-bool Character::has_item_with( const std::function<bool(const item&)>& filter ) const
-{
-    return visit_items( [&filter]( const item& it ) {
-        return filter( it ) ? VisitResponse::ABORT : VisitResponse::NEXT;
-    }) == VisitResponse::ABORT;
 }
 
 item& Character::i_add(item it)
@@ -915,6 +915,31 @@ SkillLevel const& Character::get_skill_level(const skill_id &ident) const
     return get_skill_level( &ident.obj() );
 }
 
+int Character::skill_dispersion( const item& gun, bool random ) const
+{
+    static skill_id skill_gun( "gun" );
+
+    int dispersion = 0; // Measured in Minutes of Arc.
+
+    const int lvl = get_skill_level( gun.gun_skill() );
+    if( lvl < 10 ) {
+        // Up to 0.75 degrees for each skill point < 10.
+        ///\EFFECT_PISTOL <10 randomly increases dispersion for pistols
+        ///\EFFECT_SMG <10 randomly increases dispersion for smgs
+        ///\EFFECT_RIFLE <10 randomly increases dispersion for rifles
+        ///\EFFECT_LAUNCHER <10 randomly increases dispersion for launchers
+        dispersion += 45 * ( 10 - lvl );
+    }
+
+    if( get_skill_level( skill_gun ) < 10 ) {
+        // Up to 0.25 deg per each skill point < 10.
+        ///\EFFECT_GUN <10 randomly increased dispersion of all gunfire
+        dispersion += 15 * ( 10 - lvl );
+    }
+
+    return random ? rng(0, dispersion) : dispersion;
+}
+
 void Character::normalize()
 {
     Creature::normalize();
@@ -1119,6 +1144,18 @@ int Character::get_per_bonus() const
 int Character::get_int_bonus() const
 {
     return int_bonus;
+}
+
+int Character::ranged_dex_mod() const
+{
+    ///\EFFECT_DEX <12 increases ranged penalty
+    return std::max( ( 12 - get_dex() ) * 15, 0 );
+}
+
+int Character::ranged_per_mod() const
+{
+    ///\EFFECT_PER <12 increases ranged penalty
+    return std::max( ( 12 - get_per() ) * 15, 0 );
 }
 
 int Character::get_healthy() const
@@ -1471,4 +1508,9 @@ nc_color Character::limb_color( body_part bp, bool bleed, bool bite, bool infect
     }
 
     return i_color;
+}
+
+std::string Character::get_name() const
+{
+    return name;
 }

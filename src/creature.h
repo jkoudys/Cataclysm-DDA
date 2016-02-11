@@ -1,7 +1,6 @@
 #ifndef CREATURE_H
 #define CREATURE_H
 
-#include "damage.h"
 #include "pldata.h"
 #include "json.h"
 #include "effect.h"
@@ -16,9 +15,15 @@
 class game;
 class JsonObject;
 class JsonOut;
+struct projectile;
+struct damage_instance;
+struct dealt_damage_instance;
+struct damage_unit;
+struct dealt_projectile_attack;
 struct trap;
 enum m_flag : int;
 enum field_id : int;
+enum damage_type : int;
 
 enum m_size : int {
     MS_TINY = 0,    // Squirrel
@@ -35,6 +40,8 @@ class Creature
 
         static const std::map<std::string, m_size> size_map;
 
+        // Like disp_name, but without any "the"
+        virtual std::string get_name() const = 0;
         virtual std::string disp_name(bool possessive = false) const = 0; // displayname for Creature
         virtual std::string skin_name() const = 0; // name of outer layer, e.g. "armor plates"
 
@@ -124,9 +131,10 @@ class Creature
          */
         virtual int sight_range( int light_level ) const = 0;
 
-        /** Returns an approximation of the creature's strength. Should always be overwritten by
-         *  the appropriate player/NPC/monster function. */
+        /** Returns an approximation of the creature's strength. */
         virtual float power_rating() const = 0;
+        /** Returns an approximate number of tiles this creature can travel per turn. */
+        virtual float speed_rating() const = 0;
         /**
          * For fake-players (turrets, mounted turrets) this functions
          * chooses a target. This is for creatures that are friendly towards

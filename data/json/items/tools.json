@@ -33,7 +33,6 @@
     "price": 1000,
     "weight": 1000,
     "volume": 20,
-    "to_hit": 0,
     "bashing": 1,
     "cutting": 1,
     "max_charges": 0,
@@ -56,7 +55,6 @@
     "price": 0,
     "weight": 0,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -65,37 +63,12 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "type" : "ITEM_CATEGORY",
     "id" : "spare_parts",
     "name" : "SPARE PARTS",
     "sort_rank" : 8
   },
-
-  {
-    "id": "cash_card",
-    "type": "TOOL",
-    "symbol": ",",
-    "color": "yellow",
-    "name": "cash card",
-    "description": "A yellow plastic card used to store money.  These became popular once the government officially moved to all electronic money.  It holds up to 2 million dollars.",
-    "price": 100,
-    "material": "plastic",
-    "flags": ["NO_UNLOAD", "NO_RELOAD"],
-    "weight": 6,
-    "volume": 0,
-    "bashing": -8,
-    "to_hit": -3,
-    "max_charges": 200000000,
-    "initial_charges": 0,
-    "rand_charges": [0,1,2,3,4,5,6,7,8,9,10,50,100,200,300,500,800,1000,1200,1400,1600,1800,2000,3000,4000,5000,6000,7000,8000,9000,10000,12000,14000,16000,18000,20000,50000,100000],
-    "charges_per_use": 0,
-    "turns_per_charge": 0,
-    "ammo": "money",
-    "revert_to": "null"
-  },
-
   {
     "id":"lighter",
     "type": "TOOL",
@@ -107,7 +80,6 @@
     "material": ["plastic","aluminum"],
     "weight": 14,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "rand_charges": [1,10,12,15,16,22,44,50,67,75,82,100],
@@ -131,7 +103,6 @@
    "material": "steel",
    "weight": 14,
    "volume": 1,
-   "to_hit": 0,
    "max_charges": 100,
    "initial_charges": 0,
    "charges_per_use": 5,
@@ -153,7 +124,6 @@
     "material": "paper",
     "weight": 10,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 20,
     "initial_charges": 20,
     "charges_per_use": 1,
@@ -165,7 +135,6 @@
             "moves_cost": 15
     }
   },
-
   {
     "id": "fire_drill",
     "type": "TOOL",
@@ -177,7 +146,6 @@
     "material": "wood",
     "weight": 240,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 50,
     "charges_per_use": 1,
@@ -189,7 +157,6 @@
             "type": "extended_firestarter"
     }
   },
-
   {
     "id": "fire_drill_large",
     "type": "TOOL",
@@ -201,7 +168,6 @@
     "material": ["wood", "stone"],
     "weight": 1280,
     "volume": 5,
-    "to_hit": 0,
     "max_charges": 1000,
     "initial_charges": 1000,
     "charges_per_use": 1,
@@ -214,19 +180,25 @@
     }
   },
   {
-    "type":"GENERIC",
+    "type":"TOOL",
     "id": "electrohack",
     "symbol": ",",
     "color": "green",
     "name": "electrohack",
     "category" : "tools",
-    "description": "This device has many ports attached, allowing it to connect to almost any control panel or other electronic machine (but not computers).  With a little skill, it can be used to crack passwords and more.",
+    "description": "This device has many ports attached, allowing it to connect to almost any control panel or other electronic machine (but not computers).  With a little skill, it can be used to crack passwords and more.  It requires 25 charges of battery power per use.",
     "price": 40000,
     "material": ["plastic", "aluminum"],
     "weight": 114,
     "volume": 2,
     "bashing": 5,
-    "to_hit": 1
+    "to_hit": 1,
+    "max_charges": 100,
+    "initial_charges": 0,
+    "charges_per_use": 0,
+    "turns_per_charge": 0,
+    "ammo": "battery",
+    "revert_to": "null"
   },
   {
     "id": "magnifying_glass",
@@ -241,7 +213,6 @@
     "flags": [ "LENS" ],
     "weight": 400,
     "volume": 1,
-    "cutting": -5,
     "to_hit": -1,
     "ammo": "NULL",
     "revert_to": "null",
@@ -267,7 +238,6 @@
     "flags": [ "LENS", "ZOOM" ],
     "weight": 500,
     "volume": 1,
-    "cutting": -5,
     "to_hit": -1,
     "ammo": "NULL",
     "revert_to": "null",
@@ -300,7 +270,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "sewing_kit",
     "type": "TOOL",
@@ -312,7 +281,6 @@
     "material": ["plastic", "steel"],
     "weight": 85,
     "volume": 1,
-    "bashing": -3,
     "to_hit": -1,
     "max_charges": 200,
     "initial_charges": 50,
@@ -332,7 +300,6 @@
         "move_cost": 1000
     }
   },
-
   {
     "id": "tailors_kit",
     "sub": "sewing_kit",
@@ -345,7 +312,6 @@
     "material": ["plastic", "steel"],
     "weight": 100,
     "volume": 2,
-    "bashing": -1,
     "to_hit": -2,
     "max_charges": 400,
     "initial_charges": 50,
@@ -358,7 +324,7 @@
             "type": "repair_item",
             "item_action_type" : "repair_fabric",
             "materials": [
-                "cotton", "leather", "wool", "fur", "nomex"
+                "cotton", "leather", "wool", "fur", "nomex", "neoprene"
             ],
             "skill": "tailor",
             "cost_scaling": 0,
@@ -368,7 +334,6 @@
         "SEW_ADVANCED" ],
     "qualities": [["CUT", 1]]
   },
-
   {
     "id": "scissors",
     "type": "TOOL",
@@ -393,7 +358,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1]]
   },
-
   {
     "id": "hammer",
     "type": "TOOL",
@@ -417,7 +381,6 @@
     "use_action": "HAMMER",
     "qualities": [["HAMMER", 3], ["HAMMER_FINE", 1]]
   },
-
   {
     "id": "extinguisher",
     "type": "TOOL",
@@ -503,6 +466,59 @@
     "ammo": "NULL",
     "revert_to": "null"
 },
+{
+    "type":"GENERIC",
+    "id": "grapnel",
+    "symbol": ";",
+    "color": "light_gray",
+    "name": "grappling hook",
+    "description": "A folding grappling hook attached to a stout 30-foot long piece of lightweight cord.  Useful for keeping yourself safe from falls.",
+    "category": "tools",
+    "techniques" : ["RAPID", "SPIN"],
+    "flags" : ["WRAP", "DURABLE_MELEE"],
+    "price": 25000,
+    "material": ["cotton", "steel"],
+    "weight": 760,
+    "volume": 3,
+    "bashing": 12,
+    "cutting": 6,
+    "to_hit": -2
+},
+{
+    "type":"GENERIC",
+    "id" : "umbrella",
+    "symbol" : "/",
+    "color": "magenta",
+    "name": "umbrella",
+    "category": "tools",
+    "description": "An umbrella with a pointy end, useful for keeping dry when wielded.",
+    "material": ["plastic","aluminum"],
+    "price": 2400,
+    "volume": 6,
+    "weight": 141,
+    "bashing": 6,
+    "cutting": 4,
+    "to_hit": 1,
+    "flags": ["STAB","RAIN_PROTECT","SHEATH_SWORD","IAIJUTSU"],
+    "techniques": ["WBLOCK_1"]
+},
+{
+    "type":"GENERIC",
+    "id" : "teleumbrella",
+    "symbol" : ",",
+    "color": "dark_gray",
+    "name": "telescoping umbrella",
+    "category": "tools",
+    "description": "A telescoping umbrella which collapses down for easy storage, useful for keeping dry when wielded.",
+    "material": ["plastic", "aluminum"],
+    "price": 12000,
+    "volume": 2,
+    "weight": 118,
+    "bashing": 1,
+    "to_hit": 1,
+    "flags": ["RAIN_PROTECT"],
+    "techniques": ["WBLOCK_1"]
+},
   {
     "id": "oxygen_tank",
     "type": "TOOL",
@@ -524,7 +540,6 @@
     "revert_to": "null",
     "use_action": "OXYGEN_BOTTLE"
   },
-
   {
     "id": "smoxygen_tank",
     "type": "TOOL",
@@ -546,14 +561,13 @@
     "revert_to": "null",
     "use_action": "OXYGEN_BOTTLE"
   },
-
   {
     "id": "battery_compartment",
     "type": "TOOL",
     "symbol": ";",
     "color": "dark_gray",
     "name": "extra battery mod",
-    "description": "This is a homemade battery compartment made with spare electronics.  With enough electronics skill, you could attach this to any electronic tool to double the amount of batteries it can hold.",
+    "description": "This is a homemade battery compartment made with spare electronics.  With enough electronics skill, you could attach this to any electronic tool to double the amount of batteries it can hold.  Doing so will increase the item's volume proportionally to the increased battery capacity.",
     "price": 1000,
     "material": ["plastic", "aluminum"],
     "weight": 142,
@@ -568,7 +582,6 @@
     "category" : "spare_parts",
     "use_action": "EXTRA_BATTERY"
   },
-
   {
     "id": "double_plutonium_core",
     "type": "TOOL",
@@ -590,7 +603,6 @@
     "category" : "spare_parts",
     "use_action": "DOUBLE_REACTOR"
   },
-
   {
     "id": "rechargeable_battery",
     "type": "TOOL",
@@ -612,7 +624,6 @@
     "category" : "spare_parts",
     "use_action": "RECHARGEABLE_BATTERY"
   },
-
   {
     "id": "gasoline_lantern",
     "type": "TOOL",
@@ -644,7 +655,6 @@
         "need_charges_msg": "The lamp is empty."
     }
   },
-
   {
     "id": "gasoline_lantern_on",
     "type": "TOOL",
@@ -673,7 +683,6 @@
         "msg": "The lantern is extinguished."
     }
   },
-
   {
     "id": "oil_lamp",
     "type": "TOOL",
@@ -705,7 +714,6 @@
         "need_charges_msg": "The lamp is empty."
     }
   },
-
   {
     "id": "oil_lamp_on",
     "type": "TOOL",
@@ -734,7 +742,6 @@
         "msg": "The lantern is extinguished."
     }
   },
-
   {
     "id": "electric_lantern",
     "type": "TOOL",
@@ -764,7 +771,6 @@
         "need_charges_msg": "The lantern has no batteries."
     }
   },
-
   {
     "id": "electric_lantern_on",
     "type": "TOOL",
@@ -792,7 +798,94 @@
         "msg": "The lantern is extinguished."
     }
   },
-
+  {
+    "type":"GENERIC",
+    "id": "atomic_light",
+    "category" : "tools",
+    "symbol": ",",
+    "color": "light_green",
+    "name": "atomic nightlight",
+    "description": "Enjoy the serene Cherenkov-blue glow of the Rivtech atomic nightlight, and feel confident that you won't have to worry about depleting its power supply for at least 160 million years of faithful service.  Use it to close the cover and hide the light.",
+    "price": 125000,
+    "material": ["plastic", "aluminum"],
+    "flags": ["LIGHT_5", "LEAK_DAM", "RADIOACTIVE", "DURABLE_MELEE"],
+    "weight": 3714,
+    "volume": 1,
+    "bashing": 4,
+    "to_hit": -2,
+    "revert_to": "null",
+    "use_action": {
+        "type": "transform",
+        "target": "atomic_light_off",
+        "msg": "You close the nightlight's cover."
+  }
+  },
+  {
+    "type":"GENERIC",
+    "id": "atomic_light_off",
+    "category" : "tools",
+    "symbol": ",",
+    "color": "light_green",
+    "name": "atomic nightlight (covered)",
+    "description": "Enjoy the serene Cherenkov-blue glow of the Rivtech atomic nightlight, and feel confident that you won't have to worry about depleting its power supply for at least 160 million years of faithful service.  The cover is closed.  Use it to open the cover and show the light.",
+    "price": 125000,
+    "material": ["plastic", "aluminum"],
+    "flags": ["LEAK_DAM", "RADIOACTIVE", "DURABLE_MELEE"],
+    "weight": 3714,
+    "volume": 1,
+    "bashing": 4,
+    "to_hit": -2,
+    "revert_to": "null",
+    "use_action": {
+        "type": "transform",
+        "target": "atomic_light",
+        "msg": "You open the nightlight's cover."
+    }
+  },
+  {
+    "type":"GENERIC",
+    "id": "atomic_lamp",
+    "category" : "tools",
+    "symbol": ",",
+    "color": "light_green",
+    "name": "atomic lamp",
+    "description": "Enjoy the serene Cherenkov-blue glow of the Rivtech atomic desk lamp, and feel confident that you won't have to worry about depleting its power supply for at least 40 million years of faithful service.  Use it to close the cover and hide the light.",
+    "price": 175000,
+    "material": ["plastic", "aluminum"],
+    "flags": ["LIGHT_15", "LEAK_DAM", "RADIOACTIVE", "DURABLE_MELEE"],
+    "weight": 5438,
+    "volume": 4,
+    "bashing": 8,
+    "to_hit": -2,
+    "revert_to": "null",
+    "use_action": {
+        "type": "transform",
+        "target": "atomic_lamp_off",
+        "msg": "You close the lamp's cover."
+    }
+  },
+  {
+    "type":"GENERIC",
+    "id": "atomic_lamp_off",
+    "category" : "tools",
+    "symbol": ",",
+    "color": "light_green",
+    "name": "atomic lamp (covered)",
+    "description": "Enjoy the serene Cherenkov-blue glow of the Rivtech atomic desk lamp, and feel confident that you won't have to worry about depleting its power supply for at least 40 million years of faithful service.  The cover is closed.  Use it to open the cover and show the light.",
+    "price": 175000,
+    "material": ["plastic", "aluminum"],
+    "flags": ["LEAK_DAM", "RADIOACTIVE", "DURABLE_MELEE"],
+    "weight": 5438,
+    "volume": 4,
+    "bashing": 8,
+    "to_hit": -2,
+    "revert_to": "null",
+    "use_action": {
+        "type": "transform",
+        "target": "atomic_lamp",
+        "msg": "You open the lamp's cover."
+    }
+  },
   {
     "id": "flashlight",
     "type": "TOOL",
@@ -822,7 +915,6 @@
         "need_charges_msg": "The flashlight's batteries are dead."
     }
   },
-
   {
     "id": "flashlight_on",
     "type": "TOOL",
@@ -850,7 +942,6 @@
         "target": "flashlight"
     }
   },
-
   {
     "id": "heavy_flashlight",
     "type": "TOOL",
@@ -858,7 +949,7 @@
     "color": "blue",
     "name": "heavy duty flashlight (off)",
     "name_plural": "heavy duty flashlights (off)",
-    "description": "This is a heavy duty tubular aluminium LED flashlight as often used by security guards. Makes for a passable melee weapon. Using this flashlight will turn it on and provide light, assuming it is charged with batteries.",
+    "description": "This is a heavy duty tubular aluminum LED flashlight as often used by security guards. Makes for a passable melee weapon. Using this flashlight will turn it on and provide light, assuming it is charged with batteries.",
     "price": 950,
     "material": ["aluminum"],
     "weight": 650,
@@ -880,7 +971,6 @@
         "need_charges_msg": "The heavy duty flashlight's batteries are dead."
     }
   },
-
   {
     "id": "heavy_flashlight_on",
     "type": "TOOL",
@@ -888,7 +978,7 @@
     "color": "blue",
     "name": "heavy duty flashlight (on)",
     "name_plural": "heavy duty flashlights (on)",
-    "description": "This is a heavy duty tubular aluminium LED flashlight as often used by security guards. Makes for a passable melee weapon. This flashlight is turned on, and continually draining its batteries.  Use it to turn it off.",
+    "description": "This is a heavy duty tubular aluminum LED flashlight as often used by security guards. Makes for a passable melee weapon. This flashlight is turned on, and continually draining its batteries.  Use it to turn it off.",
     "price": 950,
     "material": ["aluminum"],
     "flags": [ "LIGHT_500", "CHARGEDIM" ],
@@ -908,7 +998,6 @@
         "target": "heavy_flashlight"
     }
   },
-
   {
     "id": "lightstrip_dead",
     "type": "TOOL",
@@ -931,7 +1020,6 @@
     "category": "other",
     "revert_to": "null"
   },
-
   {
     "id": "lightstrip_inactive",
     "type": "TOOL",
@@ -959,7 +1047,6 @@
         "msg": "You irreversibly activate the lightstrip."
     }
   },
-
   {
     "id": "lightstrip",
     "type": "TOOL",
@@ -988,7 +1075,6 @@
         "msg": "The lightstrip dies."
     }
   },
-
   {
     "id": "glowstick",
     "type": "TOOL",
@@ -1014,7 +1100,6 @@
         "msg": "You activate the glowstick."
     }
   },
-
   {
     "id": "glowstick_lit",
     "type": "TOOL",
@@ -1041,7 +1126,6 @@
         "msg": "The glowstick fades out."
     }
   },
-
   {
     "id": "glowstick_dead",
     "type": "TOOL",
@@ -1063,7 +1147,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "handflare",
     "type": "TOOL",
@@ -1090,7 +1173,6 @@
         "msg": "You strike your flare and light it."
     }
   },
-
   {
     "id": "handflare_lit",
     "type": "TOOL",
@@ -1118,7 +1200,6 @@
         "msg": "The flare sputters out."
     }
   },
-
   {
     "id": "hotplate",
     "type": "TOOL",
@@ -1242,7 +1323,6 @@
     "weight": 45,
     "volume": 3,
     "bashing": 1,
-    "to_hit": 0,
     "max_charges": 28,
     "initial_charges": 28,
     "charges_per_use": 1,
@@ -1432,6 +1512,50 @@
     "to_hit": 2
   },
   {
+    "type": "GENERIC",
+    "id": "clay_pot",
+    "symbol": ")",
+    "color": "brown",
+    "name": "clay pot",
+    "description": "A crude clay pot with lid used for cooking.",
+    "price": 2500,
+    "material": "clay",
+    "weight": 480,
+    "volume": 8,
+    "bashing": 1,
+    "category": "tools",
+    "qualities": [["COOK", 3], ["BOIL", 2], ["CONTAIN", 1], ["CHEM", 1]]
+  },
+  {
+    "type": "GENERIC",
+    "id": "clay_quern",
+    "symbol": ":",
+    "color": "brown",
+    "name": "clay quern",
+    "description": "This is a simple hand-powered clay quern for grinding grain.",
+    "price": 3000,
+    "material": "clay",
+    "weight": 2264,
+    "volume": 6,
+    "category": "tools"
+  },
+  {
+    "type": "GENERIC",
+    "id": "clay_teapot",
+    "symbol": ")",
+    "color": "brown",
+    "name": "clay teapot",
+    "description": "A clay teapot.  Now all you need is tea and water.",
+    "category": "tools",
+    "price": 2000,
+    "material": "clay",
+    "weight": 429,
+    "volume": 3,
+    "bashing": 1,
+    "to_hit": 1,
+    "qualities": [["BOIL", 1]]
+  },
+  {
     "type":"GENERIC",
     "id": "teapot",
     "symbol": ")",
@@ -1494,7 +1618,6 @@
     "weight": 56,
     "volume": 0,
     "cutting": 1,
-    "to_hit": 0,
     "flags" : ["STAB"]
   },
   {
@@ -1545,7 +1668,6 @@
     "weight": 362,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -1589,7 +1711,6 @@
     "volume": 2,
     "bashing": 2,
     "cutting": 6,
-    "to_hit": 0,
     "max_charges": 200,
     "initial_charges": 20,
     "charges_per_use": 1,
@@ -1613,7 +1734,6 @@
         }
     ]
   },
-
   {
     "id": "water_purifier",
     "type": "TOOL",
@@ -1635,7 +1755,6 @@
     "revert_to": "null",
     "use_action": "WATER_PURIFIER"
   },
-
   {
     "id": "two_way_radio",
     "type": "TOOL",
@@ -1648,7 +1767,6 @@
     "weight": 431,
     "volume": 2,
     "bashing": 6,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 1,
@@ -1657,7 +1775,6 @@
     "revert_to": "null",
     "use_action": "TWO_WAY_RADIO"
   },
-
   {
     "id": "radio",
     "type": "TOOL",
@@ -1680,7 +1797,6 @@
     "revert_to": "null",
     "use_action": "RADIO_OFF"
   },
-
   {
     "id": "radio_on",
     "type": "TOOL",
@@ -1703,7 +1819,6 @@
     "revert_to": "radio",
     "use_action": "RADIO_ON"
   },
-
   {
     "id": "directional_antenna",
     "type": "TOOL",
@@ -1715,7 +1830,6 @@
     "material": "aluminum",
     "weight": 454,
     "volume": 2,
-    "bashing": -3,
     "to_hit": 1,
     "max_charges": 0,
     "initial_charges": 0,
@@ -1725,7 +1839,6 @@
     "revert_to": "null",
     "use_action": "DIRECTIONAL_ANTENNA"
   },
-
   {
     "id": "black_box",
     "type": "TOOL",
@@ -1748,7 +1861,6 @@
     "revert_to": "null",
     "category" : "other"
   },
-
   {
     "type":"TOOL",
     "id": "control_laptop",
@@ -1760,16 +1872,15 @@
     "material": ["plastic", "aluminum"],
     "weight": 2721,
     "volume": 4,
-    "to_hit": 0,
     "max_charges": 1000,
     "initial_charges": 0,
     "charges_per_use": 5,
     "turns_per_charge": 0,
     "ammo": "battery",
     "revert_to": "null",
-    "use_action": "ROBOTCONTROL"
+    "use_action": "ROBOTCONTROL",
+    "flags": ["NO_UNLOAD", "RECHARGE"]
   },
-
   {
     "id": "sarcophagus_access_code",
     "type": "TOOL",
@@ -1790,7 +1901,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "noise_emitter",
     "type": "TOOL",
@@ -1814,7 +1924,6 @@
     "revert_to": "null",
     "use_action": "NOISE_EMITTER_OFF"
   },
-
   {
     "id": "noise_emitter_on",
     "type": "TOOL",
@@ -1838,7 +1947,6 @@
     "revert_to": "noise_emitter",
     "use_action": "NOISE_EMITTER_ON"
   },
-
   {
     "id": "roadmap",
     "category": "books",
@@ -1859,7 +1967,6 @@
       "message": "You add roads and points of interest to your map."
     }
   },
-
   {
     "id": "survivormap",
     "category": "books",
@@ -1880,7 +1987,6 @@
       "message": "You add roads and possible supply points to your map."
     }
   },
-
   {
     "id": "militarymap",
     "category": "books",
@@ -1901,7 +2007,6 @@
       "message": "You add roads and facilities to your map."
     }
   },
-
   {
     "id": "restaurantmap",
     "category": "books",
@@ -1922,7 +2027,6 @@
       "message": "You add roads and restaurants to your map."
     }
   },
-
   {
     "id": "touristmap",
     "category": "books",
@@ -1943,7 +2047,6 @@
       "message": "You add roads and tourist attractions to your map."
     }
   },
-
   {
     "id": "crowbar",
     "type": "TOOL",
@@ -1968,7 +2071,6 @@
     "use_action": "CROWBAR",
     "qualities": [["PRY", 2]]
   },
-
   {
     "id": "halligan",
     "type": "TOOL",
@@ -1994,7 +2096,6 @@
     "use_action": "CROWBAR",
     "qualities": [["PRY", 4], ["HAMMER", 2], ["DIG", 1]]
   },
-
   {
     "id": "makeshift_crowbar",
     "type": "TOOL",
@@ -2019,7 +2120,6 @@
     "use_action": "CROWBAR",
     "qualities": [["PRY", 1]]
   },
-
   {
     "id": "hoe",
     "type": "TOOL",
@@ -2042,7 +2142,6 @@
     "revert_to": "null",
     "use_action": "MAKEMOUND"
   },
-
   {
     "id": "shovel",
     "type": "TOOL",
@@ -2066,7 +2165,6 @@
     "qualities": [["DIG", 3]],
     "use_action": "DIG"
   },
-
   {
     "id": "stethoscope",
     "type": "TOOL",
@@ -2078,7 +2176,6 @@
     "material": ["plastic", "aluminum"],
     "weight": 150,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -2086,7 +2183,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
     {
         "id" : "hose",
         "type": "TOOL",
@@ -2109,7 +2205,6 @@
         "revert_to": "null",
         "use_action": "SIPHON"
     },
-
   {
     "id": "chainsaw_off",
     "type": "TOOL",
@@ -2133,7 +2228,6 @@
     "revert_to": "null",
     "use_action": "CHAINSAW_OFF"
   },
-
   {
     "id": "chainsaw_on",
     "type": "TOOL",
@@ -2220,7 +2314,6 @@
     "volume": 6,
     "bashing": 2,
     "cutting": 8,
-    "to_hit": 0,
     "max_charges": 200,
     "initial_charges": 100,
     "charges_per_use": 0,
@@ -2244,7 +2337,6 @@
     "bashing": 2,
     "cutting": 30,
     "flags" : ["CHOP", "MESSY"],
-    "to_hit": 0,
     "max_charges": 200,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -2510,7 +2602,6 @@
     "revert_to": "null",
     "use_action": "JACKHAMMER"
   },
-
   {
     "id": "bubblewrap",
     "type": "TOOL",
@@ -2522,8 +2613,6 @@
     "material": "plastic",
     "weight": 6,
     "volume": 1,
-    "bashing": -8,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -2532,7 +2621,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "beartrap",
     "type": "TOOL",
@@ -2555,7 +2643,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "board_trap",
     "type": "TOOL",
@@ -2578,7 +2665,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "caltrops",
     "type": "TOOL",
@@ -2602,7 +2688,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "tripwire",
     "type": "TOOL",
@@ -2614,7 +2699,6 @@
     "material": "aluminum",
     "weight": 40,
     "volume": 1,
-    "bashing": -10,
     "to_hit": -1,
     "max_charges": 0,
     "initial_charges": 0,
@@ -2624,7 +2708,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "crossbow_trap",
     "type": "TOOL",
@@ -2646,7 +2729,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "shotgun_trap",
     "type": "TOOL",
@@ -2668,7 +2750,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "blade_trap",
     "type": "TOOL",
@@ -2691,7 +2772,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "light_snare_kit",
     "type": "TOOL",
@@ -2704,7 +2784,6 @@
     "weight": 886,
     "volume": 1,
     "cutting": 6,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -2713,7 +2792,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "heavy_snare_kit",
     "type": "TOOL",
@@ -2726,7 +2804,6 @@
     "weight": 1066,
     "volume": 1,
     "cutting": 10,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -2735,7 +2812,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "landmine",
     "type": "TOOL",
@@ -2757,7 +2833,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "telepad",
     "type": "TOOL",
@@ -2780,7 +2855,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "geiger_off",
     "type": "TOOL",
@@ -2794,7 +2868,6 @@
     "weight": 225,
     "volume": 2,
     "bashing": 2,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 1,
@@ -2803,7 +2876,6 @@
     "revert_to": "null",
     "use_action": "GEIGER"
   },
-
   {
     "id": "geiger_on",
     "type": "TOOL",
@@ -2817,7 +2889,6 @@
     "weight": 225,
     "volume": 2,
     "bashing": 2,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 0,
@@ -2826,7 +2897,6 @@
     "revert_to": "geiger_off",
     "use_action": "GEIGER"
   },
-
   {
     "id": "teleporter",
     "type": "TOOL",
@@ -2848,7 +2918,6 @@
     "revert_to": "null",
     "use_action": "TELEPORT"
   },
-
   {
     "id": "canister_goo",
     "type": "TOOL",
@@ -2870,7 +2939,6 @@
     "revert_to": "null",
     "use_action": "CAN_GOO"
   },
-
   {
     "id": "throw_extinguisher",
     "type": "TOOL",
@@ -2894,7 +2962,6 @@
     "category": "tools",
     "use_action": "THROWABLE_EXTINGUISHER_ACT"
   },
-
   {
     "id": "pipebomb",
     "type": "TOOL",
@@ -2925,7 +2992,6 @@
         "target_charges": 3
     }
   },
-
   {
     "id": "pipebomb_act",
     "type": "TOOL",
@@ -2948,7 +3014,6 @@
     "category": "weapons",
     "use_action": "PIPEBOMB_ACT"
   },
-
   {
     "id": "grenade",
     "type": "TOOL",
@@ -2978,7 +3043,6 @@
         "msg": "You pull the pin on the grenade."
     }
   },
-
   {
     "id": "grenade_act",
     "type": "TOOL",
@@ -3009,7 +3073,6 @@
         "explosion_shrapnel": 28
     }
   },
-
   {
     "id": "grenade_inc",
     "type": "TOOL",
@@ -3039,7 +3102,6 @@
         "msg": "You pull the pin on the grenade."
     }
   },
-
   {
     "id": "grenade_inc_act",
     "type": "TOOL",
@@ -3063,7 +3125,6 @@
     "category": "weapons",
     "use_action": "GRENADE_INC_ACT"
   },
-
   {
     "id": "granade",
     "type": "TOOL",
@@ -3086,7 +3147,6 @@
     "category": "weapons",
     "use_action": "GRANADE"
   },
-
   {
     "id": "granade_act",
     "type": "TOOL",
@@ -3109,7 +3169,6 @@
     "category": "weapons",
     "use_action": "GRANADE_ACT"
   },
-
   {
     "id": "flashbang",
     "type": "TOOL",
@@ -3139,7 +3198,6 @@
         "msg": "You pull the pin on the flashbang."
     }
   },
-
   {
     "id": "flashbang_act",
     "type": "TOOL",
@@ -3168,7 +3226,6 @@
         "do_flashbang": true
     }
   },
-
   {
     "id": "EMPbomb",
     "type": "TOOL",
@@ -3198,7 +3255,6 @@
         "msg": "You pull the pin on the EMP grenade."
     }
   },
-
   {
     "id": "EMPbomb_act",
     "type": "TOOL",
@@ -3229,7 +3285,6 @@
         "emp_blast_radius": 4
     }
   },
-
   {
     "id": "scrambler",
     "type": "TOOL",
@@ -3259,7 +3314,6 @@
         "msg": "You pull the pin on the scrambler grenade."
     }
   },
-
   {
     "id": "scrambler_act",
     "type": "TOOL",
@@ -3290,7 +3344,6 @@
         "scrambler_blast_radius": 4
     }
   },
-
   {
     "id": "gasbomb",
     "type": "TOOL",
@@ -3320,7 +3373,6 @@
         "msg": "You pull the pin on the teargas canister."
     }
   },
-
   {
     "id": "gasbomb_act",
     "type": "TOOL",
@@ -3352,7 +3404,6 @@
         "fields_max_density": 3
     }
   },
-
   {
     "id": "gasbomb_makeshift",
     "type": "TOOL",
@@ -3382,14 +3433,13 @@
         "msg": "You arm the makeshift gas canister."
     }
   },
-
   {
     "id": "gasbomb_makeshift_act",
     "type": "TOOL",
     "symbol": "*",
     "color": "dark_gray",
     "name": "active makeshift gas grenade",
-    "description": "This hommade canister of poison gas has been unsealed, and is (or will shortly be) expelling highly toxic gas.  You should consider getting rid of it soon.",
+    "description": "This homemade canister of poison gas has been unsealed, and is (or will shortly be) expelling highly toxic gas.  You should consider getting rid of it soon.",
     "price": 0,
     "material": "steel",
     "weight": 1264,
@@ -3414,7 +3464,6 @@
         "fields_max_density": 3
     }
   },
-
   {
     "id": "smokebomb",
     "type": "TOOL",
@@ -3444,7 +3493,6 @@
         "msg": "You pull the pin on the smoke bomb."
     }
   },
-
   {
     "id": "smokebomb_act",
     "type": "TOOL",
@@ -3476,7 +3524,6 @@
         "fields_max_density": 3
     }
   },
-
   {   "id" : "flamable_arrow",
       "type" : "TOOL",
       "symbol" : "=",
@@ -3498,7 +3545,6 @@
       "category": "ammo",
       "use_action": "ARROW_FLAMABLE"
    },
-
   {
     "id": "molotov",
     "type": "TOOL",
@@ -3530,7 +3576,6 @@
         "moves": 75
     }
   },
-
   {
     "id": "molotov_lit",
     "type": "TOOL",
@@ -3555,18 +3600,17 @@
     "category": "weapons",
     "use_action": "MOLOTOV_LIT"
   },
-
   {
     "id": "acidbomb",
     "type": "TOOL",
     "symbol": "*",
     "color": "yellow",
     "name": "acid bomb",
-    "description": "This is a glass vial, split into two chambers.  The divider is removable, which will cause the chemicals to mix.  If this mixture is exposed to air (perhaps by throwing the vial) they will spill out as a pool of potent acid.",
+    "description": "This is a fragile container filled with acid.  Throw it to spill out a pool of potent acid.",
     "price": 5000,
     "material": "glass",
     "flags": "ACT_ON_RANGED_HIT",
-    "weight": 1268,
+    "weight": 650,
     "volume": 2,
     "bashing": 4,
     "to_hit": -1,
@@ -3577,16 +3621,8 @@
     "ammo": "NULL",
     "revert_to": "null",
     "category": "weapons",
-    "use_action": {
-        "type": "auto_transform",
-        "target": "acidbomb_act",
-        "target_charges": 1,
-        "msg": "The acid mixes and starts foaming.",
-        "active": true,
-        "moves": 150
-    }
+    "use_action": "ACIDBOMB_ACT"
   },
-
   {
     "id": "acidbomb_act",
     "type": "TOOL",
@@ -3610,7 +3646,6 @@
     "category": "weapons",
     "use_action": "ACIDBOMB_ACT"
   },
-
   {
     "id": "dynamite",
     "type": "TOOL",
@@ -3646,7 +3681,6 @@
         "msg": "You light the dynamite."
     }
   },
-
   {
     "id": "dynamite_act",
     "type": "TOOL",
@@ -3681,7 +3715,6 @@
         "explosion_shrapnel": 0
     }
   },
-
   {
     "id": "firecracker_pack",
     "type": "TOOL",
@@ -3704,7 +3737,6 @@
     "revert_to": "null",
     "use_action": "FIRECRACKER_PACK"
   },
-
   {
     "id": "firecracker_pack_act",
     "type": "TOOL",
@@ -3726,7 +3758,6 @@
     "revert_to": "null",
     "use_action": "FIRECRACKER_PACK_ACT"
   },
-
   {
     "id": "firecracker",
     "type": "TOOL",
@@ -3748,7 +3779,6 @@
     "revert_to": "null",
     "use_action": "FIRECRACKER"
   },
-
   {
     "id": "firecracker_act",
     "type": "TOOL",
@@ -3771,7 +3801,6 @@
     "revert_to": "null",
     "use_action": "FIRECRACKER_ACT"
   },
-
   {
     "id": "mininuke",
     "type": "TOOL",
@@ -3795,7 +3824,6 @@
     "category": "weapons",
     "use_action": "MININUKE"
   },
-
   {
     "id": "mininuke_act",
     "type": "TOOL",
@@ -3831,7 +3859,6 @@
         "fields_max_density": 3
     }
   },
-
   {
     "id": "pheromone",
     "type": "TOOL",
@@ -3843,7 +3870,6 @@
     "material": ["flesh", "plastic"],
     "weight": 238,
     "volume": 1,
-    "bashing": -5,
     "to_hit": -1,
     "max_charges": 3,
     "initial_charges": 3,
@@ -3853,7 +3879,6 @@
     "revert_to": "null",
     "use_action": "PHEROMONE"
   },
-
   {
     "id": "portal",
     "type": "TOOL",
@@ -4202,9 +4227,9 @@
     "charges_per_use": 0,
     "turns_per_charge": 0,
     "ammo": "battery",
-    "revert_to": "null"
+    "revert_to": "null",
+    "flags": ["NO_UNLOAD", "RECHARGE"]
   },
-
   {
     "id": "adv_UPS_off",
     "type": "TOOL",
@@ -4212,7 +4237,7 @@
     "color": "light_green",
     "name": "advanced UPS",
     "name_plural": "advanced UPS's",
-    "description": "This is an advanced version of the unified power supply, or UPS.  This device has been significantly redesigned to provide better efficiency as well as to consume plutonium fuel cells rather than batteries.",
+    "description": "This is an advanced version of the unified power supply, or UPS.  This device has been significantly redesigned to provide better efficiency as well as to consume plutonium fuel cells rather than batteries.  Sadly, it's plutonium reactor can't be charged in UPS charging station.",
     "price": 560000,
     "material": ["aluminum", "plastic"],
     "weight": 453,
@@ -4226,7 +4251,6 @@
     "ammo": "plutonium",
     "revert_to": "null"
   },
-
   {
     "id": "fake_UPS",
     "type": "TOOL",
@@ -4239,7 +4263,6 @@
     "material": ["null"],
     "weight": 0,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 1000,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -4247,7 +4270,6 @@
     "ammo": "battery",
     "revert_to": "null"
   },
-
   {
      "id" : "tazer",
      "type" : "TOOL",
@@ -4257,6 +4279,7 @@
      "description" : "This is a high-powered stun gun.  Use this item to attempt to electrocute an adjacent enemy, damaging and temporarily paralyzing them.  Because the shock can actually jump through the air, it is difficult to miss.",
      "price" : 14000,
      "material" : ["plastic", "aluminum"],
+     "flags" : ["NO_UNLOAD", "RECHARGE"],
      "weight" : 151,
      "volume" : 1,
      "bashing" : 6,
@@ -4270,7 +4293,6 @@
      "category": "weapons",
      "use_action" : "TAZER"
   },
-
   {
     "id" : "shocktonfa_off",
     "type":"TOOL",
@@ -4282,7 +4304,7 @@
     "price" : 17000,
     "material" : ["plastic", "steel"],
     "techniques" : ["WBLOCK_2", "RAPID"],
-    "flags" : ["DURABLE_MELEE"],
+    "flags" : ["DURABLE_MELEE", "NO_UNLOAD", "RECHARGE"],
     "weight" : 726,
     "volume" : 9,
     "bashing" : 14,
@@ -4296,7 +4318,6 @@
     "category": "weapons",
     "use_action" : "SHOCKTONFA_OFF"
   },
-
   {
     "id" : "shocktonfa_on",
     "type":"TOOL",
@@ -4322,7 +4343,6 @@
     "category": "weapons",
     "use_action" : "SHOCKTONFA_ON"
   },
-
   {
     "id": "mp3",
     "type": "TOOL",
@@ -4335,7 +4355,6 @@
     "material": ["aluminum", "plastic"],
     "weight": 140,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 0,
@@ -4344,7 +4363,6 @@
     "revert_to": "null",
     "use_action": "MP3"
   },
-
   {
     "id": "mp3_on",
     "type": "TOOL",
@@ -4357,7 +4375,6 @@
     "material": ["aluminum", "plastic"],
     "weight": 140,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 0,
@@ -4366,7 +4383,6 @@
     "revert_to": "mp3",
     "use_action": "MP3_ON"
   },
-
   {
      "id": "portable_game",
      "type": "TOOL",
@@ -4378,7 +4394,6 @@
      "material": ["plastic", "null"],
      "weight": 200,
      "volume": 2,
-     "to_hit": 0,
      "max_charges": 200,
      "initial_charges": 100,
      "charges_per_use": 0,
@@ -4387,7 +4402,6 @@
      "revert_to": "null",
      "use_action": "PORTABLE_GAME"
   },
-
   {
     "id": "vibrator",
     "type": "TOOL",
@@ -4400,7 +4414,6 @@
     "material": ["aluminum", "plastic"],
     "weight": 453,
     "volume": 2,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 0,
@@ -4409,7 +4422,6 @@
     "revert_to": "null",
     "use_action": "VIBE"
   },
-
   {
     "id": "vortex_stone",
     "type": "TOOL",
@@ -4422,7 +4434,6 @@
     "weight": 1,
     "volume": 1,
     "bashing": 6,
-    "to_hit": 0,
     "max_charges": 1,
     "initial_charges": 1,
     "charges_per_use": 1,
@@ -4431,7 +4442,6 @@
     "revert_to": "null",
     "use_action": "VORTEX"
   },
-
   {
     "id": "etched_skull",
     "type": "TOOL",
@@ -4444,7 +4454,6 @@
     "weight": 311,
     "volume": 3,
     "bashing": 6,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -4452,7 +4461,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "dogfood",
     "type": "TOOL",
@@ -4474,7 +4482,6 @@
     "revert_to": "null",
     "use_action": "DOGFOOD"
   },
-
   {
     "id": "catfood",
     "type": "TOOL",
@@ -4496,7 +4503,6 @@
     "revert_to": "null",
     "use_action": "CATFOOD"
   },
-
   {
     "id": "boobytrap",
     "type": "TOOL",
@@ -4517,7 +4523,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "c4",
     "type": "TOOL",
@@ -4539,7 +4544,6 @@
     "category": "weapons",
     "use_action": "C4"
   },
-
   {
     "id": "c4armed",
     "type": "TOOL",
@@ -4569,7 +4573,6 @@
         "explosion_shrapnel": 3
     }
   },
-
   {
     "id": "dog_whistle",
     "type": "TOOL",
@@ -4581,7 +4584,6 @@
     "material": "aluminum",
     "weight": 22,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -4590,7 +4592,6 @@
     "revert_to": "null",
     "use_action": "DOG_WHISTLE"
   },
-
   {
     "id": "vacutainer",
     "type": "TOOL",
@@ -4613,7 +4614,6 @@
     "revert_to": "null",
     "use_action": "VACUTAINER"
   },
-
   {
     "id": "welder",
     "type": "TOOL",
@@ -4652,7 +4652,6 @@
     ],
     "qualities": [["WELD", 2]]
   },
-
   {
     "id": "cot",
     "type": "TOOL",
@@ -4674,7 +4673,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "rollmat",
     "type": "TOOL",
@@ -4695,7 +4693,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "fur_rollmat",
     "type": "TOOL",
@@ -4716,7 +4713,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "xacto",
     "type": "TOOL",
@@ -4742,7 +4738,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1]]
   },
-
   {
     "id": "scalpel",
     "type": "TOOL",
@@ -4767,7 +4762,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1]]
   },
-
   {
     "id": "machete",
     "type": "TOOL",
@@ -4794,7 +4788,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 15]]
   },
-
   {
     "id": "firemachete_off",
     "type": "TOOL",
@@ -4835,7 +4828,6 @@
         }
     ]
   },
-
   {
     "id": "firemachete_on",
     "type": "TOOL",
@@ -5109,7 +5101,6 @@
     "volume": 9,
     "bashing": 4,
     "cutting": 31,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -5131,7 +5122,6 @@
         }
     ]
   },
-
   {
     "id": "firekatana_on",
     "type": "TOOL",
@@ -5148,7 +5138,6 @@
     "volume": 9,
     "bashing": 4,
     "cutting": 31,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -5175,7 +5164,6 @@
         }
     ]
   },
-
   {
     "id": "spear_knife",
     "type": "TOOL",
@@ -5202,7 +5190,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["COOK", 1]]
   },
-
   {
     "id": "rapier",
     "type": "TOOL",
@@ -5229,10 +5216,9 @@
     "category" : "weapons",
     "qualities": [["CUT", 1], ["BUTCHER", 9]]
   },
-
   {
     "id": "pike",
-    "type": "TOOL",
+    "type": "GENERIC",
     "symbol": "/",
     "color": "brown",
     "name": "awl pike",
@@ -5246,16 +5232,9 @@
     "bashing": 15,
     "cutting": 45,
     "to_hit": 2,
-    "max_charges": 0,
-    "initial_charges": 0,
-    "charges_per_use": 0,
-    "turns_per_charge": 0,
-    "ammo": "NULL",
-    "revert_to": "null",
     "category": "weapons",
-    "use_action": { "type": "knife" }
+    "qualities": [["COOK", 1]]
   },
-
   {
     "id": "broadsword",
     "type": "TOOL",
@@ -5282,7 +5261,6 @@
     "category" : "weapons",
     "qualities": [["CUT", 1], ["BUTCHER", 9]]
   },
-
   {
     "id": "zweihander",
     "type": "TOOL",
@@ -5308,7 +5286,6 @@
     "category" : "weapons",
     "use_action": { "type": "knife" }
   },
-
   {
     "id": "zweifire_off", "//": "All of this is SUPPOSED to be in German.",
     "type": "TOOL",
@@ -5325,7 +5302,6 @@
     "volume": 15,
     "bashing": 17,
     "cutting": 40,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -5347,7 +5323,6 @@
         }
     ]
   },
-
   {
     "id": "zweifire_on", "//": "All of this is SUPPOSED to be in German.",
     "type": "TOOL",
@@ -5364,7 +5339,6 @@
     "volume": 15,
     "bashing": 17,
     "cutting": 40,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -5390,7 +5364,6 @@
         }
     ]
   },
-
   {
     "id": "broadfire_off",
     "type": "TOOL",
@@ -5429,7 +5402,6 @@
         }
     ]
   },
-
   {
     "id": "broadfire_on",
     "type": "TOOL",
@@ -5472,7 +5444,6 @@
         }
     ]
   },
-
   {
     "id": "makeshift_machete",
     "type": "TOOL",
@@ -5498,7 +5469,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", -27]]
   },
-
   {
     "id": "shishkebab_off",
     "type": "TOOL",
@@ -5514,7 +5484,6 @@
     "volume": 10,
     "bashing": 4,
     "cutting": 14,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -5538,7 +5507,6 @@
         }
     ]
   },
-
   {
     "id": "shishkebab_on",
     "type": "TOOL",
@@ -5554,7 +5522,6 @@
     "volume": 10,
     "bashing": 4,
     "cutting": 14,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -5583,7 +5550,6 @@
         }
     ]
   },
-
   {
     "comment": "Name changed to glaive, but changing the id would break e.g.  tilesets.",
     "id": "makeshift_halberd",
@@ -5627,7 +5593,6 @@
     "qualities": [["CUT", 1], ["BUTCHER", 20]],
     "flags": ["STAB", "SHEATH_KNIFE"]
   },
-
   {
     "id": "knife_butcher",
     "type": "TOOL",
@@ -5649,11 +5614,11 @@
     "turns_per_charge": 0,
     "ammo": "NULL",
     "revert_to": "null",
+    "category": "weapons",
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 25]],
     "flags": ["CHOP", "SHEATH_KNIFE"]
   },
-
   {
     "id": "knife_combat",
     "type": "TOOL",
@@ -5681,7 +5646,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 19]]
   },
-
   {
     "id": "saw",
     "type": "TOOL",
@@ -5693,7 +5657,6 @@
     "material": ["steel", "wood"],
     "weight": 283,
     "volume": 5,
-    "bashing": -6,
     "cutting": 1,
     "to_hit": -2,
     "max_charges": 0,
@@ -5705,7 +5668,6 @@
     "use_action": "LUMBER",
     "qualities":[["SAW_W", 2]]
   },
-
   {
     "id": "ax",
     "type": "TOOL",
@@ -5730,7 +5692,6 @@
     "qualities": [["AXE", 3]],
     "use_action": "LUMBER"
   },
-
   {
     "id": "fire_ax",
     "type": "TOOL",
@@ -5756,7 +5717,6 @@
     "qualities": [["AXE", 2]],
     "use_action": "LUMBER"
   },
-
   {
     "id": "battleaxe",
     "type": "TOOL",
@@ -5782,7 +5742,6 @@
     "qualities": [["AXE", 2]],
     "use_action": "LUMBER"
   },
-
   {
     "id": "hacksaw",
     "type": "TOOL",
@@ -5876,7 +5835,6 @@
         "msg": "You light the torch."
     }
   },
-
   {
     "id": "torch_lit",
     "type": "TOOL",
@@ -5900,7 +5858,6 @@
     "revert_to": "torch_done",
     "use_action": "TORCH_LIT"
   },
-
   {
     "id" : "battletorch",
     "type": "TOOL",
@@ -5932,7 +5889,6 @@
         "msg": "You light the Louisville Slaughterer."
     }
   },
-
   {
     "id" : "battletorch_lit",
     "type": "TOOL",
@@ -5958,7 +5914,6 @@
     "category" : "weapons",
     "use_action": "BATTLETORCH_LIT"
   },
-
   {
     "id": "candle",
     "type": "TOOL",
@@ -5986,7 +5941,6 @@
         "need_fire_msg": "You need a source of fire to light this."
     }
   },
-
   {
     "id": "candle_lit",
     "type": "TOOL",
@@ -6014,7 +5968,6 @@
         "msg": "The candle winks out."
     }
   },
-
   {
     "id": "brazier",
     "type": "TOOL",
@@ -6035,8 +5988,27 @@
     "ammo": "NULL",
     "revert_to": "null",
     "use_action": "SET_TRAP"
+  },{
+    "id": "metal_funnel",
+    "type": "TOOL",
+    "symbol": ";",
+    "color": "yellow",
+    "name": "metal funnel",
+    "description": "This is a large metal funnel used to collect rainwater.  Less portable than plastic funnels, but collects more water.  Use it outside and place a container beneath it to collect water when it rains.",
+    "price": 1500,
+    "material": "steel",
+    "weight": 4017,
+    "volume": 16,
+    "bashing": 4,
+    "to_hit": 1,
+    "max_charges": 0,
+    "initial_charges": 0,
+    "charges_per_use": 0,
+    "turns_per_charge": 0,
+    "ammo": "NULL",
+    "revert_to": "null",
+    "use_action": "SET_TRAP"
   },
-
   {
     "id": "funnel",
     "type": "TOOL",
@@ -6058,7 +6030,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "makeshift_funnel",
     "type": "TOOL",
@@ -6070,7 +6041,6 @@
     "material": "plastic",
     "weight": 4,
     "volume": 1,
-    "bashing": -8,
     "to_hit": 1,
     "max_charges": 0,
     "initial_charges": 0,
@@ -6080,7 +6050,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "leather_funnel",
     "type": "TOOL",
@@ -6092,7 +6061,6 @@
     "material": "leather",
     "weight": 4,
     "volume": 1,
-    "bashing": -8,
     "to_hit": 1,
     "max_charges": 0,
     "initial_charges": 0,
@@ -6102,7 +6070,6 @@
     "revert_to": "null",
     "use_action": "SET_TRAP"
   },
-
   {
     "id": "puller",
     "type": "TOOL",
@@ -6115,7 +6082,6 @@
     "weight": 489,
     "volume": 1,
     "bashing": 5,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6123,7 +6089,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "press",
     "type": "TOOL",
@@ -6144,7 +6109,6 @@
     "ammo": "battery",
     "revert_to": "null"
   },
-
   {
     "id": "screwdriver",
     "type": "TOOL",
@@ -6169,7 +6133,6 @@
     "use_action": "REMOVE_ALL_MODS",
     "qualities": [["SCREW", 1]]
   },
-
   {
     "id": "screwdriver_set",
     "type": "TOOL",
@@ -6193,7 +6156,6 @@
     "use_action": "REMOVE_ALL_MODS",
     "qualities": [["SCREW", 1], ["SCREW_FINE", 1]]
   },
-
   {
     "id": "wrench",
     "type": "TOOL",
@@ -6216,7 +6178,6 @@
     "revert_to": "null",
     "qualities": [["WRENCH", 1], ["WRENCH_FINE", 1]]
   },
-
   {
     "id": "pliers",
     "type": "TOOL",
@@ -6230,7 +6191,6 @@
     "weight": 807,
     "volume": 1,
     "bashing": 3,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6239,7 +6199,6 @@
     "revert_to": "null",
     "qualities": [["WRENCH", 1]]
   },
-
   {
     "id": "snare_trigger",
     "type": "TOOL",
@@ -6259,7 +6218,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "boltcutters",
     "type": "TOOL",
@@ -6283,7 +6241,6 @@
     "revert_to": "null",
     "use_action": "BOLTCUTTERS"
   },
-
   {
     "id": "mop",
     "type": "TOOL",
@@ -6306,7 +6263,6 @@
     "revert_to": "null",
     "use_action": "MOP"
   },
-
   {
     "id": "picklocks",
     "type": "TOOL",
@@ -6318,7 +6274,6 @@
     "material": "steel",
     "weight": 544,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6330,7 +6285,6 @@
       "pick_quality": 5
     }
   },
-
   {
     "id": "crude_picklock",
     "type": "TOOL",
@@ -6342,7 +6296,6 @@
     "material": "steel",
     "weight": 230,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6354,7 +6307,6 @@
       "pick_quality": 3
     }
   },
-
   {
     "id": "pseuso_bio_picklock",
     "type": "TOOL",
@@ -6365,7 +6317,6 @@
     "price": 0,
     "weight": 0,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 1,
     "initial_charges": 1,
     "charges_per_use": 1,
@@ -6377,7 +6328,6 @@
         "pick_quality": 40
     }
   },
-
   {
     "id": "safe_box",
     "type": "TOOL",
@@ -6401,7 +6351,6 @@
     "revert_to": "null",
     "category": "other"
   },
-
   {
     "id": "pickaxe",
     "type": "TOOL",
@@ -6425,7 +6374,6 @@
     "revert_to": "null",
     "use_action": "PICKAXE"
   },
-
   {
     "id": "spray_can",
     "type": "TOOL",
@@ -6437,7 +6385,6 @@
     "material": "aluminum",
     "weight": 340,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 10,
     "initial_charges": 10,
     "charges_per_use": 1,
@@ -6446,7 +6393,6 @@
     "revert_to": "null",
     "use_action": "SPRAY_CAN"
   },
-
   {
     "id": "permanent_marker",
     "type": "TOOL",
@@ -6458,7 +6404,6 @@
     "material": "plastic",
     "weight": 113,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 500,
     "initial_charges": 500,
     "charges_per_use": 1,
@@ -6473,7 +6418,6 @@
         "material_restricted": false
     }
   },
-
   {
     "id": "survival_marker",
     "type": "TOOL",
@@ -6485,7 +6429,6 @@
     "material": "plastic",
     "weight": 113,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 1,
@@ -6500,7 +6443,6 @@
         "material_restricted": false
     }
   },
-
   {
     "id": "rag",
     "type": "TOOL",
@@ -6512,7 +6454,6 @@
     "material": "cotton",
     "weight": 80,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6529,7 +6470,6 @@
             "used_up_item" : "rag_bloody"
         }
   },
-
   {
     "id": "plastic_chunk",
     "type": "TOOL",
@@ -6541,7 +6481,6 @@
     "material": "plastic",
     "weight": 70,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6551,7 +6490,6 @@
     "category" : "spare_parts",
     "flags": ["NO_SALVAGE"]
   },
-
   {
     "id": "kevlar_plate",
     "type": "TOOL",
@@ -6563,7 +6501,6 @@
     "material": "kevlar",
     "weight": 360,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6573,7 +6510,6 @@
     "category" : "spare_parts",
     "flags": ["NO_SALVAGE"]
   },
-
   {
     "id": "pda",
     "type": "TOOL",
@@ -6586,7 +6522,6 @@
     "flags" : ["WATCH", "ALARMCLOCK"],
     "weight": 141,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 1,
@@ -6602,7 +6537,6 @@
         "active": true
     }
   },
-
   {
     "id": "pda_flashlight",
     "type": "TOOL",
@@ -6616,7 +6550,6 @@
     "weight": 141,
     "flags": "LIGHT_10",
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 100,
     "initial_charges": 100,
     "charges_per_use": 1,
@@ -6629,7 +6562,6 @@
         "target": "pda"
     }
   },
-
   {
     "id": "pockknife",
     "type": "TOOL",
@@ -6667,7 +6599,6 @@
     "volume": 1,
     "bashing": 2,
     "cutting": 12,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6702,7 +6633,6 @@
     "qualities": [["CUT", 1], ["BUTCHER", 11]],
     "flags": ["STAB", "SHEATH_KNIFE"]
    },
-
    {
     "id": "needle_bone",
     "sub": "sewing_kit",
@@ -6716,7 +6646,6 @@
     "flags": "STAB",
     "weight": 85,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 200,
     "initial_charges": 0,
     "charges_per_use": 1,
@@ -6735,7 +6664,6 @@
         "move_cost": 1300
     }
   },
-
    {
     "id": "needle_wood",
     "sub": "sewing_kit",
@@ -6749,7 +6677,6 @@
     "flags": "STAB",
     "weight": 85,
     "volume": 1,
-    "to_hit": 0,
     "max_charges": 200,
     "initial_charges": 0,
     "charges_per_use": 1,
@@ -6768,7 +6695,6 @@
         "move_cost": 1500
     }
   },
-
   {
     "id": "primitive_hammer",
     "type": "TOOL",
@@ -6781,7 +6707,6 @@
     "weight": 1020,
     "volume": 2,
     "bashing": 9,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6802,7 +6727,6 @@
     "weight": 1020,
     "volume": 2,
     "bashing": 9,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6824,7 +6748,6 @@
     "volume": 4,
     "bashing": 8,
     "cutting": 7,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6846,7 +6769,6 @@
     "bashing": 11,
     "cutting": 8,
     "flags" : ["CHOP"],
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6869,7 +6791,6 @@
     "bashing": 18,
     "cutting": 12,
     "flags" : ["CHOP"],
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6891,7 +6812,6 @@
     "volume": 16,
     "bashing": 15,
     "cutting": 1,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -6959,7 +6879,6 @@
     "weight": 1133,
     "volume": 6,
     "bashing": 8,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -7062,7 +6981,6 @@
     "weight": 2500,
     "volume": 6,
     "bashing": 6,
-    "to_hit": 0,
     "max_charges": 1,
     "initial_charges": 1,
     "charges_per_use": 1,
@@ -7084,7 +7002,6 @@
     "weight": 567,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category": "food",
     "use_action": {
         "type": "transform",
@@ -7093,7 +7010,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_fish_canned",
     "type": "GENERIC",
@@ -7107,7 +7023,6 @@
     "weight": 512,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category": "food",
     "use_action": {
         "type": "transform",
@@ -7116,7 +7031,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_kompot",
     "type": "GENERIC",
@@ -7130,7 +7044,6 @@
     "weight": 617,
     "volume": 12,
     "bashing": 8,
-    "to_hit": 0,
     "category": "food",
     "use_action": {
         "type": "transform",
@@ -7140,7 +7053,6 @@
         "container": "jar_3l_glass"
     }
   },
-
   {
     "id": "jar_human_canned",
     "type": "GENERIC",
@@ -7154,7 +7066,6 @@
     "weight": 565,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7163,7 +7074,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_veggy_canned",
     "type": "GENERIC",
@@ -7177,7 +7087,6 @@
     "weight": 500,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7186,7 +7095,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_apple_canned",
     "type": "GENERIC",
@@ -7200,7 +7108,6 @@
     "weight": 600,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7210,7 +7117,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_tomato_canned",
     "type": "GENERIC",
@@ -7224,7 +7130,6 @@
     "weight": 600,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7246,7 +7151,6 @@
     "weight": 533,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7255,7 +7159,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_sauerkraut_pickled",
     "type": "GENERIC",
@@ -7269,7 +7172,6 @@
     "weight": 550,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7279,7 +7181,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_meat_pickled",
     "type": "GENERIC",
@@ -7293,7 +7194,6 @@
     "weight": 609,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7302,7 +7202,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_fish_pickled",
     "type": "GENERIC",
@@ -7316,7 +7215,6 @@
     "weight": 555,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7325,7 +7223,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_human_pickled",
     "type": "GENERIC",
@@ -7339,7 +7236,6 @@
     "weight": 609,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7347,8 +7243,28 @@
         "target": "human_pickled",
         "container": "jar_glass"
     }
+  },{
+    "id": "jar_soup_mushroom",
+    "type": "GENERIC",
+    "symbol": "%",
+    "color": "red",
+    "name": "sealed jar of mushroom soup",
+    "name_plural": "sealed jars of mushroom soup",
+    "description": "This is a sealed glass jar containing mushroom soup.  Use to open and eat to enjoy.",
+    "price": 500,
+    "material": ["glass", "veggy"],
+    "weight": 1302,
+    "volume": 2,
+    "bashing": 4,
+    "category" : "food",
+    "use_action": {
+        "type": "transform",
+        "msg": "You open the jar, exposing it to the atmosphere.",
+        "target": "soup_mushroom",
+        "target_charges": 4,
+        "container": "jar_glass"
+    }
   },
-
   {
     "id": "jar_soup_woods",
     "type": "GENERIC",
@@ -7362,7 +7278,6 @@
     "weight": 650,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7372,7 +7287,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_soup_meat",
     "type": "GENERIC",
@@ -7386,7 +7300,6 @@
     "weight": 650,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7396,7 +7309,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_soup_fish",
     "type": "GENERIC",
@@ -7410,7 +7322,6 @@
     "weight": 650,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7420,7 +7331,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_soup_veggy",
     "type": "GENERIC",
@@ -7434,7 +7344,6 @@
     "weight": 650,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7444,7 +7353,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_soup_human",
     "type": "GENERIC",
@@ -7458,7 +7366,6 @@
     "weight": 650,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7468,7 +7375,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_broth",
     "type": "GENERIC",
@@ -7482,7 +7388,6 @@
     "weight": 400,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7492,7 +7397,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_broth_bone",
     "type": "GENERIC",
@@ -7506,7 +7410,6 @@
     "weight": 400,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7529,7 +7432,6 @@
     "weight": 400,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7539,7 +7441,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "jar_V8",
     "type": "GENERIC",
@@ -7553,7 +7454,6 @@
     "weight": 522,
     "volume": 2,
     "bashing": 4,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7563,7 +7463,6 @@
         "container": "jar_glass"
     }
   },
-
   {
     "id": "flask_yeast",
     "type": "GENERIC",
@@ -7576,7 +7475,6 @@
     "weight": 52,
     "volume": 1,
     "bashing": 8,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "delayed_transform",
@@ -7589,7 +7487,6 @@
         "target_charges": 10
     }
   },
-
   {
     "id": "sauerkraut_ferment",
     "type": "GENERIC",
@@ -7602,7 +7499,6 @@
     "weight": 52,
     "volume": 1,
     "bashing": 8,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "delayed_transform",
@@ -7613,7 +7509,6 @@
         "target": "jar_sauerkraut_pickled"
     }
   },
-
   {
     "id": "cordless_drill",
     "type": "TOOL",
@@ -7636,7 +7531,6 @@
     "revert_to": "null",
     "qualities": [["DRILL", 3]]
   },
-
   {
     "id": "vac_sealer",
     "type": "TOOL",
@@ -7657,7 +7551,6 @@
     "ammo": "battery",
     "revert_to": "null"
   },
-
   {
     "id": "makeshift_sealer",
     "type": "TOOL",
@@ -7678,7 +7571,6 @@
     "ammo": "battery",
     "revert_to": "null"
   },
-
   {
     "id": "bag_meat_vac",
     "type": "GENERIC",
@@ -7692,7 +7584,6 @@
     "weight": 240,
     "volume": 1,
     "bashing": 8,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7701,7 +7592,6 @@
         "container": "bag_plastic"
     }
   },
-
   {
     "id": "bag_fish_vac",
     "type": "GENERIC",
@@ -7714,7 +7604,6 @@
     "weight": 240,
     "volume": 1,
     "bashing": 8,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7723,7 +7612,6 @@
         "container": "bag_plastic"
     }
   },
-
    {
     "id": "bag_hflesh_vac",
     "type": "GENERIC",
@@ -7736,7 +7624,6 @@
     "weight": 240,
     "volume": 1,
     "bashing": 8,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7745,7 +7632,6 @@
         "container": "bag_plastic"
     }
   },
-
   {
     "id": "bag_veggy_vac",
     "type": "GENERIC",
@@ -7759,7 +7645,6 @@
     "volume": 1,
     "bashing": 8,
     "cutting": 1,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7768,7 +7653,6 @@
         "container": "bag_plastic"
     }
   },
-
   {
     "id": "bag_apple_vac",
     "type": "GENERIC",
@@ -7781,7 +7665,6 @@
     "weight": 152,
     "volume": 1,
     "bashing": 8,
-    "to_hit": 0,
     "category" : "food",
     "use_action": {
         "type": "transform",
@@ -7790,7 +7673,6 @@
         "container": "bag_plastic"
     }
   },
-
   {
     "id": "medical_gauze",
     "type": "TOOL",
@@ -7802,7 +7684,6 @@
     "material": "cotton",
     "weight": 90,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -7817,7 +7698,6 @@
             "move_cost" : 200
         }
   },
-
   {
     "id": "talking_doll",
     "type": "TOOL",
@@ -7829,7 +7709,6 @@
     "material": "plastic",
     "weight": 907,
     "volume": 3,
-    "bashing": -3,
     "to_hit": -1,
     "max_charges": 100,
     "initial_charges": 20,
@@ -7839,7 +7718,6 @@
     "revert_to": "null",
     "use_action": "DOLLCHAT"
   },
-
   {
     "id": "creepy_doll",
     "type": "TOOL",
@@ -7851,7 +7729,6 @@
     "material": "plastic",
     "weight": 907,
     "volume": 3,
-    "bashing": -3,
     "to_hit": -1,
     "max_charges": 100,
     "initial_charges": 20,
@@ -7887,7 +7764,6 @@
         "moves": 500
     }
   },
-
   {
     "id": "welder_crude",
     "type": "TOOL",
@@ -7926,7 +7802,6 @@
     ],
     "qualities": [["WELD", 1]]
   },
-
   {
     "id": "still",
     "type": "TOOL",
@@ -7948,7 +7823,6 @@
     "revert_to": "null",
     "qualities":[["BREW", 2]]
   },
-
   {
     "id": "mold_plastic",
     "type": "TOOL",
@@ -7981,8 +7855,7 @@
     "weight": 1884,
     "volume": 11,
     "to_hit": -5,
-    "bashing": -8,
-    "qualities":[["BREW", 1], ["CHEM", 2]]
+    "qualities":[["BREW", 1], ["CHEM", 2], ["BOIL", 1]]
   },
   {
     "id": "chemistry_set",
@@ -7991,13 +7864,12 @@
     "color": "light_gray",
     "symbol": ";",
     "name": "chemistry set",
-    "description": "This is a chemistry set stored in a bag.  The contents include glass containers, hoses, metal wire, a hotplate, and safety glasses.  It might be used to craft some chemistry projects if you're so inclined.",
+    "description": "This is a chemistry set stored in a box.  The contents include glass containers, hoses, metal wire, a hotplate, and safety glasses.  It might be used to craft some chemistry projects if you're so inclined.",
     "price": 20000,
     "material": ["glass", "cotton"],
     "weight": 5200,
     "volume": 18,
     "to_hit": -5,
-    "bashing": -8,
     "max_charges": 200,
     "initial_charges": 0,
     "charges_per_use": 1,
@@ -8005,7 +7877,7 @@
     "ammo": "battery",
     "revert_to": "null",
     "use_action": "HOTPLATE",
-    "qualities":[["BREW", 1], ["CHEM", 2]]
+    "qualities":[["BREW", 1], ["CHEM", 2], ["BOIL", 1]]
   },
   {
     "id": "crackpipe",
@@ -8027,7 +7899,6 @@
     "ammo": "NULL",
     "qualities": [["SMOKE_PIPE", 1]]
   },
-
   {
     "id": "pipe_glass",
     "type": "TOOL",
@@ -8049,7 +7920,6 @@
     "ammo": "NULL",
     "qualities": [["SMOKE_PIPE", 1]]
   },
-
   {
     "id": "pipe_tobacco",
     "type": "TOOL",
@@ -8071,7 +7941,6 @@
     "ammo": "NULL",
     "qualities": [["SMOKE_PIPE", 1]]
 },
-
   {
     "id": "forge",
     "type": "TOOL",
@@ -8174,7 +8043,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "tongs",
     "type": "TOOL",
@@ -8218,7 +8086,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "swage",
     "type": "TOOL",
@@ -8240,7 +8107,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "nodachi",
     "type": "TOOL",
@@ -8268,7 +8134,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 10]]
   },
-
   {
     "id": "matchbomb",
     "type": "TOOL",
@@ -8299,7 +8164,6 @@
         "msg": "You light the match head bomb."
     }
   },
-
   {
     "id": "matchbomb_act",
     "type": "TOOL",
@@ -8330,7 +8194,6 @@
         "explosion_shrapnel": 0
     }
   },
-
  {
     "id": "ref_lighter",
     "type": "TOOL",
@@ -8342,7 +8205,6 @@
     "material": "aluminum",
     "weight": 20,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 25,
     "charges_per_use": 1,
@@ -8365,7 +8227,6 @@
         }
     ]
   },
-
 {
     "id": "ref_lighter_on",
     "type": "TOOL",
@@ -8379,7 +8240,6 @@
     "flags": ["FIRE", "LIGHT_8", "FLAMING", "REFILLABLE_LIGHTER"],
     "weight": 20,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 50,
     "initial_charges": 25,
     "charges_per_use": 0,
@@ -8401,7 +8261,6 @@
         }
     ]
   },
-
   {
     "id": "char_forge",
     "type": "TOOL",
@@ -8422,7 +8281,6 @@
     "ammo": "charcoal",
     "revert_to": "null"
   },
-
   {
     "id": "char_smoker",
     "type": "TOOL",
@@ -8443,7 +8301,6 @@
     "ammo": "charcoal",
     "revert_to": "null"
   },
-
   {
     "id": "char_purifier",
     "type": "TOOL",
@@ -8579,7 +8436,6 @@
         "moves": 100
     }
   },
-
   {
     "id": "horn_car",
     "type": "TOOL",
@@ -8601,7 +8457,6 @@
     "revert_to": "null",
     "category": "veh_parts"
   },
-
   {
     "id": "horn_big",
     "type": "TOOL",
@@ -8623,7 +8478,6 @@
     "revert_to": "null",
     "category": "veh_parts"
   },
-
   {
     "type": "TOOL",
     "id" : "wrapped_rad_badge",
@@ -8635,7 +8489,6 @@
     "symbol": ",",
     "color": "light_blue",
     "description" : "This is a badge that detects radiation dosage sealed in a radiation-blocking bag.  Use it to remove it from the bag.",
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -8649,7 +8502,6 @@
         "msg":"You remove the badge from its wrapper, exposing it to ambient radiation."
     }
   },
-
   {
     "id": "dehydrator",
     "type": "TOOL",
@@ -8670,7 +8522,6 @@
     "ammo": "battery",
     "revert_to": "null"
   },
-
   {
     "id": "knife_trench",
     "type": "TOOL",
@@ -8698,7 +8549,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 19]]
   },
-
   {
     "id": "sm_extinguisher",
     "type": "TOOL",
@@ -8744,7 +8594,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 14]]
   },
-
   {
     "id": "kukri",
     "type": "TOOL",
@@ -8771,7 +8620,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 18]]
   },
-
   {
     "id": "diamond_kukri",
     "type": "TOOL",
@@ -8798,7 +8646,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 20]]
   },
-
   {
     "comment": "Highest non-powertool butchering quality.  It's made for skinning and butchering game, which is what you're generally doing.",
     "id": "knife_hunting",
@@ -8825,7 +8672,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 30]]
   },
-
   {
     "comment": "This isn't really supposed to be a very good knife, or a very good saw.  It's more for looking scary.",
     "id": "knife_rambo",
@@ -8843,7 +8689,6 @@
     "volume": 4,
     "bashing": 4,
     "cutting": 15,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -8854,7 +8699,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["SAW_W", 1], ["SAW_M", 1], ["BUTCHER", 7]]
   },
-
   {
     "comment": "The swiss army knife is a bit more of a knife than a toolkit.",
     "id": "knife_swissarmy",
@@ -8880,7 +8724,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["SAW_W", 1], ["SAW_M", 1], ["SCREW", 1], ["BUTCHER", 8]]
   },
-
   {
     "comment": "The multi-tool is a bit more of a toolkit than a knife.",
     "id": "multitool",
@@ -8933,7 +8776,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 19]]
   },
-
   {
     "id": "jack",
     "type": "TOOL",
@@ -8946,7 +8788,6 @@
     "weight": 11974,
     "volume": 5,
     "bashing": 8,
-    "to_hit": 0,
     "max_charges": 0,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -8954,7 +8795,6 @@
     "ammo": "NULL",
     "revert_to": "null"
   },
-
   {
     "id": "scythe",
     "type": "TOOL",
@@ -8980,7 +8820,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", -22]]
   },
-
   {
     "id": "scythe_war",
     "type": "TOOL",
@@ -9007,7 +8846,6 @@
     "use_action": { "type": "knife" },
     "qualities": [["CUT", 1], ["BUTCHER", 1]]
   },
-
   {
     "id": "sickle",
     "type": "TOOL",
@@ -9071,7 +8909,6 @@
     "material": ["ceramic", "superalloy"],
     "weight": 316,
     "volume": 2,
-    "to_hit": 0,
     "max_charges": 2,
     "initial_charges": 2,
     "charges_per_use": 1,
@@ -9091,7 +8928,7 @@
     "price": 8000,
     "material": [ "wood", "iron" ],
     "techniques" : ["WBLOCK_1", "RAPID"],
-    "flags" : ["DURABLE_MELEE"],
+    "flags" : ["DURABLE_MELEE", "NO_UNLOAD", "RECHARGE"],
     "weight": 2351,
     "volume": 13,
     "bashing": 25,
@@ -9131,7 +8968,6 @@
     "qualities": [["CUT", 1], ["BUTCHER", 15]],
     "flags": ["CHOP", "SHEATH_KNIFE"]
   },
-
   {
     "id": "inhaler",
     "type": "TOOL",
@@ -9391,27 +9227,6 @@
     "use_action": "ATOMIC_BATTERY"
   },
   {
-    "id": "rechargeable_battery",
-    "type": "TOOL",
-    "symbol": ";",
-    "color": "light_green",
-    "name": "rechargeable battery mod",
-    "description": "A homemade, rechargeable power cell built from salvaged electronics.  With enough electronics skill, you could attach it to an electric-powered device to provide it with energy.  The power cell is not compatible with standard batteries; it must be re-energized via a special recharging station.",
-    "price": 2000,
-    "material": ["plastic", "aluminum"],
-    "weight": 142,
-    "volume": 1,
-    "to_hit": -2,
-    "max_charges": 0,
-    "initial_charges": 0,
-    "charges_per_use": 0,
-    "turns_per_charge": 0,
-    "ammo": "NULL",
-    "revert_to": "null",
-    "category" : "spare_parts",
-    "use_action": "UPS_BATTERY"
-  },
-  {
     "id": "battery_ups",
     "type": "TOOL",
     "symbol": ";",
@@ -9532,7 +9347,6 @@
     "material" : "steel",
     "weight" : 1,
     "volume" : 0,
-    "bashing" : -3,
     "cutting" : 3,
     "to_hit" : 0
   },{
@@ -9546,7 +9360,6 @@
     "material" : "bone",
     "weight" : 1,
     "volume" : 0,
-    "bashing" : -3,
     "cutting" : 3,
     "to_hit" : 0
   },{
@@ -9560,7 +9373,6 @@
     "material": ["steel", "wood"],
     "weight": 0,
     "volume": 0,
-    "to_hit": 0,
     "max_charges": 10000,
     "initial_charges": 0,
     "charges_per_use": 0,
@@ -9584,7 +9396,6 @@
     "material": "steel",
     "weight": 200,
     "volume": 1,
-    "bashing": -1,
     "to_hit": -1,
     "max_charges": 100,
     "initial_charges": 40,
@@ -9605,7 +9416,6 @@
     "material": ["steel", "plastic"],
     "weight": 11339,
     "volume": 15,
-    "bashing": -1,
     "to_hit": -3,
     "max_charges": 300,
     "initial_charges": 300,
@@ -9626,7 +9436,6 @@
     "material": "plastic",
     "weight": 85,
     "volume": 8,
-    "bashing": -3,
     "to_hit": -2,
     "max_charges": 5,
     "initial_charges": 0,
@@ -9642,11 +9451,11 @@
     "color": "blue",
     "name": "E-Ink Tablet PC",
     "description": "A tablet PC using an efficient color e-ink display.  Before the cataclysm, these were nifty gadgets; now, it's an almost priceless resource.  Runs on conventional batteries.",
+    "flags": ["WATCH"],
     "price": 20000,
     "material": "plastic",
     "weight": 250,
     "volume": 1,
-    "bashing": -1,
     "to_hit": -1,
     "max_charges": 100,
     "initial_charges": 50,
@@ -9668,7 +9477,6 @@
     "weight": 907,
     "volume": 1,
     "bashing": 1,
-    "to_hit": 0,
     "max_charges": 200,
     "initial_charges": 200,
     "charges_per_use": 5,
@@ -9690,7 +9498,6 @@
     "weight": 2268,
     "volume": 5,
     "bashing": 1,
-    "to_hit": 0,
     "max_charges": 200,
     "initial_charges": 200,
     "charges_per_use": 5,
@@ -9844,7 +9651,6 @@
     "price": 30000,
     "weight": 350,
     "volume": 8,
-    "bashing": -2,
     "to_hit": -1,
     "material": ["plastic", "null"]
   },
@@ -9917,7 +9723,6 @@
     "material": "plastic",
     "weight": 907,
     "volume": 5,
-    "bashing": -3,
     "to_hit": -1,
     "max_charges": 50,
     "initial_charges": 50,
@@ -9940,7 +9745,6 @@
     "material": "plastic",
     "weight": 907,
     "volume": 5,
-    "bashing": -3,
     "to_hit": -1,
     "max_charges": 50,
     "initial_charges": 50,
@@ -9961,7 +9765,6 @@
     "material": "plastic",
     "weight": 907,
     "volume": 4,
-    "bashing": -3,
     "to_hit": -1,
     "max_charges": 100,
     "initial_charges": 100,
@@ -9983,7 +9786,6 @@
     "material": ["steel", "plastic"],
     "weight": 7600,
     "volume": 16,
-    "to_hit": 0,
     "max_charges": 240,
     "initial_charges": 240,
     "charges_per_use": 4,
@@ -10432,7 +10234,6 @@
     "material": "plastic",
     "weight": 907,
     "volume": 4,
-    "bashing": -3,
     "to_hit": -1,
     "max_charges": 100,
     "initial_charges": 100,
@@ -10704,7 +10505,7 @@
     "symbol": "(",
     "color": "red",
     "name": "RDX charge",
-    "description": "This is an aluminium keg, filled with 50 litres worth of RDX and scrap metal.  Contains a core of primary explosive to ensure that the charge detonates completely and delivers its entire destructive power to everything in sight.",
+    "description": "This is an aluminum keg, filled with 50 litres worth of RDX and scrap metal.  Contains a core of primary explosive to ensure that the charge detonates completely and delivers its entire destructive power to everything in sight.",
     "price": 90000,
     "material": ["steel", "plastic"],
     "weight": 130000,
@@ -10733,7 +10534,7 @@
     "symbol": "(",
     "color": "light_red",
     "name": "active RDX charge",
-    "description": "This is an aluminium keg, filled with 50 litres worth of RDX and scrap metal.  The fuse has been lit and once it ignites the primary explosive, the charge will detonate and rain fire and steel on everything in sight.",
+    "description": "This is an aluminum keg, filled with 50 litres worth of RDX and scrap metal.  The fuse has been lit and once it ignites the primary explosive, the charge will detonate and rain fire and steel on everything in sight.",
     "price": 0,
     "material": ["steel", "plastic"],
     "weight": 130000,
@@ -10891,7 +10692,6 @@
     "phase" : "solid",
     "bashing" : 4
   },
-
   {
     "type" : "TOOL",
     "id" : "trumpet",
@@ -11177,6 +10977,38 @@
         "type": "transform",
         "msg": "The l-stick(tm)'s light fades away.",
         "target": "l-stick"
+    }
+  },
+
+   {
+    "id": "needle_curved",
+    "sub": "sewing_kit",
+    "type": "TOOL",
+    "symbol": ";",
+    "color": "light_gray",
+    "name": "curved needle",
+    "description": "A curved sharp needle made of steel.  Its rounded shape allows it to make stitches that only pierce one side of the material.  While unsuitable for most tailoring projects, it's a necessity for stitching neoprene.",
+    "price": 0,
+    "material": "steel",
+    "flags": "STAB",
+    "weight": 85,
+    "volume": 1,
+    "max_charges": 200,
+    "initial_charges": 0,
+    "charges_per_use": 1,
+    "turns_per_charge": 0,
+    "ammo": "thread",
+    "revert_to": "null",
+    "use_action": {
+        "type": "repair_item",
+        "item_action_type" : "repair_fabric",
+        "materials": [
+            "neoprene", "nomex"
+        ],
+        "skill": "tailor",
+        "cost_scaling": 0,
+        "tool_quality": 0,
+        "move_cost": 1200
     }
   }
 ]

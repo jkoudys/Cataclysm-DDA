@@ -1147,7 +1147,11 @@ protected:
          * Fast forward a submap that has just been loading into this map.
          * This is used to rot and remove rotten items, grow plants, fill funnels etc.
          */
-        void actualize( const int gridx, const int gridy, const int gridz );
+        void actualize( int gridx, int gridy, int gridz );
+        /**
+         * Hacks in missing roofs. Should be removed when 3D mapgen is done.
+         */
+        void add_roofs( int gridx, int gridy, int gridz );
         /**
          * Whether the item has to be removed as it has rotten away completely.
          * @param pnt The *absolute* position of the item in the world (not just on this map!),
@@ -1163,10 +1167,11 @@ protected:
         template <typename Container>
         void remove_rotten_items( Container &items, const tripoint &p );
         /**
-         * Try to fill funnel based items here.
+         * Try to fill funnel based items here. Simulates rain from `since_turn` till now.
          * @param pnt The location in this map where to fill funnels.
+         * @param since_turn First turn of simulated filling.
          */
-        void fill_funnels( const tripoint &p );
+        void fill_funnels( const tripoint &p, int since_turn );
         /**
          * Try to grow a harvestable plant to the next stage(s).
          */
@@ -1391,6 +1396,7 @@ private:
     tripoint_range points_in_radius( const tripoint &center, size_t radius, size_t radiusz = 0 ) const;
     level_cache &access_cache( int zlev );
     const level_cache &access_cache( int zlev ) const;
+    bool need_draw_lower_floor(const tripoint &p);
 };
 
 std::vector<point> closest_points_first(int radius, point p);

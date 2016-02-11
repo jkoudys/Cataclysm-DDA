@@ -4527,6 +4527,12 @@
           "rotates": false
         },
         {
+          "id": "broadsword_inferior",
+          "fg": 2062,
+          "bg": 505,
+          "rotates": false
+        },
+        {
           "id": "broccoli",
           "fg": 634,
           "bg": 505,
@@ -6478,6 +6484,12 @@
         },
         {
           "id": "katana_fake",
+          "fg": 2161,
+          "bg": 505,
+          "rotates": false
+        },
+        {
+          "id": "katana_inferior",
           "fg": 2161,
           "bg": 505,
           "rotates": false
@@ -9698,6 +9710,12 @@
           "rotates": false
         },
         {
+          "id": "zweihander_inferior",
+          "fg": 2283,
+          "bg": 505,
+          "rotates": false
+        },
+        {
           "id": "marshmallow",
           "fg": 756,
           "bg": 505,
@@ -12680,6 +12698,12 @@
           "rotates": false
         },
         {
+          "id": "t_wall_wood_line",
+          "fg": 2006,
+          "bg": 513,
+          "rotates": false
+        },
+        {
           "id": "t_wall_wood_broken",
           "fg": 2007,
           "bg": 513,
@@ -14643,6 +14667,12 @@
           "rotates": false
         },
         {
+          "id": "t_door_metal_o_peep",
+          "fg": 1761,
+          "bg": 534,
+          "rotates": false
+        },
+        {
           "id": "t_gates_mech_control",
           "fg": 1788,
           "bg": 534,
@@ -14740,6 +14770,45 @@
         },
         {
           "id": "t_sewage_pipe",
+          "fg": 1889,
+          "bg": 534,
+          "rotates": false,
+          "multitile": true,
+          "additional_tiles": [
+            {
+              "id": "center",
+              "fg": 1890,
+              "bg": 534
+            },
+            {
+              "id": "corner",
+              "fg": 1891,
+              "bg": 534
+            },
+            {
+              "id": "edge",
+              "fg": 1892,
+              "bg": 534
+            },
+            {
+              "id": "t_connection",
+              "fg": 1894,
+              "bg": 534
+            },
+            {
+              "id": "end_piece",
+              "fg": 1893,
+              "bg": 534
+            },
+            {
+              "id": "unconnected",
+              "fg": 1889,
+              "bg": 534
+            }
+          ]
+        },
+        {
+          "id": "t_ind_pipe",
           "fg": 1889,
           "bg": 534,
           "rotates": false,
@@ -14912,6 +14981,12 @@
         },
         {
           "id": "t_rock_wall",
+          "fg": 2906,
+          "bg": 533,
+          "rotates": false
+        },
+        {
+          "id": "t_stone_wall_line",
           "fg": 2906,
           "bg": 533,
           "rotates": false
@@ -15232,6 +15307,84 @@
         },
         {
           "id": "t_wall_metal",
+          "fg": 1988,
+          "bg": 534,
+          "rotates": false,
+          "multitile": true,
+          "additional_tiles": [
+            {
+              "id": "corner",
+              "fg": 1989,
+              "bg": 534
+            },
+            {
+              "id": "center",
+              "fg": 1988,
+              "bg": 534
+            },
+            {
+              "id": "end_piece",
+              "fg": 1991,
+              "bg": 534
+            },
+            {
+              "id": "unconnected",
+              "fg": 1993,
+              "bg": 534
+            },
+            {
+              "id": "t_connection",
+              "fg": 1992,
+              "bg": 534
+            },
+            {
+              "id": "edge",
+              "fg": 1990,
+              "bg": 534
+            }
+          ]
+        },
+        {
+          "id": "t_scrap_wall",
+          "fg": 1988,
+          "bg": 534,
+          "rotates": false,
+          "multitile": true,
+          "additional_tiles": [
+            {
+              "id": "corner",
+              "fg": 1989,
+              "bg": 534
+            },
+            {
+              "id": "center",
+              "fg": 1988,
+              "bg": 534
+            },
+            {
+              "id": "end_piece",
+              "fg": 1991,
+              "bg": 534
+            },
+            {
+              "id": "unconnected",
+              "fg": 1993,
+              "bg": 534
+            },
+            {
+              "id": "t_connection",
+              "fg": 1992,
+              "bg": 534
+            },
+            {
+              "id": "edge",
+              "fg": 1990,
+              "bg": 534
+            }
+          ]
+        },
+        {
+          "id": "t_scrap_wall_halfway",
           "fg": 1988,
           "bg": 534,
           "rotates": false,
@@ -16104,7 +16257,7 @@
           "id": "vp_craft_rig",
           "fg": 2365,
           "bg": 551,
-          "rotates": false
+          "rotates": true
         },
         {
           "id": "vp_floodlight",
@@ -16710,6 +16863,11 @@
         },
         {
           "id": "f_egg_sackbw",
+          "fg": 950,
+          "rotates": false
+        },
+        {
+          "id": "f_egg_sackcs",
           "fg": 950,
           "rotates": false
         },
@@ -18139,6 +18297,11 @@
         },
         {
           "id": "t_metal_floor",
+          "fg": 1817,
+          "rotates": false
+        },
+        {
+          "id": "t_scrap_floor",
           "fg": 1817,
           "rotates": false
         },
@@ -20455,6 +20618,12 @@
           "rotates": false
         },
         {
+          "id": "t_brick_wall_line",
+          "fg": 2954,
+          "bg": 2637,
+          "rotates": false
+        },
+        {
           "id": "t_pontoon_dp",
           "fg": 1742,
           "rotates": false,
@@ -20493,6 +20662,11 @@
         },
         {
           "id": "t_thconc_floor",
+          "fg": 534,
+          "rotates": false
+        },
+        {
+          "id": "t_concrete_floor",
           "fg": 534,
           "rotates": false
         },
@@ -21457,6 +21631,11 @@
           "rotates": false
         },
         {
+          "id": "cutlass_inferior",
+          "fg": 2623,
+          "rotates": false
+        },
+        {
           "id": "m60",
           "fg": 2624,
           "rotates": false
@@ -22175,6 +22354,16 @@
           "rotates": false
         },
         {
+          "id": "battleaxe_fake",
+          "fg": 2729,
+          "rotates": false
+        },
+        {
+          "id": "battleaxe_inferior",
+          "fg": 2729,
+          "rotates": false
+        },
+        {
           "id": "primitive_axe",
           "fg": 2730,
           "rotates": false
@@ -22376,6 +22565,11 @@
           "rotates": false
         },
         {
+          "id": "scimitar_inferior",
+          "fg": 2762,
+          "rotates": false
+        },
+        {
           "id": "sword_xiphos",
           "fg": 2763,
           "rotates": false
@@ -22396,6 +22590,11 @@
           "rotates": false
         },
         {
+          "id": "jian_inferior",
+          "fg": 2765,
+          "rotates": false
+        },
+        {
           "id": "arming_sword",
           "fg": 2766,
           "rotates": false
@@ -22406,12 +22605,22 @@
           "rotates": false
         },
         {
+          "id": "arming_sword_inferior",
+          "fg": 2766,
+          "rotates": false
+        },
+        {
           "id": "longsword",
           "fg": 2767,
           "rotates": false
         },
         {
           "id": "longsword_fake",
+          "fg": 2767,
+          "rotates": false
+        },
+        {
+          "id": "longsword_inferior",
           "fg": 2767,
           "rotates": false
         },
@@ -23095,6 +23304,11 @@
         },
         {
           "id": "wakizashi_fake",
+          "fg": 2867,
+          "rotates": false
+        },
+        {
+          "id": "wakizashi_inferior",
           "fg": 2867,
           "rotates": false
         },
@@ -24056,6 +24270,181 @@
         {
           "id": "shield_buckler",
           "fg": 3073,
+          "rotates": false
+        },
+        {
+          "id": "t_ind_furnace",
+          "fg": 2365,
+          "bg": 533,
+          "rotates": false
+        },
+        {
+          "id": "stanag10",
+          "fg": 3074,
+          "rotates": false
+        },
+        {
+          "id": "m1918mag",
+          "fg": 3074,
+          "rotates": false
+        },
+        {
+          "id": "survivor223mag",
+          "fg": 3074,
+          "rotates": false
+        },
+        {
+          "id": "stanag30",
+          "fg": 3075,
+          "rotates": false
+        },
+        {
+          "id": "lw223mag",
+          "fg": 3075,
+          "rotates": false
+        },
+        {
+          "id": "stanag50",
+          "fg": 3076,
+          "rotates": false
+        },
+        {
+          "id": "belt223",
+          "fg": 3077,
+          "rotates": false
+        },
+        {
+          "id": "belt308",
+          "fg": 3077,
+          "rotates": false
+        },
+        {
+          "id": "m1918bigmag",
+          "fg": 3078,
+          "rotates": false
+        },
+        {
+          "id": "ak74mag",
+          "fg": 3079,
+          "rotates": false
+        },
+        {
+          "id": "rpk74mag",
+          "fg": 3080,
+          "rotates": false
+        },
+        {
+          "id": "lw223bigmag",
+          "fg": 3081,
+          "rotates": false
+        },
+        {
+          "id": "makarovmag",
+          "fg": 3082,
+          "rotates": false
+        },
+        {
+          "id": "glockmag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "usp45mag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "m9mag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "usp9mag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "skorpion61mag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "skorpion82mag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "thompson_mag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "survivor9mm_mag",
+          "fg": 3083,
+          "rotates": false
+        },
+        {
+          "id": "glockbigmag",
+          "fg": 3084,
+          "rotates": false
+        },
+        {
+          "id": "m9bigmag",
+          "fg": 3084,
+          "rotates": false
+        },
+        {
+          "id": "thompson_bigmag",
+          "fg": 3084,
+          "rotates": false
+        },
+        {
+          "id": "stenmag",
+          "fg": 3084,
+          "rotates": false
+        },
+        {
+          "id": "thompson_drum",
+          "fg": 3085,
+          "rotates": false
+        },
+        {
+          "id": "mp5bigmag",
+          "fg": 3085,
+          "rotates": false
+        },
+        {
+          "id": "mp5mag",
+          "fg": 3086,
+          "rotates": false
+        },
+        {
+          "id": "mon_rattlesnake_giant",
+          "fg": 3087,
+          "bg": 515,
+          "rotates": false
+        },
+        {
+          "id": "t_door_metal_c_peep",
+          "fg": 3088,
+          "rotates": false
+        },
+        {
+          "id": "t_window_bars",
+          "fg": 3089,
+          "bg": 535,
+          "rotates": true
+        },
+        {
+          "id": "mon_spider_cellar_giant",
+          "fg": 3090,
+          "bg": 515,
+          "rotates": false
+        },
+        {
+          "id": "mon_spider_cellar_giant_s",
+          "fg": 3091,
+          "bg": 515,
           "rotates": false
         }
       ]
