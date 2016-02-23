@@ -21,6 +21,8 @@
 #include "field.h"
 #include "weather.h"
 #include "pldata.h"
+#include "recipe_dictionary.h"
+#include "player.h"
 
 #include <sstream>
 #include <algorithm>
@@ -66,6 +68,9 @@ void iuse_transform::load( JsonObject &obj )
     obj.read( "need_charges_msg", need_charges_msg );
     obj.read( "moves", moves );
     obj.read( "menu_option_text", menu_option_text );
+    if( !menu_option_text.empty() ) {
+        menu_option_text = _( menu_option_text.c_str() );
+    }
 }
 
 long iuse_transform::use(player *p, item *it, bool t, const tripoint &pos ) const
@@ -76,7 +81,7 @@ long iuse_transform::use(player *p, item *it, bool t, const tripoint &pos ) cons
     }
     // We can't just check for p != nullptr, because item::process sets p = g->u
     // Not needed here (player always has the item), but is in auto_transform
-    const bool player_has_item = p != nullptr && p->has_item( it );
+    const bool player_has_item = p != nullptr && p->has_item( *it );
     if( player_has_item && p->is_underwater() ) {
         p->add_msg_if_player(m_info, _("You can't do that while underwater"));
         return 0;
@@ -101,12 +106,13 @@ long iuse_transform::use(player *p, item *it, bool t, const tripoint &pos ) cons
     item *target;
     if (container_id.empty()) {
         // No container, assume simple type transformation like foo_off -> foo_on
-        it->make(target_id);
-        target = it;
+        target = &it->convert( target_id );
     } else {
         // Transform into something in a container, assume the content is
         // "created" right now and give the content the current time as birthday
-        it->make(container_id, true);
+        it->convert( container_id );
+        it->unset_curammo();
+        it->charges = -1;
         it->contents.push_back(item(target_id, calendar::turn));
         target = &it->contents.back();
     }
@@ -128,6 +134,14 @@ long iuse_transform::use(player *p, item *it, bool t, const tripoint &pos ) cons
         p->moves -= moves;
     }
     return 0;
+}
+
+std::string iuse_transform::get_name() const
+{
+    if( !menu_option_text.empty() ) {
+        return menu_option_text;
+    }
+    return iuse_actor::get_name();
 }
 
 
@@ -1457,7 +1471,7 @@ long enzlave_actor::use( player *p, item *it, bool t, const tripoint& ) const
     // Survival skill increases your willingness to get things done,
     // but it doesn't make you feel any less bad about it.
     ///\EFFECT_SURVIVAL increases tolerance for enzlavement
-    if( p->morale_level() <= (15 * (tolerance_level - p->skillLevel( skill_survival ) )) - 150 ) {
+    if( p->get_morale_level() <= ( 15 * ( tolerance_level - p->skillLevel( skill_survival ) ) ) - 150 ) {
         add_msg(m_neutral, _("The prospect of cutting up the copse and letting it rise again as a slave is too much for you to deal with right now."));
         return 0;
     }
@@ -1576,7 +1590,7 @@ long fireweapon_off_actor::use( player *p, item *it, bool t, const tripoint& ) c
             p->add_msg_if_player( _(success_message.c_str()) );
         }
 
-        it->make( target_id );
+        it->convert( target_id );
         it->active = true;
     } else if( !failure_message.empty() ) {
         p->add_msg_if_player( m_bad, _(failure_message.c_str()) );
@@ -1629,10 +1643,10 @@ long fireweapon_on_actor::use( player *p, item *it, bool t, const tripoint& ) co
         const auto tool = dynamic_cast<const it_tool *>( it->type );
         if( tool == nullptr ) {
             debugmsg( "Non-tool has fireweapon_on actor" );
-            it->make( "none" );
+            it->convert( "null" );
         }
 
-        it->make( tool->revert_to );
+        it->convert( tool->revert_to );
     } else if( one_in( noise_chance ) ) {
         if( noise > 0 ) {
             sounds::sound( p->pos(), noise, _(noise_message.c_str()) );
@@ -1908,6 +1922,139 @@ long holster_actor::use( player *p, item *it, bool, const tripoint & ) const
     return 0;
 }
 
+iuse_actor *bandolier_actor::clone() const
+{
+    return new bandolier_actor( *this );
+}
+
+void bandolier_actor::load( JsonObject &obj )
+{
+    capacity = obj.get_int( "capacity", capacity );
+    ammo = obj.get_tags( "ammo" );
+}
+
+bool bandolier_actor::can_store( const item &bandolier, const item &obj ) const
+{
+    if( !obj.is_ammo() ) {
+        return false;
+    }
+    if( !bandolier.contents.empty() && ( bandolier.contents[0].typeId() != obj.typeId() ||
+                                         bandolier.contents[0].charges >= capacity ) ) {
+        return false;
+    }
+    return std::count( ammo.begin(), ammo.end(), obj.type->ammo->type );
+}
+
+bool bandolier_actor::store( player &p, item &bandolier, item &obj ) const
+{
+    if( obj.is_null() || bandolier.is_null() ) {
+        debugmsg( "Null item was passed to bandolier_actor" );
+        return false;
+    }
+
+    if( !p.has_item( obj ) ) {
+        debugmsg( "Tried to store item not in player possession in bandolier" );
+        return false;
+    }
+
+    // if selected item is unsuitable inform the player why not
+    if( !obj.is_ammo() ) {
+        p.add_msg_if_player( m_info, _( "That %1$s isn't ammo!" ), obj.tname().c_str() );
+        return false;
+    }
+
+    if( !std::count( ammo.begin(), ammo.end(), obj.type->ammo->type ) ) {
+        p.add_msg_if_player( m_info, _( "Your %1$s can't store that type of ammo" ),
+                             bandolier.type_name().c_str() );
+        return false;
+    }
+
+    long qty;
+
+    if( bandolier.contents.empty() ) {
+        qty = std::min( obj.charges, long( capacity ) );
+
+        item put = obj.split( qty );
+        if( !put.is_null() ) {
+            bandolier.put_in( put );
+        } else {
+            bandolier.put_in( p.i_rem( &obj ) );
+        }
+    } else {
+        qty = std::min( obj.charges, capacity - bandolier.contents[0].charges );
+
+        if( bandolier.contents[0].typeId() != obj.typeId() ) {
+            p.add_msg_if_player( m_info, _( "Your %1$s already contains a different type of ammo" ),
+                                 bandolier.type_name().c_str() );
+            return false;
+        }
+        if( qty <= 0 ) {
+            p.add_msg_if_player( m_info, _( "Your %1$s is already full" ), bandolier.type_name().c_str() );
+            return false;
+        }
+
+        obj.charges -= qty;
+        bandolier.contents[0].charges += qty;
+        if( obj.charges <= 0 ) {
+            p.i_rem( &obj );
+        }
+    }
+    p.add_msg_if_player( _( "You store the %1$s in your %2$s" ), obj.tname( qty ).c_str(),
+                         bandolier.type_name().c_str() );
+
+    return true;
+}
+
+
+long bandolier_actor::use( player *p, item *it, bool, const tripoint & ) const
+{
+    if( &p->weapon == it ) {
+        p->add_msg_if_player( _( "You need to unwield your %s before using it." ),
+                              it->type_name().c_str() );
+        return 0;
+    }
+
+    uimenu menu;
+    menu.text = _( "Store ammo" );
+    menu.return_invalid = true;
+
+    std::vector<std::function<void()>> actions;
+
+    menu.addentry( -1, it->contents.empty() || it->contents[0].charges < capacity,
+                   'r', string_format( _( "Store ammo in %s" ), it->type_name().c_str() ) );
+
+    actions.emplace_back( [&] {
+        item &obj = p->i_at( g->inv_for_filter( _( "Store ammo" ),
+                                                [&]( const item & e ) {
+            return can_store( *it, e );
+        } ) );
+
+        if( !obj.is_null() ) {
+            store( *p, *it, obj );
+        } else {
+            p->add_msg_if_player( _( "Never mind." ) );
+        }
+    } );
+
+    menu.addentry( -1, !it->contents.empty(), 'u', string_format( _( "Unload %s" ),
+                   it->type_name().c_str() ) );
+
+    actions.emplace_back( [&] {
+        if( p->i_add_or_drop( it->contents[0] ) ) {
+            it->contents.erase( it->contents.begin() );
+        } else {
+            p->add_msg_if_player( _( "Never mind." ) );
+        }
+    } );
+
+    menu.query();
+    if( menu.ret >= 0 ) {
+        actions[ menu.ret ]();
+    }
+
+    return 0;
+}
+
 void repair_item_actor::load( JsonObject &obj )
 {
     // Mandatory:
@@ -2043,18 +2190,14 @@ bool repair_item_actor::handle_components( player &pl, const item &fix,
         return false;
     }
 
-    // Repairing apparently doesn't always consume items;
-    // maybe it should just consume less or something?
-    // Anyway, don't ask for items if we won't need any.
-    if( !(fix.damage >= 3 || fix.damage == 0) ) {
-        return true;
-    }
-
     const inventory &crafting_inv = pl.crafting_inventory();
 
     // Repairing or modifying items requires at least 1 repair item,
     //  otherwise number is related to size of item
-    const int items_needed = std::max<int>( 1, ceil( fix.volume() * cost_scaling ) );
+    // Round up if checking, but roll if actually consuming
+    const int items_needed = std::max<int>( 1, just_check ?
+        ceil( fix.volume() * cost_scaling ) :
+        divide_roll_remainder( fix.volume() * cost_scaling, 1.0f ) );
 
     // Go through all discovered repair items and see if we have any of them available
     for( const auto &entry : valid_entries ) {
@@ -2090,6 +2233,36 @@ bool repair_item_actor::handle_components( player &pl, const item &fix,
     }
 
     return true;
+}
+
+
+// Returns the level of the lowest level recipe that results in item of `fix`'s type
+// If the recipe is not known by the player, +1 to difficulty
+// If player doesn't meet the requirements of the recipe, +1 to difficulty
+// If the recipe doesn't exist, difficulty is 10
+int repair_item_actor::repair_recipe_difficulty( const player &pl,
+    const item &fix, bool training ) const
+{
+    const auto &type = fix.typeId();
+    int min = 5;
+    for( const auto *cur_recipe : recipe_dict ) {
+        if( type != cur_recipe->result ) {
+            continue;
+        }
+
+        int cur_difficulty = cur_recipe->difficulty;
+        if( !training && !pl.knows_recipe( cur_recipe ) ) {
+            cur_difficulty++;
+        }
+
+        if( !training && !pl.has_recipe_requirements( cur_recipe ) ) {
+            cur_difficulty++;
+        }
+
+        min = std::min( cur_difficulty, min );
+    }
+
+    return min;
 }
 
 bool repair_item_actor::can_repair( player &pl, const item &tool, const item &fix, bool print_msg ) const
@@ -2132,21 +2305,91 @@ bool repair_item_actor::can_repair( player &pl, const item &tool, const item &fi
         return false;
     }
 
-    if( fix.damage == 0 && fix.has_flag("PRIMITIVE_RANGED_WEAPON") ) {
+    if( fix.has_flag("VARSIZE") && !fix.has_flag("FIT") ) {
+        return true;
+    }
+
+    if( fix.damage > 0 ) {
+        return true;
+    }
+
+    if( fix.damage < 0 ) {
+        if( print_msg ) {
+            pl.add_msg_if_player( m_info, _("Your %s is already enhanced."), fix.tname().c_str() );
+        }
+        return false;
+    }
+
+    if( fix.has_flag("PRIMITIVE_RANGED_WEAPON") ) {
         if( print_msg ) {
             pl.add_msg_if_player( m_info, _("You cannot improve your %s any more this way."), fix.tname().c_str());
         }
         return false;
     }
 
-    if( fix.damage >= 0 || (fix.has_flag("VARSIZE") && !fix.has_flag("FIT")) ) {
-        return true;
+    return true;
+}
+
+std::pair<float, float> repair_item_actor::repair_chance(
+    const player &pl, const item &fix, repair_item_actor::repair_type action_type ) const
+{
+    ///\EFFECT_TAILOR randomly improves clothing repair efforts
+    ///\EFFECT_MECHANICS randomly improves metal repair efforts
+    const int skill = pl.get_skill_level( used_skill );
+    const int recipe_difficulty = repair_recipe_difficulty( pl, fix );
+    int action_difficulty = 0;
+    switch( action_type ) {
+        case RT_REPAIR:
+            action_difficulty = fix.damage;
+            break;
+        case RT_REFIT:
+            // Let's make refitting as hard as recovering an almost-wrecked item
+            action_difficulty = MAX_ITEM_DAMAGE;
+            break;
+        case RT_REINFORCE:
+            // Reinforcing is at least as hard as refitting
+            action_difficulty = std::max( MAX_ITEM_DAMAGE, recipe_difficulty );
+            break;
+        default:
+            std::make_pair( 0.0f, 0.0f );
     }
 
-    if( print_msg ) {
-        pl.add_msg_if_player( m_info, _("Your %s is already enhanced."), fix.tname().c_str() );
+    const int difficulty = recipe_difficulty + action_difficulty;
+    // Sample numbers:
+    // Item   | Damage | Skill | Dex | Success | Failure
+    // Hoodie |    2   |   3   |  10 |   6%    |   0%
+    // Hazmat |    1   |   10  |  10 |   8%    |   0%
+    // Hazmat |    1   |   5   |  20 |   0%    |   2%
+    // t-shirt|    4   |   1   |  5  |   2%    |   3%
+    // Duster |    2   |   5   |  5  |   10%   |   0%
+    // Duster |    2   |   2   |  10 |   4%    |   1%
+    // Duster | Refit  |   2   |  10 |   0%    |   N/A
+    float success_chance = (10 + 2 * skill - 2 * difficulty) / 100.0f;
+    ///\EFFECT_DEX randomly reduces the chances of damaging an item when repairing
+    float damage_chance = (difficulty - skill - (tool_quality + pl.dex_cur) / 5.0f) / 100.0f;
+
+    damage_chance = std::max( 0.0f, std::min( 1.0f, damage_chance ) );
+    success_chance = std::max( 0.0f, std::min( 1.0f - damage_chance, success_chance ) );
+
+
+    return std::make_pair( success_chance, damage_chance );
+}
+
+repair_item_actor::repair_type repair_item_actor::default_action( const item &fix ) const
+{
+    if( fix.damage > 0 ) {
+        return RT_REPAIR;
     }
-    return false;
+
+    if( fix.has_flag("VARSIZE") && !fix.has_flag("FIT") ) {
+        return RT_REFIT;
+    }
+
+    if( fix.damage == 0 ) {
+        return RT_REINFORCE;
+    }
+
+    return RT_NOTHING;
 }
 
 repair_item_actor::attempt_hint repair_item_actor::repair( player &pl, item &tool, item &fix ) const
@@ -2155,15 +2398,10 @@ repair_item_actor::attempt_hint repair_item_actor::repair( player &pl, item &too
         return AS_CANT;
     }
 
-    pl.practice( used_skill, 8 );
-    ///\EFFECT_TAILOR randomly improves clothing repair efforts
-    ///\EFFECT_MECHANICS randomly improves metal repair efforts
-    // Let's make refitting/reinforcing as hard as recovering an almost-wrecked item
-    // TODO: Make difficulty depend on the item type (for example, on recipe's difficulty)
-    const int difficulty = fix.damage == 0 ? 4 : fix.damage;
-    float repair_chance = (5 + pl.get_skill_level( used_skill ) - difficulty) / 100.0f;
-    ///\EFFECT_DEX randomly reduces the chances of damaging an item when repairing
-    float damage_chance = (5 - (pl.dex_cur + tool_quality) / 5.0f) / 100.0f;
+    const auto action = default_action( fix );
+    const auto chance = repair_chance( pl, fix, action );
+    const int practice_amount = repair_recipe_difficulty( pl, fix, true );
+    pl.practice( used_skill, practice_amount );
     float roll_value = rng_float( 0.0, 1.0 );
     enum roll_result {
         SUCCESS,
@@ -2171,15 +2409,15 @@ repair_item_actor::attempt_hint repair_item_actor::repair( player &pl, item &too
         NEUTRAL
     } roll;
 
-    if( roll_value > 1.0f - damage_chance ) {
+    if( roll_value > 1.0f - chance.second ) {
         roll = FAILURE;
-    } else if( roll_value < repair_chance ) {
+    } else if( roll_value < chance.first ) {
         roll = SUCCESS;
     } else {
         roll = NEUTRAL;
     }
 
-    if( fix.damage > 0 ) {
+    if( action == RT_REPAIR ) {
         if( roll == FAILURE ) {
             pl.add_msg_if_player(m_bad, _("You damage your %s further!"), fix.tname().c_str());
             fix.damage++;
@@ -2209,19 +2447,14 @@ repair_item_actor::attempt_hint repair_item_actor::repair( player &pl, item &too
         return AS_RETRY;
     }
 
-    if( fix.damage == 0 && fix.has_flag("PRIMITIVE_RANGED_WEAPON") ) {
-        pl.add_msg_if_player(m_info, _("You cannot improve your %s any more this way."), fix.tname().c_str());
-        return AS_CANT;
-    }
-
-    if( fix.damage == 0 || (fix.has_flag("VARSIZE") && !fix.has_flag("FIT")) ) {
+    if( action == RT_REFIT ) {
         if( roll == FAILURE ) {
             pl.add_msg_if_player(m_bad, _("You damage your %s!"), fix.tname().c_str());
             fix.damage++;
             return AS_FAILURE;
         }
 
-        if( roll == SUCCESS && fix.has_flag("VARSIZE") && !fix.has_flag("FIT") ) {
+        if( roll == SUCCESS ) {
             pl.add_msg_if_player(m_good, _("You take your %s in, improving the fit."),
                                  fix.tname().c_str());
             fix.item_tags.insert("FIT");
@@ -2229,7 +2462,16 @@ repair_item_actor::attempt_hint repair_item_actor::repair( player &pl, item &too
             return AS_SUCCESS;
         }
 
-        if( roll == SUCCESS && (fix.has_flag("FIT") || !fix.has_flag("VARSIZE")) ) {
+        return AS_RETRY;
+    }
+
+    if( action == RT_REINFORCE ) {
+        if( fix.has_flag("PRIMITIVE_RANGED_WEAPON") ) {
+            pl.add_msg_if_player( m_info, _("You cannot improve your %s any more this way."), fix.tname().c_str() );
+            return AS_CANT;
+        }
+
+        if( roll == SUCCESS ) {
             pl.add_msg_if_player(m_good, _("You make your %s extra sturdy."), fix.tname().c_str());
             fix.damage--;
             handle_components( pl, fix, false, false );
@@ -2239,8 +2481,21 @@ repair_item_actor::attempt_hint repair_item_actor::repair( player &pl, item &too
         return AS_RETRY;
     }
 
-    pl.add_msg_if_player(m_info, _("Your %s is already enhanced."), fix.tname().c_str());
+    pl.add_msg_if_player( m_info, _("Your %s is already enhanced."), fix.tname().c_str() );
     return AS_CANT;
+}
+
+const std::string &repair_item_actor::action_description( repair_item_actor::repair_type rt )
+{
+    static const std::array<std::string, NUM_REPAIR_TYPES> arr = {{
+        _("Nothing"),
+        _("Repairing"),
+        _("Refiting"),
+        _("Reinforcing"),
+        _("Practicing")
+    }};
+
+    return arr[rt];
 }
 
 void heal_actor::load( JsonObject &obj )
@@ -2425,7 +2680,7 @@ long heal_actor::finish_using( player &healer, player &patient, item &it, hp_par
         // If the item is a tool, `make` it the new form
         // Otherwise it probably was consumed, so create a new one
         if( it.is_tool() ) {
-            it.make( used_up_item );
+            it.convert( used_up_item );
         } else {
             item used_up( used_up_item, it.bday );
             healer.i_add_or_drop( used_up );

@@ -69,9 +69,9 @@
     "to_hit": -1,
     "ammo": "NULL",
     "revert_to": "null",
-    "max_charges": 0,
-    "initial_charges": 0,
-    "charges_per_use": 0,
+    "max_charges": 2000,
+    "initial_charges": 2000,
+    "charges_per_use": 1,
     "turns_per_charge": 0,
     "use_action": {
       "type": "extended_firestarter"
@@ -150,7 +150,6 @@
     "to_hit": 1,
     "material": "steel",
     "contains": 3,
-    "rigid": true,
     "watertight": true,
     "seals": true,
     "qualities": [["CONTAIN", 1], ["BOIL", 2]]
@@ -482,6 +481,7 @@
     "bashing": -8,
     "to_hit": -2,
     "contains": 10,
+    "rigid": false,
     "material": "aluminum",
     "qualities": [["COOK", 1]]
   },{
@@ -547,6 +547,7 @@
     "to_hit": 1,
     "material": "plastic",
     "contains": 2,
+    "rigid": false,
     "watertight": true,
     "seals": true
   },{
@@ -615,7 +616,6 @@
       "encumbrance" : 5,
       "warmth" : 0
     },
-    "rigid": true,
     "watertight": true,
     "seals": true,
     "flags": ["WAIST"]

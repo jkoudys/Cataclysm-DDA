@@ -335,6 +335,7 @@ void map::destroy_vehicle (vehicle *veh)
             if( veh->tracking_on ) {
                 overmap_buffer.remove_vehicle( veh );
             }
+            dirty_vehicle_list.erase(veh);
             delete veh;
             return;
         }
@@ -4375,10 +4376,10 @@ void map::spawn_items(const int x, const int y, const std::vector<item> &new_ite
 
 void map::spawn_item(const int x, const int y, const std::string &type_id,
                      const unsigned quantity, const long charges,
-                     const unsigned birthday, const int damlevel, const bool rand)
+                     const unsigned birthday, const int damlevel)
 {
     spawn_item( tripoint( x, y, abs_sub.z ), type_id,
-                quantity, charges, birthday, damlevel, rand );
+                quantity, charges, birthday, damlevel );
 }
 
 int map::max_volume(const int x, const int y)
@@ -4539,7 +4540,7 @@ void map::spawn_natural_artifact(const tripoint &p, artifact_natural_property pr
 // added argument to spawn at various damage levels
 void map::spawn_item(const tripoint &p, const std::string &type_id,
                      const unsigned quantity, const long charges,
-                     const unsigned birthday, const int damlevel, const bool rand)
+                     const unsigned birthday, const int damlevel)
 {
     if( type_id == "null" ) {
         return;
@@ -4554,7 +4555,7 @@ void map::spawn_item(const tripoint &p, const std::string &type_id,
         spawn_item( p, type_id, 1, charges, birthday, damlevel );
     }
     // spawn the item
-    item new_item(type_id, birthday, rand);
+    item new_item(type_id, birthday );
     if( one_in( 3 ) && new_item.has_flag( "VARSIZE" ) ) {
         new_item.item_tags.insert( "FIT" );
     }
@@ -5305,7 +5306,7 @@ static bool trigger_radio_item( item_stack &items, std::list<item>::iterator &n,
         // If that changes, this needs logic to handle the alternative.
         itype_id bomb_type = n->contents[0].type->id;
 
-        n->make(bomb_type);
+        n->convert( bomb_type );
         if( n->has_flag("RADIO_INVOKE_PROC") ) {
             n->process( nullptr, pos, true );
         }

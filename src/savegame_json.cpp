@@ -742,7 +742,9 @@ void player::deserialize(JsonIn &jsin)
     items_identified.clear();
     data.read( "items_identified", items_identified );
 
-    data.read("morale", morale);
+    morale.clear();
+    data.read( "morale", morale );
+    invalidate_morale_level();
 
     int tmpactive_mission;
     if( data.read( "active_mission", tmpactive_mission ) && tmpactive_mission != -1 ) {
@@ -799,6 +801,7 @@ void npc_follower_rules::serialize(JsonOut &json) const
 {
     json.start_object();
     json.member("engagement", (int)engagement );
+    json.member("aim", (int)aim );
     json.member("use_guns", use_guns );
     json.member("use_grenades", use_grenades );
     json.member("use_silent", use_silent );
@@ -816,6 +819,8 @@ void npc_follower_rules::deserialize(JsonIn &jsin)
     int tmpeng;
     data.read("engagement", tmpeng);
     engagement = (combat_engagement)tmpeng;
+    data.read("aim", tmpeng);
+    aim = (aim_rule)aim;
     data.read( "use_guns", use_guns);
     data.read( "use_grenades", use_grenades);
     data.read( "use_silent", use_silent);
@@ -1361,14 +1366,14 @@ void mon_special_attack::serialize(JsonOut &json) const
 template<typename Archive>
 void item::io( Archive& archive )
 {
-    const auto load_type = [this]( const std::string& id ) {
+    const auto load_type = [this]( const itype_id& id ) {
         // only for backward compatibility (there are no "on" versions of those anymore)
         if( id == "UPS_on" ) {
-            make( "UPS_off" );
+            convert( "UPS_off" );
         } else if( id == "adv_UPS_on" ) {
-            make( "adv_UPS_off" );
+            convert( "adv_UPS_off" );
         } else {
-            make( id );
+            convert( id );
         }
     };
     const auto load_curammo = [this]( const std::string& id ) {

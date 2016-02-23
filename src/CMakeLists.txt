@@ -48,7 +48,6 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/catalua.cpp
     ${CMAKE_SOURCE_DIR}/src/map.cpp
     ${CMAKE_SOURCE_DIR}/src/action.cpp
-    ${CMAKE_SOURCE_DIR}/src/nonplayer.cpp
     ${CMAKE_SOURCE_DIR}/src/start_location.cpp
     ${CMAKE_SOURCE_DIR}/src/mutation.cpp
     ${CMAKE_SOURCE_DIR}/src/mapgen.cpp
@@ -92,6 +91,8 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/vehicle.cpp
     ${CMAKE_SOURCE_DIR}/src/vehicle_group.cpp
     ${CMAKE_SOURCE_DIR}/src/visitable.cpp
+    ${CMAKE_SOURCE_DIR}/src/map_selector.cpp
+    ${CMAKE_SOURCE_DIR}/src/vehicle_selector.cpp
     ${CMAKE_SOURCE_DIR}/src/mission_place.cpp
     ${CMAKE_SOURCE_DIR}/src/material.cpp
     ${CMAKE_SOURCE_DIR}/src/veh_type.cpp
@@ -159,6 +160,7 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/drawing_primitives.cpp
     ${CMAKE_SOURCE_DIR}/src/mattack_actors.cpp
     ${CMAKE_SOURCE_DIR}/src/consumption.cpp
+    ${CMAKE_SOURCE_DIR}/src/bonuses.cpp
 )
 
 SET (CATACLYSM_DDA_HEADERS
@@ -186,6 +188,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/item_location.h
     ${CMAKE_SOURCE_DIR}/src/map.h
     ${CMAKE_SOURCE_DIR}/src/npc.h
+    ${CMAKE_SOURCE_DIR}/src/npc_favor.h
     ${CMAKE_SOURCE_DIR}/src/rng.h
     ${CMAKE_SOURCE_DIR}/src/compatibility.h
     ${CMAKE_SOURCE_DIR}/src/faction.h
@@ -197,7 +200,6 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/calendar.h
     ${CMAKE_SOURCE_DIR}/src/mod_manager.h
     ${CMAKE_SOURCE_DIR}/src/catacharset.h
-    ${CMAKE_SOURCE_DIR}/src/nonplayer.h
     ${CMAKE_SOURCE_DIR}/src/omdata.h
     ${CMAKE_SOURCE_DIR}/src/game_constants.h
     ${CMAKE_SOURCE_DIR}/src/mission.h
@@ -210,6 +212,8 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/vehicle.h
     ${CMAKE_SOURCE_DIR}/src/vehicle_group.h
     ${CMAKE_SOURCE_DIR}/src/visitable.h
+    ${CMAKE_SOURCE_DIR}/src/map_selector.h
+    ${CMAKE_SOURCE_DIR}/src/vehicle_selector.h
     ${CMAKE_SOURCE_DIR}/src/clzones.h
     ${CMAKE_SOURCE_DIR}/src/translations.h
     ${CMAKE_SOURCE_DIR}/src/skill.h
@@ -304,6 +308,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/iuse_software_minesweeper.h
     ${CMAKE_SOURCE_DIR}/src/drawing_primitives.h
     ${CMAKE_SOURCE_DIR}/src/mattack_actors.h
+    ${CMAKE_SOURCE_DIR}/src/bonuses.h
 )
 
 # Get GIT version strings

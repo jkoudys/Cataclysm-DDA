@@ -2,7 +2,8 @@
   {
     "type":"item_group",
     "id":"homeguns",
-    "guns_with_ammo" : true,
+    "ammo": 50,
+    "magazine": 100,
     "subtype": "distribution",
     "entries" : [
       { "group": "guns_pistol_common", "prob": 120 },
@@ -10,14 +11,6 @@
       { "group": "guns_smg_common", "prob": 5 },
       { "group": "guns_shotgun_common", "prob": 50 },
       { "group": "ammo_common", "prob": 100 }
-    ]
-  },{
-    "type":"item_group",
-    "id":"mags_gunstore",
-    "subtype": "distribution",
-    "entries" : [
-      { "group": "mags_common", "prob": 30 },
-      { "group": "mags_rare", "prob": 10 }
     ]
   },{
     "type":"item_group",

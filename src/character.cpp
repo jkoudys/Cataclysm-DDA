@@ -1,6 +1,8 @@
 #include "character.h"
 #include "game.h"
 #include "map.h"
+#include "map_selector.h"
+#include "vehicle_selector.h"
 #include "debug.h"
 #include "mission.h"
 #include "translations.h"
@@ -11,6 +13,7 @@
 #include "input.h"
 #include "monster.h"
 #include "mtype.h"
+#include "player.h"
 
 const efftype_id effect_beartrap( "beartrap" );
 const efftype_id effect_bite( "bite" );
@@ -27,6 +30,8 @@ const efftype_id effect_infected( "infected" );
 const efftype_id effect_in_pit( "in_pit" );
 const efftype_id effect_lightsnare( "lightsnare" );
 const efftype_id effect_webbed( "webbed" );
+
+const skill_id skill_throw( "throw" );
 
 Character::Character()
 {
@@ -173,8 +178,8 @@ bool Character::move_effects(bool attacking)
                                     _("<npcname> frees themselves from the light snare!"));
             item string("string_36", calendar::turn);
             item snare("snare_trigger", calendar::turn);
-            g->m.add_item_or_charges(posx(), posy(), string);
-            g->m.add_item_or_charges(posx(), posy(), snare);
+            g->m.add_item_or_charges(pos(), string);
+            g->m.add_item_or_charges(pos(), snare);
         } else {
             add_msg_if_player(m_bad, _("You try to free yourself from the light snare, but can't get loose!"));
         }
@@ -190,8 +195,8 @@ bool Character::move_effects(bool attacking)
                                     _("<npcname> frees themselves from the heavy snare!"));
             item rope("rope_6", calendar::turn);
             item snare("snare_trigger", calendar::turn);
-            g->m.add_item_or_charges(posx(), posy(), rope);
-            g->m.add_item_or_charges(posx(), posy(), snare);
+            g->m.add_item_or_charges(pos(), rope);
+            g->m.add_item_or_charges(pos(), snare);
         } else {
             add_msg_if_player(m_bad, _("You try to free yourself from the heavy snare, but can't get loose!"));
         }
@@ -209,7 +214,7 @@ bool Character::move_effects(bool attacking)
             add_msg_player_or_npc(m_good, _("You free yourself from the bear trap!"),
                                     _("<npcname> frees themselves from the bear trap!"));
             item beartrap("beartrap", calendar::turn);
-            g->m.add_item_or_charges(posx(), posy(), beartrap);
+            g->m.add_item_or_charges(pos(), beartrap);
         } else {
             add_msg_if_player(m_bad, _("You try to free yourself from the bear trap, but can't get loose!"));
         }
@@ -413,6 +418,22 @@ void Character::recalc_sight_limits()
     if( has_trait("BIRD_EYE") ) {
         vision_mode_cache.set( BIRD_EYE);
     }
+
+    // Not exactly a sight limit thing, but related enough
+    if( has_active_bionic( "bio_infrared" ) ||
+        has_trait( "INFRARED" ) ||
+        has_trait( "LIZ_IR" ) ||
+        worn_with_flag( "IR_EFFECT" ) ) {
+        vision_mode_cache.set( IR_VISION );
+    }
+
+    if( has_artifact_with( AEP_SUPER_CLAIRVOYANCE ) ) {
+        vision_mode_cache.set( VISION_CLAIRVOYANCE_SUPER );
+    }
+
+    if( has_artifact_with( AEP_CLAIRVOYANCE ) ) {
+        vision_mode_cache.set( VISION_CLAIRVOYANCE );
+    }
 }
 
 float Character::get_vision_threshold(int light_level) const {
@@ -493,7 +514,7 @@ bool Character::has_active_bionic(const std::string & b) const
 
 map_selector Character::nearby( int radius, bool accessible )
 {
-    return map_selector( g->m, pos(), radius, accessible );
+    return map_selector( pos(), radius, accessible );
 }
 
 std::vector<item *> Character::items_with( const std::function<bool(const item&)>& filter )
@@ -606,13 +627,13 @@ item& Character::i_at(int position)
 
 int Character::get_item_position( const item *it ) const
 {
-    if( weapon.contains( it ) ) {
+    if( weapon.has_item( *it ) ) {
         return -1;
     }
 
     int p = 0;
     for( const auto &e : worn ) {
-        if( e.contains( it ) ) {
+        if( e.has_item( *it ) ) {
             return worn_position_to_index( p );
         }
         p++;
@@ -718,6 +739,70 @@ std::vector<const item *> Character::get_ammo( const ammotype &at ) const
     return items_with( [at]( const item & it ) {
         return it.is_ammo() && it.ammo_type() == at;
     } );
+}
+
+template <typename T, typename Output>
+void find_ammo_helper( T& src, const item& obj, bool empty, Output out, bool nested ) {
+    if( obj.magazine_integral() ) {
+        // find suitable ammo excluding that already loaded in magazines
+        ammotype ammo = obj.ammo_type();
+
+        src.visit_items( [&src,&nested,&out,ammo]( item *node ) {
+            if( node->is_magazine() || node->is_gun() || node->is_tool() ) {
+                // guns/tools never contain usable ammo so most efficient to skip them now
+                return VisitResponse::SKIP;
+            }
+            if( !node->made_of( SOLID ) ) {
+                // some liquids are ammo but we can't reload with them unless within a container
+                return VisitResponse::SKIP;
+            }
+            if( node->is_ammo_container() && !node->contents[0].made_of( SOLID ) ) {
+                if( node->contents[0].ammo_type() == ammo ) {
+                    out = item_location( src, node );
+                }
+                return VisitResponse::SKIP;
+            }
+            if( node->is_ammo() && node->ammo_type() == ammo ) {
+                out = item_location( src, node );
+            }
+            return nested ? VisitResponse::NEXT : VisitResponse::SKIP;
+        } );
+
+    } else {
+        // find compatible magazines excluding those already loaded in tools/guns
+        const auto mags = obj.magazine_compatible();
+
+        src.visit_items( [&src,&nested,&out,mags,empty]( item *node ) {
+            if( node->is_gun() || node->is_tool() ) {
+                return VisitResponse::SKIP;
+            }
+            if( node->is_magazine() ) {
+                if ( mags.count( node->typeId() ) && ( node->ammo_remaining() || empty ) ) {
+                    out = item_location( src, node );
+                }
+                return VisitResponse::SKIP;
+            }
+            return nested ? VisitResponse::NEXT : VisitResponse::SKIP;
+        } );
+    }
+}
+
+std::vector<item_location> Character::find_ammo( const item& obj, bool empty, int radius )
+{
+    std::vector<item_location> res;
+
+    find_ammo_helper( *this, obj, empty, std::back_inserter( res ), true );
+
+    if( radius >= 0 ) {
+        for( auto& cursor : map_selector( pos(), radius ) ) {
+            find_ammo_helper( cursor, obj, empty, std::back_inserter( res ), false );
+        }
+        for( auto& cursor : vehicle_selector( pos(), radius ) ) {
+            find_ammo_helper( cursor, obj, empty, std::back_inserter( res ), false );
+        }
+    }
+
+    return res;
 }
 
 bool Character::can_reload()
@@ -1514,3 +1599,94 @@ std::string Character::get_name() const
 {
     return name;
 }
+
+nc_color Character::symbol_color() const
+{
+    nc_color basic = basic_symbol_color();
+    const auto &fields = g->m.field_at( pos() );
+    bool has_fire = false;
+    bool has_acid = false;
+    bool has_elec = false;
+    bool has_fume = false;
+    for( const auto &field : fields ) {
+        switch( field.first ) {
+            case fd_incendiary:
+            case fd_fire:
+                has_fire = true;
+                break;
+            case fd_electricity:
+                has_elec = true;
+                break;
+            case fd_acid:
+                has_acid = true;
+                break;
+            case fd_relax_gas:
+            case fd_fungal_haze:
+            case fd_fungicidal_gas:
+            case fd_toxic_gas:
+            case fd_tear_gas:
+            case fd_nuke_gas:
+            case fd_smoke:
+                has_fume = true;
+                break;
+            default:
+                continue;
+        }
+    }
+
+    // Priority: electricity, fire, acid, gases
+    // Can't just return in the switch, because field order is alphabetic
+    if( has_elec ) {
+        return hilite( basic );
+    } else if( has_fire ) {
+        return red_background( basic );
+    } else if( has_acid ) {
+        return green_background( basic );
+    } else if( has_fume ) {
+        return white_background( basic );
+    }
+
+    if( in_sleep_state() ) {
+        return hilite( basic );
+    }
+
+    return basic;
+}
+
+int Character::throw_range( const item &it ) const
+{
+    if( it.is_null() ) {
+        return -1;
+    }
+
+    item tmp = it;
+
+    if( tmp.count_by_charges() && tmp.charges > 1 ) {
+        tmp.charges = 1;
+    }
+
+    ///\EFFECT_STR determines maximum weight that can be thrown
+    if( (tmp.weight() / 113) > int(str_cur * 15) ) {
+        return 0;
+    }
+    // Increases as weight decreases until 150 g, then decreases again
+    ///\EFFECT_STR increases throwing range, vs item weight (high or low)
+    int ret = (str_cur * 8) / (tmp.weight() >= 150 ? tmp.weight() / 113 : 10 - int(tmp.weight() / 15));
+    ret -= int(tmp.volume() / 4);
+    if( has_active_bionic("bio_railgun") && (tmp.made_of("iron") || tmp.made_of("steel"))) {
+        ret *= 2;
+    }
+    if( ret < 1 ) {
+        return 1;
+    }
+    // Cap at double our strength + skill
+    ///\EFFECT_STR caps throwing range
+
+    ///\EFFECT_THROW caps throwing range
+    if( ret > str_cur * 1.5 + get_skill_level( skill_throw ) ) {
+        return str_cur * 1.5 + get_skill_level( skill_throw );
+    }
+
+    return ret;
+}
+

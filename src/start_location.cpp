@@ -10,30 +10,27 @@
 #include "overmap.h"
 #include "field.h"
 #include "mapgen.h"
+#include "generic_factory.h"
+#include "player.h"
 
 const efftype_id effect_bleed( "bleed" );
 
-typedef std::map<string_id<start_location>, start_location> location_map;
 
-static location_map _locations;
+namespace
+{
+generic_factory<start_location> all_starting_locations( "starting location", "ident" );
+}
 
 template<>
 const start_location &string_id<start_location>::obj() const
 {
-    const auto iter = _locations.find( *this );
-    if( iter != _locations.end() ) {
-        return iter->second;
-    } else {
-        debugmsg( "Tried to get invalid start location: %s", c_str() );
-        static const start_location dummy{};
-        return dummy;
-    }
+    return all_starting_locations.obj( *this );
 }
 
 template<>
 bool string_id<start_location>::is_valid() const
 {
-    return _locations.count( *this ) > 0;
+    return all_starting_locations.is_valid( *this );
 }
 
 start_location::start_location()
@@ -58,11 +55,7 @@ std::string start_location::target() const
 
 std::vector<const start_location *> start_location::get_all()
 {
-    std::vector<const start_location *> result;
-    for( auto &p : _locations ) {
-        result.push_back( &p.second );
-    }
-    return result;
+    return all_starting_locations.get_all();
 }
 
 const std::set<std::string> &start_location::flags() const
@@ -72,19 +65,19 @@ const std::set<std::string> &start_location::flags() const
 
 void start_location::load_location( JsonObject &jsonobj )
 {
-    start_location new_location;
+    all_starting_locations.load( jsonobj );
+}
 
-    new_location.id = string_id<start_location>( jsonobj.get_string( "ident" ) );
-    new_location._name = jsonobj.get_string( "name" );
-    new_location._target = jsonobj.get_string( "target" );
-    new_location._flags = jsonobj.get_tags( "flags" );
-
-    _locations[new_location.id] = new_location;
+void start_location::load( JsonObject &jo )
+{
+    mandatory( jo, was_loaded, "name", _name, translated_string_reader );
+    mandatory( jo, was_loaded, "target", _target );
+    optional( jo, was_loaded, "flags", _flags, auto_flags_reader<> {} );
 }
 
 void start_location::reset()
 {
-    _locations.clear();
+    all_starting_locations.reset();
 }
 
 // check if tile at p should be boarded with some kind of furniture.
@@ -199,27 +192,56 @@ void start_location::prepare_map( tinymap &m ) const
     }
 }
 
-tripoint start_location::setup() const
+tripoint start_location::find_player_initial_location() const
 {
-    // We start in the (0,0,0) overmap.
-    overmap &initial_overmap = overmap_buffer.get( 0, 0 );
-    tripoint omtstart = initial_overmap.find_random_omt( target() );
-    if( omtstart == overmap::invalid_tripoint ) {
-        // TODO (maybe): either regenerate the overmap (conflicts with existing characters there,
-        // that has to be checked. Or look at the neighboring overmaps, but one has to stop
-        // looking for it sometimes.
-        debugmsg( "Could not find starting overmap terrain %s", target().c_str() );
-        omtstart = tripoint( 0, 0, 0 );
+    const bool using_existing_initial_overmap = overmap_buffer.has( 0, 0 );
+    // The coordinates of an overmap that is known to *not* exist. We can regenerate this
+    // as often we like.
+    point non_existing_omt = point( 0, 0 );
+
+    if( using_existing_initial_overmap ) {
+        // arbitrary, should be large enough to include all overmaps ever created
+        const int radius = 32;
+        for( const point omp : closest_points_first( radius, point( 0, 0 ) ) ) {
+            const overmap *omap = overmap_buffer.get_existing( omp.x, omp.y );
+            if( omap == nullptr ) {
+                if( non_existing_omt == point( 0, 0 ) ) {
+                    non_existing_omt = omp;
+                }
+                continue;
+            }
+            const tripoint omtstart = omap->find_random_omt( target() );
+            if( omtstart != overmap::invalid_tripoint ) {
+                return omtstart + point( omp.x * OMAPX, omp.y * OMAPY );
+            }
+        }
     }
 
+    while( true ) {
+        popup_nowait( _( "Please wait as we build your world" ) );
+        const overmap &initial_overmap = overmap_buffer.get( non_existing_omt.x, non_existing_omt.y );
+        const tripoint omtstart = initial_overmap.find_random_omt( target() );
+        if( omtstart != overmap::invalid_tripoint ) {
+            return omtstart + point( non_existing_omt.x * OMAPX, non_existing_omt.y * OMAPY );
+        }
+        if( !query_yn(
+                _( "The game could not create a world with a suitable starting location.\n\n"
+                   "Depending on the world options, the starting location may never appear. If the problem persists, you can try another starting location, or change the world options.\n\n"
+                   "Try again?" ) ) ) {
+            return overmap::invalid_tripoint;
+        }
+        overmap_buffer.clear();
+    }
+}
+
+void start_location::prepare_map( const tripoint &omtstart ) const
+{
     // Now prepare the initial map (change terrain etc.)
     const point player_location = overmapbuffer::omt_to_sm_copy( omtstart.x, omtstart.y );
     tinymap player_start;
     player_start.load( player_location.x, player_location.y, omtstart.z, false );
     prepare_map( player_start );
     player_start.save();
-
-    return omtstart;
 }
 
 /** Helper for place_player

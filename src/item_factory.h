@@ -69,14 +69,6 @@ class Item_factory
          * @param lua_function The LUA id of the LUA function.
          */
         void register_iuse_lua( const std::string &name, int lua_function );
-        /**
-         * Get the iuse function function of the given name.
-         */
-        const use_function *get_iuse( const std::string &id );
-        /**
-         * Gets function ID from its name.
-         */
-        const std::string &inverse_get_iuse( const use_function *fun );
 
 
         /**
@@ -219,6 +211,12 @@ class Item_factory
         void finialize_item_blacklist();
 
         /**
+         * Load a json blob of type item option.
+         * @param jo a JsonObject of type ITEM_OPTION to load.
+         */
+        void load_item_option( JsonObject &jo );
+
+        /**
          * A list of *all* known item type ids. Each is suitable as input to
          * @ref find_template or as parameter to @ref item::item.
          */
@@ -309,7 +307,6 @@ class Item_factory
                                              std::string flag_type = "" );
 
         void set_material_from_json( JsonObject &jo, std::string member, itype *new_item );
-        bool is_mod_target( JsonObject &jo, std::string member, std::string weapon );
 
         void set_intvar( std::string tag, unsigned int &var, int min, int max );
 

@@ -26,6 +26,9 @@ enum vision_modes {
     URSINE_VISION,
     BOOMERED,
     DARKNESS,
+    IR_VISION,
+    VISION_CLAIRVOYANCE,
+    VISION_CLAIRVOYANCE_SUPER,
     NUM_VISION_MODES
 };
 
@@ -258,7 +261,7 @@ class Character : public Creature, public visitable<Character>
         /** Returns a map_selector which can be used to query items on nearby tiles
          *  @param radius number of adjacent tiles to include searching from pos outwards
          *  @param accessible whether found items must be accesible from pos to be considered */
-        map_selector nearby( int radius = 0, bool accessible = true );
+        map_selector nearby( int radius = 1, bool accessible = true );
 
         /**
          * Gather all items that match a certain filter.
@@ -361,8 +364,19 @@ class Character : public Creature, public visitable<Character>
          */
         std::vector<const item *> get_ammo( const ammotype &at ) const;
 
+        /**
+         * Searches for ammo or magazines that can be used to reload obj
+         * @param obj item to be reloaded. By design any currently loaded ammunition or magazine is ignored
+         * @param empty whether empty magazines should be considered as possible ammo
+         * @param radius adjacent map/vehicle tiles to search. 0 for only player tile, -1 for only inventory
+         */
+        std::vector<item_location> find_ammo( const item& obj, bool empty = true, int radius = 1 );
+
         /** Returns true if the character's current weapon can be reloaded (ammo must be available). */
         bool can_reload();
+
+        /** Maximum thrown range with a given item, taking all active effects into account. */
+        int throw_range( const item & ) const;
 
         int weight_carried() const;
         int volume_carried() const;
@@ -426,6 +440,9 @@ class Character : public Creature, public visitable<Character>
 
         /** Returns true if the player has some form of night vision */
         bool has_nv();
+
+        /** Color's character's tile's background */
+        nc_color symbol_color() const override;
 
         // In newcharacter.cpp
         void empty_skills();

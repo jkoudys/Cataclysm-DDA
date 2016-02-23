@@ -4,14 +4,12 @@
 #include "player.h"
 #include "faction.h"
 #include "json.h"
+#include "npc_favor.h"
 
 #include <vector>
 #include <string>
 #include <map>
 
-#define NPC_LOW_VALUE       5
-#define NPC_HI_VALUE        8
-#define NPC_VERY_HI_VALUE  15
 #define NPC_DANGER_LEVEL   10
 #define NPC_DANGER_VERY_LOW 5
 
@@ -33,7 +31,7 @@ void parse_tags(std::string &phrase, const player *u, const npc *me);
  */
 
 // Attitude is how we feel about the player, what we do around them
-enum npc_attitude {
+enum npc_attitude : int {
  NPCATT_NULL = 0, // Don't care/ignoring player The places this is assigned is on shelter NPC generation, and when you order a NPC to stay in a location, and after talking to a NPC that wanted to talk to you.
  NPCATT_TALK,  // Move to and talk to player
  NPCATT_TRADE,  // Move to and trade with player
@@ -56,7 +54,7 @@ enum npc_attitude {
 
 std::string npc_attitude_name(npc_attitude);
 
-enum npc_mission {
+enum npc_mission : int {
  NPC_MISSION_NULL = 0, // Nothing in particular
  NPC_MISSION_RESCUE_U, // Find the player and aid them
  NPC_MISSION_SHELTER, // Stay in shelter, introduce player to game
@@ -73,7 +71,7 @@ enum npc_mission {
 
 //std::string npc_mission_name(npc_mission);
 
-enum npc_class {
+enum npc_class : int {
  NC_NONE,
  NC_EVAC_SHOPKEEP,  // Found in the Evacuation Center, unique, has more goods than he should be able to carry
  NC_SHOPKEEP,       // Found in towns.  Stays in his shop mostly.
@@ -97,21 +95,7 @@ enum npc_class {
 std::string npc_class_name(npc_class);
 std::string npc_class_name_str(npc_class);
 
-enum npc_action {
-    npc_undecided = 0,
-    npc_pause, //1
-    npc_reload, npc_sleep, // 2, 3
-    npc_pickup, // 4
-    npc_escape_item, npc_wield_melee, npc_wield_loaded_gun, npc_wield_empty_gun,
-    npc_heal, npc_use_painkiller, npc_eat, npc_drop_items, // 5 - 12
-    npc_flee, npc_melee, npc_shoot, npc_shoot_burst, npc_alt_attack, // 13 - 17
-    npc_look_for_player, npc_heal_player, npc_follow_player, npc_follow_embarked,
-    npc_talk_to_player, npc_mug_player, // 18 - 23
-    npc_goto_destination, npc_avoid_friendly_fire, // 24, 25
-    npc_base_idle, // 26
-    npc_noop,
-    num_npc_actions
-};
+enum npc_action : int;
 
 enum npc_need {
  need_none,
@@ -128,35 +112,6 @@ enum npc_flag {
  NF_TECHNOPHILE,
  NF_BOOKWORM,
  NF_MAX
-};
-
-enum npc_favor_type {
- FAVOR_NULL,
- FAVOR_GENERAL, // We owe you... a favor?
- FAVOR_CASH, // We owe cash (or goods of equivalent value)
- FAVOR_ITEM, // We owe a specific item
- FAVOR_TRAINING,// We owe skill or style training
- NUM_FAVOR_TYPES
-};
-
-struct npc_favor : public JsonSerializer, public JsonDeserializer
-{
-    npc_favor_type type;
-    int value;
-    itype_id item_id;
-    const Skill* skill;
-
-    npc_favor() {
-        type = FAVOR_NULL;
-        value = 0;
-        item_id = "null";
-        skill = NULL;
-    };
-
-    using JsonSerializer::serialize;
-    void serialize(JsonOut &jsout) const override;
-    using JsonDeserializer::deserialize;
-    void deserialize(JsonIn &jsin) override;
 };
 
 struct npc_personality : public JsonSerializer, public JsonDeserializer
@@ -237,16 +192,29 @@ struct npc_opinion : public JsonSerializer, public JsonDeserializer
 };
 
 enum combat_engagement {
- ENGAGE_NONE = 0,
- ENGAGE_CLOSE,
- ENGAGE_WEAK,
- ENGAGE_HIT,
- ENGAGE_ALL
+    ENGAGE_NONE = 0,
+    ENGAGE_CLOSE,
+    ENGAGE_WEAK,
+    ENGAGE_HIT,
+    ENGAGE_ALL,
+    ENGAGE_NO_MOVE
+};
+
+enum aim_rule {
+    // Aim some
+    AIM_WHEN_CONVENIENT = 0,
+    // No concern for ammo efficiency
+    AIM_SPRAY,
+    // Aim when possible, then shoot
+    AIM_PRECISE,
+    // If you can't aim, don't shoot
+    AIM_STRICTLY_PRECISE
 };
 
 struct npc_follower_rules : public JsonSerializer, public JsonDeserializer
 {
     combat_engagement engagement;
+    aim_rule aim;
     bool use_guns;
     bool use_grenades;
     bool use_silent;
@@ -259,6 +227,7 @@ struct npc_follower_rules : public JsonSerializer, public JsonDeserializer
     npc_follower_rules()
     {
         engagement = ENGAGE_ALL;
+        aim = AIM_WHEN_CONVENIENT;
         use_guns = true;
         use_grenades = true;
         use_silent = false;
@@ -631,7 +600,6 @@ public:
 
 // Display
     virtual nc_color basic_symbol_color() const override;
-    virtual nc_color symbol_color() const override;
  int print_info(WINDOW* w, int vStart, int vLines, int column) const override;
  std::string short_description() const;
  std::string opinion_text() const;
@@ -640,8 +608,8 @@ public:
  void pick_long_term_goal();
  void perform_mission();
  int  minutes_to_u() const; // Time in minutes it takes to reach player
- bool fac_has_value(faction_value value);
- bool fac_has_job(faction_job job);
+ bool fac_has_value(faction_value value) const;
+ bool fac_has_job(faction_job job) const;
 
 // Interaction with the player
  void form_opinion(player *u);
@@ -694,7 +662,8 @@ public:
 // Use and assessment of items
  int  minimum_item_value(); // The minimum value to want to pick up an item
  void update_worst_item_value(); // Find the worst value in our inventory
- int  value(const item &it);
+    int value( const item &it ) const;
+    int value( const item &it, int market_price ) const;
     bool wear_if_wanted( const item &it );
     virtual bool wield( item& it ) override;
     bool has_healing_item( bool bleed = false, bool bite = false, bool infect = false);
@@ -704,6 +673,10 @@ public:
  bool took_painkiller() const;
  void use_painkiller();
  void activate_item(int position);
+    bool wants_to_sell( const item &it ) const;
+    bool wants_to_sell( const item &it, int at_price, int market_price ) const;
+    bool wants_to_buy( const item &it ) const;
+    bool wants_to_buy( const item &it, int at_price, int market_price ) const;
 
     // AI helpers
     void regen_ai_cache();
@@ -713,8 +686,8 @@ public:
     int  danger_assessment();
     int  average_damage_dealt(); // Our guess at how much damage we can deal
     bool bravery_check(int diff);
-    bool emergency();
-    bool emergency( int danger );
+    bool emergency() const;
+    bool emergency( int danger ) const;
     bool is_active() const;
     void say( const std::string line, ...) const;
     void decide_needs();
@@ -750,14 +723,17 @@ public:
  int choose_escape_item(); // Returns item position of our best escape aid
 
 // Helper functions for ranged combat
- int confident_range( int position = -1 );
- /**
-  * Check if this NPC is blocking movement from the given position
-  */
- bool is_blocking_position( const tripoint &p );
- bool wont_hit_friend( const tripoint &p , int position = -1 );
- bool need_to_reload(); // Wielding a gun that is empty
- bool enough_time_to_reload( const item &gun );
+    // Multiplier for acceptable angle of inaccuracy
+    double confidence_mult() const;
+    int confident_range( int weapon_index = -1 ) const;
+    int confident_gun_range( const item & ) const;
+    int confident_gun_range( const item &gun, int at_recoil ) const;
+    int confident_throw_range( const item & ) const;
+    bool wont_hit_friend( const tripoint &p , int position = -1 ) const;
+    bool need_to_reload() const; // Wielding a gun that is empty
+    bool enough_time_to_reload( const item &gun ) const;
+
+    void aim();
 
 // Physical movement from one tile to the next
  void update_path( const tripoint &p, bool no_bashing = false );

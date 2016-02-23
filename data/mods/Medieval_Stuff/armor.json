@@ -126,29 +126,6 @@
         "material_thickness" : 1
     },{
         "type" : "ARMOR",
-        "id" : "gambeson",
-        "name" : "gambeson",
-        "weight" : 453,
-        "color" : "light_gray",
-        "covers" : ["TORSO", "ARMS", "LEGS"],
-        "to_hit" : 0,
-        "storage" : 0,
-        "symbol" : "[",
-        "description" : "A thick jacket of quilted fabric, designed to be worn underneath mail or other armor.  Or worn on its own, if you can't afford proper armor.",
-        "price" : 20000,
-        "material" : ["cotton", "null"],
-        "volume" : 12,
-        "cutting" : 0,
-        "warmth" : 30,
-        "phase" : "solid",
-        "environmental_protection" : 0,
-        "encumbrance" : 15,
-        "bashing" : -2,
-        "flags" : ["VARSIZE", "SKINTIGHT", "STURDY"],
-        "coverage" : 80,
-        "material_thickness" : 5
-    },{
-        "type" : "ARMOR",
         "id" : "armor_cuirass",
         "name" : "bell cuirass",
         "name_plural" : "bell cuirasses",
@@ -267,35 +244,5 @@
         "flags" : ["VARSIZE", "STURDY"],
         "coverage" : 80,
         "material_thickness" : 6
-    },
-    {
-        "type" : "ARMOR",
-        "id" : "baldric",
-        "name" : "baldric",
-        "weight" : 1625,
-        "color" : "brown",
-        "covers" : ["TORSO"],
-        "to_hit" : 0,
-        "symbol" : "[",
-        "description" : "A leather scabbard, big enough for anything up to a longsword, or even a bit larger than that.  Designed to be worn at the waist, secured by a shoulder belt.  Activate to sheath/draw a sword.",
-        "price" : 7500,
-        "material" : ["leather", "wood"],
-        "volume" : 8,
-        "cutting" : -4,
-        "bashing" : 4,
-        "warmth" : 0,
-        "phase" : "solid",
-        "encumbrance" : 7,
-        "coverage" : 10,
-        "material_thickness" : 1,
-        "flags" : ["VARSIZE", "WAIST", "OVERSIZE"],
-        "use_action" : {
-            "type": "holster",
-            "holster_prompt": "Sheath sword",
-            "holster_msg": "You sheath your %s",
-            "max_volume": 12,
-            "draw_cost": 10,
-            "flags": ["SHEATH_SWORD"]
-        }
     }
 ]

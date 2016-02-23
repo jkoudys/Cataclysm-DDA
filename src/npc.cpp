@@ -886,7 +886,7 @@ std::list<item> starting_inv(npc *me, npc_class type)
 {
  int total_space = me->volume_capacity();
  std::list<item> ret;
- ret.push_back( item("lighter", 0, false) );
+ ret.emplace_back( "lighter", 0 );
  itype_id tmp;
  item tmpitem;
 
@@ -1199,7 +1199,7 @@ bool npc::wield( item& it )
     }
 
     moves -= 15;
-    if( inv.has_item( &it ) ) {
+    if( inv.has_item( it ) ) {
         weapon = inv.remove_item( &it );
     } else {
         weapon = it;
@@ -1273,7 +1273,7 @@ void npc::form_opinion(player *u)
    op_of_u.fear++;
  }
 
- if (has_trait("SAPIOVORE")) {
+ if (u->has_trait("SAPIOVORE")) {
     op_of_u.fear += 10; // Sapiovores = Scary
  }
  if (u->has_trait("PRETTY"))
@@ -1546,18 +1546,22 @@ int npc::minutes_to_u() const
  return ret;
 }
 
-bool npc::fac_has_value(faction_value value)
+bool npc::fac_has_value(faction_value value) const
 {
- if (my_fac == NULL)
-  return false;
- return my_fac->has_value(value);
+    if( my_fac == nullptr ) {
+        return false;
+    }
+
+    return my_fac->has_value(value);
 }
 
-bool npc::fac_has_job(faction_job job)
+bool npc::fac_has_job(faction_job job) const
 {
- if (my_fac == NULL)
-  return false;
- return my_fac->has_job(job);
+    if( my_fac == nullptr ) {
+        return false;
+    }
+
+    return my_fac->has_job(job);
 }
 
 
@@ -1630,20 +1634,57 @@ void npc::say( const std::string line, ... ) const
     }
 }
 
+bool npc::wants_to_sell( const item &it ) const
+{
+    const int market_price = it.price( true );
+    return wants_to_sell( it, value( it, market_price ), market_price );
+}
+
+bool npc::wants_to_sell( const item &it, int at_price, int market_price ) const
+{
+    (void)it;
+    if( mission == NPC_MISSION_SHOPKEEP ) {
+        return true;
+    }
+
+    // TODO: Base on inventory
+    return at_price - market_price <= 50;
+}
+
+bool npc::wants_to_buy( const item &it ) const
+{
+    const int market_price = it.price( true );
+    return wants_to_buy( it, value( it, market_price ), market_price );
+}
+
+bool npc::wants_to_buy( const item &it, int at_price, int market_price ) const
+{
+    (void)market_price;
+    (void)it;
+    // TODO: Base on inventory
+    return at_price >= 80;
+}
+
 std::vector<npc::item_pricing> npc::init_selling()
 {
     std::vector<npc::item_pricing> result;
     bool found_lighter = false;
     invslice slice = inv.slice();
-    for (auto &i : slice) {
-        if (i->front().type->id == "lighter" && !found_lighter) {
+    for( auto &i : slice ) {
+        // TODO: Make a list of reserved items,
+        // sort them by types and values
+        // allow selling some of them
+        auto &it = i->front();
+        if( it.type->id == "lighter" && !found_lighter
+            && it.num_charges() >= 10 ) {
             found_lighter = true;
-        } else {
-            const int price = i->front().price();
-            int val = value(i->front()) - (price / 50);
-            if (val <= NPC_LOW_VALUE || mission == NPC_MISSION_SHOPKEEP) {
-                result.push_back( item_pricing{ &i->front(), price, false } );
-            }
+            continue;
+        }
+
+        const int price = it.price( true );
+        int val = value( it );
+        if( wants_to_sell( it, val, price ) ) {
+            result.push_back( item_pricing{ &i->front(), val, false } );
         }
     }
     return result;
@@ -1653,10 +1694,12 @@ std::vector<npc::item_pricing> npc::init_buying(inventory& you)
 {
     std::vector<npc::item_pricing> result;
     invslice slice = you.slice();
-    for (auto &i : slice) {
-        int val = value(i->front());
-        if (val >= NPC_HI_VALUE) {
-            result.push_back( item_pricing{ &i->front(), i->front().price(), false } );
+    for( auto &i : slice ) {
+        auto &it = i->front();
+        int market_price = it.price( true );
+        int val = value( it, market_price );
+        if( wants_to_buy( it, val, market_price ) ) {
+            result.push_back( item_pricing{ &i->front(), val, false } );
         }
     }
     return result;
@@ -1707,29 +1750,37 @@ void npc::shop_restock(){
 
 int npc::minimum_item_value()
 {
- int ret = 20;
- ret -= personality.collector;
- return ret;
+    // TODO: Base on inventory
+    int ret = 20;
+    ret -= personality.collector;
+    return ret;
 }
 
 void npc::update_worst_item_value()
 {
     worst_item_value = 99999;
+    // TODO: Cache this
     int inv_val = inv.worst_item_value(this);
-    if (inv_val < worst_item_value)
-    {
+    if( inv_val < worst_item_value ) {
         worst_item_value = inv_val;
     }
 }
 
-int npc::value(const item &it)
+int npc::value( const item &it ) const
+{
+    int market_price = it.price( true );
+    return value( it, market_price );
+}
+
+int npc::value( const item &it, int market_price ) const
 {
     if( it.is_dangerous() ) {
         // Live grenade or something similar
         return -1000;
     }
 
-    int ret = it.price() / 50;
+    int ret = 0;
+    // TODO: Cache own weapon value (it can be a bit expensive to compute 50 times/turn)
     int weapon_val = weapon_value( it ) - weapon_value( weapon );
     if( weapon_val > 0 ) {
         ret += weapon_val;
@@ -1737,17 +1788,21 @@ int npc::value(const item &it)
 
     if( it.is_food() ) {
         const auto comest = dynamic_cast<const it_comest*>(it.type);
+        int comestval = 0;
         if( comest->get_nutrition() > 0 || comest->quench > 0 ) {
-            ret++;
+            comestval++;
         } if( get_hunger() > 40 ) {
-            ret += (comest->get_nutrition() + get_hunger() - 40) / 6;
+            comestval += (comest->get_nutrition() + get_hunger() - 40) / 6;
         } if( thirst > 40 ) {
-            ret += (comest->quench + thirst - 40) / 4;
+            comestval += (comest->quench + thirst - 40) / 4;
         }
-        // TODO: Add a check for poison
+        if( comestval > 0 && can_eat( it ) == EDIBLE ) {
+            ret += comestval;
+        }
     }
 
     if( it.is_ammo() ) {
+        // TODO: Magazines! Don't count ammo as usable if the weapon isn't.
         if( weapon.is_gun() && it.ammo_type() == weapon.ammo_type() ) {
             ret += 14;
         }
@@ -1760,18 +1815,15 @@ int npc::value(const item &it)
 
     if( it.is_book() ) {
         auto &book = *it.type->book;
-        ///\EFFECT_INT_NPC allows valuing books based on their morale boost
-        if( book.intel <= int_cur ) {
-            ret += book.fun;
-            if( book.skill && skillLevel( book.skill ) < book.level &&
-                skillLevel( book.skill ) >= book.req ) {
-                ret += book.level * 3;
-            }
+        ret += book.fun;
+        if( book.skill && get_skill_level( book.skill ) < book.level &&
+            get_skill_level( book.skill ) >= book.req ) {
+            ret += book.level * 3;
         }
     }
 
     // TODO: Sometimes we want more than one tool?  Also we don't want EVERY tool.
-    if( it.is_tool() && !has_amount( itype_id(it.type->id), 1) ) {
+    if( it.is_tool() && !has_amount( itype_id(it.type->id), 1 ) ) {
         ret += 8;
     }
 
@@ -1791,11 +1843,15 @@ int npc::value(const item &it)
         ret += 14;
     }
 
-    if( fac_has_job(FACJOB_SCAVENGE)) { // Computed last for _reasons_.
+    if( fac_has_job(FACJOB_SCAVENGE) ) {
+        // Computed last for _reasons_.
         ret += 6;
         ret *= 1.3;
     }
 
+    // Practical item value is more important than price
+    ret *= 50;
+    ret += market_price;
     return ret;
 }
 
@@ -1889,6 +1945,11 @@ bool npc::is_guarding() const
 
 Creature::Attitude npc::attitude_to( const Creature &other ) const
 {
+    if( is_friend() ) {
+        // Friendly NPCs share player's alliances
+        return g->u.attitude_to( *this );
+    }
+
     if( other.is_npc() ) {
         // No npc vs npc action, so simply ignore other npcs
         return A_NEUTRAL;
@@ -1927,14 +1988,14 @@ bool npc::bravery_check(int diff)
  return (dice(10 + personality.bravery, 6) >= dice(diff, 4));
 }
 
-bool npc::emergency()
+bool npc::emergency() const
 {
     return emergency( ai_cache.danger_assessment );
 }
 
-bool npc::emergency(int danger)
+bool npc::emergency(int danger) const
 {
- return (danger > (personality.bravery * 3 * hp_percentage()) / 100);
+    return (danger > (personality.bravery * 3 * hp_percentage()) / 100);
 }
 
 //Check if this npc is currently in the list of active npcs.
@@ -2017,16 +2078,6 @@ nc_color npc::basic_symbol_color() const
         return c_ltgreen;
     }
     return c_pink;
-}
-
-nc_color npc::symbol_color() const
-{
-    nc_color basic = basic_symbol_color();
-    if( in_sleep_state() ) {
-        return hilite( basic );
-    }
-
-    return basic;
 }
 
 int npc::print_info(WINDOW* w, int line, int vLines, int column) const

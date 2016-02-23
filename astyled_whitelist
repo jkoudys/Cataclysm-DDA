@@ -4,6 +4,7 @@ src/activity_item_handling.cpp
 src/ammo.cpp
 src/armor_layers.cpp
 src/basecamp.cpp
+src/bonuses.cpp
 src/cata_utility.cpp
 src/char_validity_check.cpp
 src/clzones.cpp
@@ -16,10 +17,12 @@ src/debug.cpp
 src/drawing_primitives.cpp
 src/gamemode.cpp
 src/item_action.cpp
+src/item_location.cpp
 src/itype.cpp
 src/iuse_software.cpp
 src/live_view.cpp
 src/lua_console.cpp
+src/map_selector.cpp
 src/mapsharing.cpp
 src/material.cpp
 src/mattack_actors.cpp
@@ -32,7 +35,6 @@ src/monmove.cpp
 src/morale.cpp
 src/mtype.cpp
 src/name.cpp
-src/nonplayer.cpp
 src/pathfinding.cpp
 src/posix_time.cpp
 src/profession.cpp
@@ -47,6 +49,7 @@ src/tileray.cpp
 src/translations.cpp
 src/trap.cpp
 src/trapfunc.cpp
+src/vehicle_selector.cpp
 src/version.cpp
 src/action.h
 src/active_item_cache.h
@@ -60,6 +63,7 @@ src/auto_pickup.h
 src/basecamp.h
 src/bionics.h
 src/bodypart.h
+src/bonuses.h
 src/calendar.h
 src/cata_tiles.h
 src/cata_utility.h
@@ -106,6 +110,7 @@ src/line.h
 src/live_view.h
 src/lua_console.h
 src/map_iterator.h
+src/map_selector.h
 src/mapbuffer.h
 src/mapgenformat.h
 src/mapsharing.h
@@ -120,7 +125,7 @@ src/mongroup.h
 src/morale.h
 src/mutation.h
 src/name.h
-src/nonplayer.h
+src/npc_favor.h
 src/omdata.h
 src/options.h
 src/overmap_types.h
@@ -149,6 +154,7 @@ src/tutorial.h
 src/ui.h
 src/veh_interact.h
 src/veh_type.h
+src/vehicle_selector.h
 src/version.h
 src/weather.h
 src/weighted_list.h

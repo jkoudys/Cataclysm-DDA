@@ -1,7 +1,6 @@
 #ifndef DIALOGUE_H
 #define DIALOGUE_H
 
-#include "player.h"
 #include "output.h"
 #include "color.h"
 #include <vector>
@@ -12,6 +11,7 @@ class martialart;
 class JsonObject;
 class mission;
 class npc;
+class player;
 
 struct talk_response;
 struct dialogue {
@@ -161,7 +161,13 @@ namespace talk_function {
     void set_engagement_close (npc *);
     void set_engagement_weak  (npc *);
     void set_engagement_hit   (npc *);
+    void set_engagement_no_move( npc * );
     void set_engagement_all   (npc *);
+
+    void set_aim_convenient         ( npc * );
+    void set_aim_spray              ( npc * );
+    void set_aim_precise            ( npc * );
+    void set_aim_strictly_precise   ( npc * );
 
     void wake_up              (npc *);
 

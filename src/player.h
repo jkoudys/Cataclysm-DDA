@@ -143,7 +143,9 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         player &operator=(player &&) = default;
 
         // newcharacter.cpp
-        int create(character_type type, std::string tempname = "");
+        bool create(character_type type, std::string tempname = "");
+        void randomize( bool random_scenario, int &points );
+        bool load_template( const std::string &template_name );
         /** Calls Character::normalize()
          *  normalizes HP and bodytemperature
          */
@@ -436,18 +438,12 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int mabuff_block_bonus() const;
         /** Returns the speed bonus from martial arts buffs */
         int mabuff_speed_bonus() const;
-        /** Returns the bash armor bonus from martial arts buffs */
-        int mabuff_arm_bash_bonus() const;
-        /** Returns the cut armor bonus from martial arts buffs */
-        int mabuff_arm_cut_bonus() const;
-        /** Returns the bash damage multiplier from martial arts buffs */
-        float mabuff_bash_mult() const;
-        /** Returns the bash damage bonus from martial arts buffs, applied after the multiplier */
-        int mabuff_bash_bonus() const;
-        /** Returns the cut damage multiplier from martial arts buffs */
-        float mabuff_cut_mult() const;
-        /** Returns the cut damage bonus from martial arts buffs, applied after the multiplier */
-        int mabuff_cut_bonus() const;
+        /** Returns the armor bonus against given type from martial arts buffs */
+        int mabuff_armor_bonus( damage_type type ) const;
+        /** Returns the damage multiplier to given type from martial arts buffs */
+        float mabuff_damage_mult( damage_type type ) const;
+        /** Returns the flat damage bonus to given type from martial arts buffs, applied after the multiplier */
+        int mabuff_damage_bonus( damage_type type ) const;
         /** Returns true if the player is immune to throws */
         bool is_throw_immune() const;
         /** Returns value of player's stable footing */
@@ -456,6 +452,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool is_quiet() const;
         /** Returns true if the current martial art works with the player's current weapon */
         bool can_melee() const;
+        /** Returns true if the current martial art ignores the current weapon and uses unarmed attacks instead. */
+        bool unarmed_override() const;
         /** Always returns false, since players can't dig currently */
         bool digging() const override;
         /** Returns true if the player is knocked over or has broken legs */
@@ -495,7 +493,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          */
         void melee_attack(Creature &t, bool allow_special, const matec_id &force_technique) override;
         /** Returns a weapon's modified dispersion value */
-        double get_weapon_dispersion( item *weapon, bool random ) const;
+        double get_weapon_dispersion( const item *weapon, bool random ) const;
         /** Returns true if a gun misfires, jams, or has other problems, else returns false */
         bool handle_gun_damage( const itype &firing, const std::set<std::string> &curammo_effects );
 
@@ -615,8 +613,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int climbing_cost( const tripoint &from, const tripoint &to ) const;
 
         // ranged.cpp
-        /** Returns the throw range of the item at the entered inventory position. -1 = ERR, 0 = Can't throw */
-        int throw_range(int pos) const;
         /** Execute a throw */
         dealt_projectile_attack throw_item( const tripoint &target, const item &thrown );
         /** Returns the throwing attack dexterity mod */
@@ -723,6 +719,10 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
 
         /** Handles the nutrition value for a comestible **/
         int nutrition_for(const it_comest *comest) const;
+        /** Stable base metabolic rate due to traits */
+        float metabolic_rate_base() const;
+        /** Current metabolic rate due to traits, hunger, speed, etc. */
+        float metabolic_rate() const;
         /** Handles the effects of consuming an item */
         void consume_effects( item &eaten, bool rotten = false );
         /** Handles rooting effects */
@@ -747,6 +747,15 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          * @param interactive controls whether informative messages are printed if item requirements not met
          */
         bool can_use( const item& it, bool interactive = true ) const;
+
+        /**
+         * Drop, wear, stash or otherwise try to dispose of an item consuming appropriate moves
+         * @param obj item to dispose of which must in the players possession
+         * @param prompt optional message to display in any menu
+         * @return whether the item was successfully disposed of
+         */
+        bool dispose_item( item& obj, const std::string& prompt = std::string() );
+
         /**
          * Calculate (but do not deduct) the number of moves required when handling (eg. storing, drawing etc.) an item
          * @param effects whether temporary player effects should be considered (eg. GRABBED, DOWNED)
@@ -754,6 +763,15 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          * @return cost in moves ranging from 0 to MAX_HANDLING_COST
          */
         int item_handling_cost( const item& it, bool effects = true, int factor = VOLUME_MOVE_COST) const;
+
+        /**
+         * Calculate (but do not deduct) the number of moves required to reload an item with specified quantity of ammo
+         * @param ammo either ammo or magazine to use when reloading the item
+         * @param qty maximum units of ammo to reload capped by remaining capacity. Defaults to remaining capacity
+         * (or 1 if RELOAD_ONE). Ignored if reloading using a magazine.
+         */
+        int item_reload_cost( const item& it, const item& ammo, long qty = -1 ) const;
+
         /** Wear item; returns false on fail. If interactive is false, don't alert the player or drain moves on completion. */
         bool wear(int pos, bool interactive = true);
         /** Wear item; returns false on fail. If interactive is false, don't alert the player or drain moves on completion. */
@@ -841,7 +859,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Returns warmth provided by armor, etc. */
         int warmth(body_part bp) const;
         /** Returns warmth provided by an armor's bonus, like hoods, pockets, etc. */
-        int bonus_warmth(body_part bp) const;
+        int bonus_item_warmth(body_part bp) const;
         /** Returns ENC provided by armor, etc. */
         int encumb(body_part bp) const;
         /** Returns encumbrance that would apply for a body part if `new_item` was also worn */
@@ -896,12 +914,13 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool has_activity(const activity_type type) const;
         void cancel_activity();
 
-        int net_morale(morale_point effect) const;
-        int morale_level() const; // Modified by traits, &c
+        int get_morale_level() const; // Modified by traits, &c
+        void invalidate_morale_level();
         void add_morale( morale_type type, int bonus, int max_bonus = 0, int duration = 60,
                         int decay_start = 30, bool capped = false, const itype *item_type = nullptr );
         int has_morale( morale_type type ) const;
         void rem_morale( morale_type type, const itype *item_type = nullptr );
+        bool has_morale_to_read() const;
 
         /** Get the formatted name of the currently wielded item (if any) */
         std::string weapname() const;
@@ -969,13 +988,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         // Returns max required quality in player's items, INT_MIN if player has no such items
         int max_quality( const std::string &quality_id ) const;
 
-        bool has_item(int position);
-        /**
-         * Check whether a specific item is in the players possession.
-         * The item is compared by pointer.
-         * @param it A pointer to the item to be looked for.
-         */
-        bool has_item(const item *it) const;
         bool has_mission_item(int mission_id) const; // Has item with mission_id
         /**
          * Check whether the player has a gun that uses the given type of ammo.
@@ -998,7 +1010,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool crafting_allowed( const std::string & rec_name );
         bool crafting_allowed( const recipe & rec );
         float lighting_craft_speed_multiplier( const recipe & rec );
-        bool has_moral_to_craft();
+        bool has_morale_to_craft() const;
         bool can_make( const recipe * r, int batch_size = 1 ); // have components?
         bool making_would_work( const std::string & id_to_make, int batch_size );
         void craft();
@@ -1285,6 +1297,15 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         void load(JsonObject &jsin);
 
     private:
+        // Mutability is required for lazy initialization
+        mutable int morale_level;
+        mutable bool morale_level_is_valid;
+
+        /** Returns current traits multiplier for morale */
+        morale_mult get_traits_mult() const;
+        /** Returns current effects multiplier for morale */
+        morale_mult get_effects_mult() const;
+
         // Items the player has identified.
         std::unordered_set<std::string> items_identified;
         /** Check if an area-of-effect technique has valid targets */
@@ -1298,18 +1319,27 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          */
         bool is_visible_in_range( const Creature &critter, int range ) const;
 
-        /** Calculate bonus warmth from furniture, items, and mutations for sleeping player **/
-        int warmth_in_sleep();
+        /** Can the player lie down and cover self with blankets etc. **/
+        bool can_use_floor_warmth() const;
+        /**
+         * Warmth from terrain, furniture, vehicle furniture and traps.
+         * Can be negative.
+         **/
+        static int floor_bedding_warmth( const tripoint &pos );
+        /** Warmth from clothing on the floor **/
+        static int floor_item_warmth( const tripoint &pos );
+        /** Final warmth from the floor **/
+        int floor_warmth( const tripoint &pos ) const;
         /** Correction factor of the body temperature due to fire **/
-        int bodytemp_modifier_fire();
+        int bodytemp_modifier_fire() const;
         /** Correction factor of the body temperature due to traits and mutations **/
-        int bodytemp_modifier_traits( bool overheated );
-        /** Correction factor of the body temperature due to traits and mutations for sleeping player **/
-        int bodytemp_modifier_traits_sleep();
+        int bodytemp_modifier_traits( bool overheated ) const;
+        /** Correction factor of the body temperature due to traits and mutations for player lying on the floor **/
+        int bodytemp_modifier_traits_floor() const;
         /** Value of the body temperature corrected by climate control **/
-        int temp_corrected_by_climate_control( int temperature );
+        int temp_corrected_by_climate_control( int temperature ) const;
         /** Define blood loss (in percents) */
-        int blood_loss( body_part bp );
+        int blood_loss( body_part bp ) const;
 
         // Trigger and disable mutations that can be so toggled.
         void activate_mutation( const std::string &mutation );

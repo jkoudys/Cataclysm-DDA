@@ -6,14 +6,11 @@
       ["helmet_nasal", 1],
       ["helmet_galea", 1],
       ["helmet_conical", 1],
-      ["gambeson", 3],
       ["armor_lamellar", 2],
       ["tunic", 1],
-      ["baldric", 4],
       ["shield_kite", 5],
       ["shield_heater", 10],
-      ["shield_buckler", 1],
-      ["textbook_armschina", 5]
+      ["shield_buckler", 1]
     ]
   },{
     "type" : "item_group",
@@ -21,7 +18,6 @@
     "items":[
       ["armor_lamellar", 2],
       ["helmet_conical", 1],
-      ["baldric", 4],
       ["shield_hoplon", 1],
       ["shield_scutum", 1],
       ["shield_round", 3],
@@ -33,15 +29,11 @@
     "type"  : "item_group",
     "id"    : "antique_rare",
     "items" : [
-      ["qiang", 3],
       ["ji", 1],
-      ["jian", 2],
-      ["jian_fake", 4],
       ["dao", 3],
       ["sword_xiphos", 4],
       ["khopesh", 4],
       ["spear_dory", 3],
-      ["naginata", 3],
       ["fire_lance", 2],
       ["lance_charge", 1],
       ["lance_charge_shot", 1],
@@ -56,15 +48,11 @@
     "type" : "item_group",
     "id" : "museum_melee",
     "items" : [
-      ["qiang", 3],
       ["ji", 2],
-      ["jian", 2],
-      ["jian_fake", 4],
       ["dao", 3],
       ["sword_xiphos", 4],
       ["khopesh", 4],
-      ["spear_dory", 3],
-      ["naginata", 4]
+      ["spear_dory", 3]
     ]
   },{
     "type" : "item_group",
@@ -96,19 +84,12 @@
     ]
   },{
     "type" : "item_group",
-    "id" : "npc_hacker",
-    "items":[
-      ["textbook_armschina", 2]
-    ]
-  },{
-    "type" : "item_group",
     "id" : "museum_armor",
     "items" : [
       ["helmet_nasal", 50],
       ["helmet_corinthian", 45],
       ["helmet_galea", 40],
       ["helmet_conical", 30],
-      ["gambeson", 50],
       ["armor_lamellar", 20],
       ["armor_cuirass", 25],
       ["armor_lorica", 25],

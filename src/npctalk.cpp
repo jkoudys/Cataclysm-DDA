@@ -19,6 +19,7 @@
 #include "item_group.h"
 #include "compatibility.h"
 #include "basecamp.h"
+#include "cata_utility.h"
 
 #include <vector>
 #include <string>
@@ -214,7 +215,7 @@ int topic_category( const std::string &topic );
 
 std::string special_talk(char ch);
 
-bool trade(npc *p, int cost, std::string deal);
+bool trade( npc &p, int cost, const std::string &deal );
 
 std::string give_item_to( npc &p, bool allow_use, bool allow_carry );
 
@@ -239,7 +240,7 @@ static int calc_skill_training_time( const Skill *skill )
 
 static int calc_skill_training_cost( const Skill *skill )
 {
-    return 200 * ( 1 + g->u.skillLevel( skill ) );
+    return 1000 * ( 1 + g->u.get_skill_level( skill ) ) * ( 1 + g->u.get_skill_level( skill ) );
 }
 
 // TODO: all styles cost the same and take the same time to train,
@@ -1442,11 +1443,24 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
         std::stringstream status;
         // Prepending * makes this an action, not a phrase
         switch (p->rules.engagement) {
-            case ENGAGE_NONE:  status << _("*is not engaging enemies.");         break;
-            case ENGAGE_CLOSE: status << _("*is engaging nearby enemies.");      break;
-            case ENGAGE_WEAK:  status << _("*is engaging weak enemies.");        break;
-            case ENGAGE_HIT:   status << _("*is engaging enemies you attack.");  break;
-            case ENGAGE_ALL:   status << _("*is engaging all enemies.");         break;
+            case ENGAGE_NONE:
+                status << _("*is not engaging enemies.");
+                break;
+            case ENGAGE_CLOSE:
+                status << _("*is engaging nearby enemies.");
+                break;
+            case ENGAGE_WEAK:
+                status << _("*is engaging weak enemies.");
+                break;
+            case ENGAGE_HIT:
+                status << _("*is engaging enemies you attack.");
+                break;
+            case ENGAGE_NO_MOVE:
+                status << _("*is engaging enemies close enough to attack without moving.");
+                break;
+            case ENGAGE_ALL:
+                status << _("*is engaging all enemies.");
+                break;
         }
         std::string npcstr = rm_prefix(p->male ? _("<npc>He") : _("<npc>She"));
         if (p->rules.use_guns) {
@@ -1468,6 +1482,9 @@ std::string dialogue::dynamic_line( const std::string &topic ) const
 
     } else if( topic == "TALK_COMBAT_ENGAGEMENT" ) {
         return _("What should I do?");
+
+    } else if( topic == "TALK_AIM_RULES" ) {
+        return _("How should I aim?");
 
     } else if( topic == "TALK_STRANGER_NEUTRAL" ) {
         if (p->myclass == NC_TRADER) {
@@ -2544,15 +2561,15 @@ void dialogue::gen_responses( const std::string &topic )
                 const int cost = calc_skill_training_cost( trained );
                 const int cur_level = g->u.skillLevel( trained );
                 //~Skill name: current level -> next level (cost in cent)
-                std::string text = string_format(_("%s: %d -> %d (cost %d)"), trained->name().c_str(),
-                      cur_level, cur_level + 1, cost );
+                std::string text = string_format(_("%s: %d -> %d (cost $%d)"), trained->name().c_str(),
+                      cur_level, cur_level + 1, cost / 100 );
                 add_response( text, "TALK_TRAIN_START", trained );
             }
             for( auto & style_id : styles ) {
                 auto &style = style_id.obj();
                 const int cost = calc_ma_style_training_cost( style.id );
                 //~Martial art style (cost in cent)
-                const std::string text = string_format( _("%s (cost %d)"), style.name.c_str(), cost );
+                const std::string text = string_format( _("%s (cost $%d)"), style.name.c_str(), cost / 100 );
                 add_response( text, "TALK_TRAIN_START", style );
             }
             add_response_none( _("Eh, never mind.") );
@@ -2580,9 +2597,9 @@ void dialogue::gen_responses( const std::string &topic )
                 int strength = 3 * p->op_of_u.fear + p->op_of_u.value + p->op_of_u.trust +
                                 (10 - p->personality.bravery);
                 int weakness = 3 * p->personality.altruism + p->personality.bravery -
-                                p->op_of_u.fear + p->op_of_u.value;
+                                3 * p->op_of_u.fear - 3 * p->op_of_u.anger + 2 * p->op_of_u.value;
                 int friends = 2 * p->op_of_u.trust + 2 * p->op_of_u.value -
-                                2 * p->op_of_u.anger + p->op_of_u.owed / 50;
+                                2 * p->op_of_u.anger + p->op_of_u.owed / OWED_VAL;
                 RESPONSE(_("I can keep you safe."));
                     TRIAL(TALK_TRIAL_PERSUADE, strength * 2);
                         SUCCESS("TALK_AGREE_FOLLOW");
@@ -2680,7 +2697,7 @@ void dialogue::gen_responses( const std::string &topic )
             RESPONSE(_("Can you teach me anything?"));
             if( !p->has_effect( effect_asked_to_train ) ) {
                 int commitment = 2 * p->op_of_u.trust + 1 * p->op_of_u.value -
-                                  3 * p->op_of_u.anger + p->op_of_u.owed / 50;
+                                  3 * p->op_of_u.anger + p->op_of_u.owed / OWED_VAL;
                 TRIAL(TALK_TRIAL_PERSUADE, commitment * 2);
                     SUCCESS("TALK_TRAIN");
                     FAILURE("TALK_DENY_PERSONAL");
@@ -2695,7 +2712,7 @@ void dialogue::gen_responses( const std::string &topic )
         }
         if (p->is_following()) {
             int loyalty = 3 * p->op_of_u.trust + 1 * p->op_of_u.value -
-                          1 * p->op_of_u.anger + p->op_of_u.owed / 50;
+                          1 * p->op_of_u.anger + p->op_of_u.owed / OWED_VAL;
             RESPONSE(_("Guard this position."));
                 TRIAL(TALK_TRIAL_PERSUADE, loyalty * 2);
                     SUCCESS("TALK_FRIEND_GUARD");
@@ -2738,6 +2755,7 @@ void dialogue::gen_responses( const std::string &topic )
 
     } else if( topic == "TALK_COMBAT_COMMANDS" ) {
             add_response( _("Change your engagement rules..."), "TALK_COMBAT_ENGAGEMENT" );
+            add_response( _("Change your aiming rules..."), "TALK_AIM_RULES" );
             if (p->rules.use_guns) {
                 add_response( _("Don't use guns anymore."), "TALK_COMBAT_COMMANDS",
                               &talk_function::toggle_use_guns );
@@ -2762,27 +2780,50 @@ void dialogue::gen_responses( const std::string &topic )
             add_response_none( _("Never mind.") );
 
     } else if( topic == "TALK_COMBAT_ENGAGEMENT" ) {
-            if (p->rules.engagement != ENGAGE_NONE) {
+            if( p->rules.engagement != ENGAGE_NONE ) {
                 add_response( _("Don't fight unless your life depends on it."), "TALK_NONE",
                               &talk_function::set_engagement_none );
             }
-            if (p->rules.engagement != ENGAGE_CLOSE) {
+            if( p->rules.engagement != ENGAGE_CLOSE ) {
                 add_response( _("Attack enemies that get too close."), "TALK_NONE",
                               &talk_function::set_engagement_close);
             }
-            if (p->rules.engagement != ENGAGE_WEAK) {
+            if( p->rules.engagement != ENGAGE_WEAK ) {
                 add_response( _("Attack enemies that you can kill easily."), "TALK_NONE",
                               &talk_function::set_engagement_weak );
             }
-            if (p->rules.engagement != ENGAGE_HIT) {
+            if( p->rules.engagement != ENGAGE_HIT ) {
                 add_response( _("Attack only enemies that I attack first."), "TALK_NONE",
                               &talk_function::set_engagement_hit );
             }
-            if (p->rules.engagement != ENGAGE_ALL) {
+            if( p->rules.engagement != ENGAGE_NO_MOVE ) {
+                add_response( _("Attack only enemies you can reach without moving."), "TALK_NONE",
+                              &talk_function::set_engagement_no_move );
+            }
+            if( p->rules.engagement != ENGAGE_ALL ) {
                 add_response( _("Attack anything you want."), "TALK_NONE",
                               &talk_function::set_engagement_all );
             }
             add_response_none( _("Never mind.") );
+
+    } else if( topic == "TALK_AIM_RULES" ) {
+        if( p->rules.aim != AIM_WHEN_CONVENIENT ) {
+            add_response( _("Aim when it's convenient."), "TALK_NONE",
+                          &talk_function::set_aim_convenient );
+        }
+        if( p->rules.aim != AIM_SPRAY ) {
+            add_response( _("Go wild, you don't need to aim much."), "TALK_NONE",
+                          &talk_function::set_aim_spray );
+        }
+        if( p->rules.aim != AIM_PRECISE ) {
+            add_response( _("Take your time, aim carefully."), "TALK_NONE",
+                          &talk_function::set_aim_precise );
+        }
+        if( p->rules.aim != AIM_STRICTLY_PRECISE ) {
+            add_response( _("Don't shoot if you can't aim really well."), "TALK_NONE",
+                          &talk_function::set_aim_strictly_precise );
+        }
+        add_response_none( _("Never mind.") );
 
     } else if( topic == "TALK_STRANGER_NEUTRAL" || topic == "TALK_STRANGER_WARY" ||
                topic == "TALK_STRANGER_SCARED" || topic == "TALK_STRANGER_FRIENDLY" ) {
@@ -3131,6 +3172,12 @@ int topic_category( const std::string &topic )
     if( topic_7.count( topic ) > 0 ) {
         return 7;
     }
+    static const std::unordered_set<std::string> topic_8 = { {
+        "TALK_AIM_RULES",
+    } };
+    if( topic_7.count( topic ) > 0 ) {
+        return 8;
+    }
     static const std::unordered_set<std::string> topic_99 = { {
         "TALK_SIZE_UP", "TALK_LOOK_AT", "TALK_OPINION", "TALK_SHOUT"
     } };
@@ -3215,7 +3262,7 @@ void talk_function::mission_reward(npc *p)
 {
  int trade_amount = p->op_of_u.owed;
  p->op_of_u.owed = 0;
- trade(p, trade_amount, _("Reward"));
+ trade( *p, trade_amount, _("Reward") );
 }
 
 void talk_function::mission_reward_cash(npc *p)
@@ -3229,16 +3276,16 @@ void talk_function::start_trade(npc *p)
 {
  int trade_amount = p->op_of_u.owed;
  p->op_of_u.owed = 0;
- trade(p, trade_amount, _("Trade"));
+ trade( *p, trade_amount, _("Trade") );
 }
 
 std::string talk_function::bulk_trade_inquire(npc *p, itype_id it)
 {
  int you_have = g->u.charges_of(it);
  item tmp(it, 0);
- int item_cost = tmp.price();
+ int item_cost = tmp.price( true );
  tmp.charges = you_have;
- int total_cost = tmp.price();
+ int total_cost = tmp.price( true );
  p->add_msg_if_player(m_good, _("Let's see what you've got..."));
  std::stringstream response;
  response << string_format(ngettext("I'm willing to pay $%.2f per batch. You have "
@@ -3255,7 +3302,7 @@ void talk_function::bulk_trade_accept(npc *p, itype_id it)
  int you_have = g->u.charges_of(it);
  item tmp(it, 0);
  tmp.charges = you_have;
- int total = tmp.price();
+ int total = tmp.price( true );
  g->u.use_charges(it, you_have);
  g->u.cash += total;
  p->add_msg_if_player(m_good, _("Pleasure doing business!"));
@@ -3348,7 +3395,7 @@ void talk_function::give_equipment(npc *p)
     if (giving.empty()) {
         invslice slice = p->inv.slice();
         for (auto &i : slice) {
-            giving.push_back( npc::item_pricing { &i->front(), i->front().price(), false } );
+            giving.push_back( npc::item_pricing { &i->front(), p->value( i->front() ), false } );
         }
     }
     while (chosen == -1 && giving.size() > 1) {
@@ -3431,10 +3478,8 @@ void talk_function::construction_tips(npc *p)
 
 void talk_function::buy_beer(npc *p)
 {
-    item cont = item("bottle_glass", 0, false);
-    item liq = item("hb_beer", 0);
-    liq.charges = 2;
-    cont.put_in( liq );
+    item cont( "bottle_glass", calendar::turn );
+    cont.put_in( item( "hb_beer", calendar::turn, 2 ) );
     g->u.i_add( cont );
     g->u.cash -= 1000;
     add_msg(m_good, _("%s gave you a beer..."), p->name.c_str());
@@ -3442,10 +3487,8 @@ void talk_function::buy_beer(npc *p)
 
 void talk_function::buy_brandy(npc *p)
 {
-    item cont = item("bottle_glass", 0, false);
-    item liq = item("brandy", 0);
-    liq.charges = 1;
-    cont.put_in( liq );
+    item cont( "bottle_glass", calendar::turn );
+    cont.put_in( item( "brandy", calendar::turn, 1 ) );
     g->u.i_add( cont );
     g->u.cash -= 1000;
     add_msg(m_good, _("%s gave you a shot of brandy..."), p->name.c_str());
@@ -3453,10 +3496,8 @@ void talk_function::buy_brandy(npc *p)
 
 void talk_function::buy_rum(npc *p)
 {
-    item cont = item("bottle_glass", 0, false);
-    item liq = item("rum", 0);
-    liq.charges = 1;
-    cont.put_in( liq );
+    item cont( "bottle_glass", calendar::turn );
+    cont.put_in( item( "rum", calendar::turn, 1 ) );
     g->u.i_add( cont );
     g->u.cash -= 1000;
     add_msg(m_good, _("%s gave you a shot of rum..."), p->name.c_str());
@@ -3464,10 +3505,8 @@ void talk_function::buy_rum(npc *p)
 
 void talk_function::buy_whiskey(npc *p)
 {
-    item cont = item("bottle_glass", 0, false);
-    item liq = item("whiskey", 0);
-    liq.charges = 1;
-    cont.put_in( liq );
+    item cont( "bottle_glass", calendar::turn );
+    cont.put_in( item( "whiskey", calendar::turn, 1 ) );
     g->u.i_add( cont );
     g->u.cash -= 1200;
     add_msg(m_good, _("%s gave you a shot of whiskey..."), p->name.c_str());
@@ -3675,9 +3714,34 @@ void talk_function::set_engagement_hit(npc *p)
     p->rules.engagement = ENGAGE_HIT;
 }
 
+void talk_function::set_engagement_no_move( npc *p )
+{
+    p->rules.engagement = ENGAGE_NO_MOVE;
+}
+
 void talk_function::set_engagement_all(npc *p)
 {
     p->rules.engagement = ENGAGE_ALL;
+}
+
+void talk_function::set_aim_convenient( npc *p )
+{
+    p->rules.aim = AIM_WHEN_CONVENIENT;
+}
+
+void talk_function::set_aim_spray( npc *p )
+{
+    p->rules.aim = AIM_SPRAY;
+}
+
+void talk_function::set_aim_precise( npc *p )
+{
+    p->rules.aim = AIM_PRECISE;
+}
+
+void talk_function::set_aim_strictly_precise( npc *p )
+{
+    p->rules.aim = AIM_STRICTLY_PRECISE;
 }
 
 void talk_function::start_training( npc *p )
@@ -3705,7 +3769,7 @@ void talk_function::start_training( npc *p )
         clear_mission( p );
     } else if( p->op_of_u.owed >= cost ) {
         p->op_of_u.owed -= cost;
-    } else if( !trade( p, -cost, _( "Pay for training:" ) ) ) {
+    } else if( !trade( *p, -cost, _( "Pay for training:" ) ) ) {
         return;
     }
     g->u.assign_activity( ACT_TRAIN, time * 100, 0, 0, name );
@@ -4032,7 +4096,27 @@ std::string special_talk(char ch)
  return "TALK_NONE";
 }
 
-bool trade(npc *p, int cost, std::string deal) {
+// Creates a new inventory that contains `added` items, but not `without` ones
+// `without` should point to items in `inv`
+inventory inventory_exchange( inventory &inv,
+    const std::set<item *> &without, const std::vector<item *> &added )
+{
+    std::vector<item *> item_dump;
+    inv.dump( item_dump );
+    item_dump.insert( item_dump.end(), added.begin(), added.end() );
+    inventory new_inv;
+
+    for( item *it : item_dump ) {
+        if( without.count( it ) == 0 ) {
+            new_inv.push_back( *it );
+        }
+    }
+
+    return new_inv;
+}
+
+bool trade( npc &p, int cost, const std::string &deal )
+{
     WINDOW* w_head = newwin(4, FULL_SCREEN_WIDTH,
                             (TERMY > FULL_SCREEN_HEIGHT) ? (TERMY - FULL_SCREEN_HEIGHT) / 2 : 0,
                             (TERMX > FULL_SCREEN_WIDTH) ? (TERMX - FULL_SCREEN_WIDTH) / 2 : 0);
@@ -4044,10 +4128,9 @@ bool trade(npc *p, int cost, std::string deal) {
                             (FULL_SCREEN_WIDTH / 2) + ((TERMX > FULL_SCREEN_WIDTH) ? (TERMX - FULL_SCREEN_WIDTH) / 2 : 0));
     WINDOW* w_tmp;
     std::string header_message = _("\
-Trading with %s\n\
 TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\n\
 ? to get information on an item.");
-    mvwprintz(w_head, 0, 0, c_white, header_message.c_str(), p->name.c_str());
+    mvwprintz(w_head, 0, 0, c_white, header_message.c_str(), p.name.c_str());
 
     constexpr size_t ENTRIES_PER_PAGE = 17;
 
@@ -4061,28 +4144,30 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
     // Populate the list of what the NPC is willing to buy, and the prices they pay
     // Note that the NPC's barter skill is factored into these prices.
     using item_pricing = npc::item_pricing;
-    std::vector<item_pricing> theirs = p->init_selling();
-    std::vector<item_pricing> yours = p->init_buying( g->u.inv );
+    // TODO: Recalc item values every time a new item is selected
+    // Trading is not linear - starving NPC may pay $100 for 3 jerky, but not $100000 for 300 jerky
+    std::vector<item_pricing> theirs = p.init_selling();
+    std::vector<item_pricing> yours = p.init_buying( g->u.inv );
 
     // Adjust the prices based on your barter skill.
     // cap adjustment so nothing is ever sold below value
     ///\EFFECT_INT_NPC slightly increases bartering price changes, relative to your INT
 
     ///\EFFECT_BARTER_NPC increases bartering price changes, relative to your BARTER
-    double their_adjust = (price_adjustment(p->skillLevel( skill_barter ) - g->u.skillLevel( skill_barter )) +
-                              (p->int_cur - g->u.int_cur) / 20.0);
-    if (their_adjust < 1)
-        their_adjust = 1;
+    double their_adjust = (price_adjustment(p.skillLevel( skill_barter ) - g->u.skillLevel( skill_barter )) +
+                              (p.int_cur - g->u.int_cur) / 20.0);
+    if( their_adjust < 1.0 )
+        their_adjust = 1.0;
     for( item_pricing &p : theirs ) {
         p.price *= their_adjust;
     }
     ///\EFFECT_INT slightly increases bartering price changes, relative to NPC INT
 
     ///\EFFECT_BARTER increases bartering price changes, relative to NPC BARTER
-    double your_adjust = (price_adjustment(g->u.skillLevel( skill_barter ) - p->skillLevel( skill_barter )) +
-                             (g->u.int_cur - p->int_cur) / 20.0);
-    if (your_adjust < 1)
-        your_adjust = 1;
+    double your_adjust = (price_adjustment(g->u.skillLevel( skill_barter ) - p.skillLevel( skill_barter )) +
+                             (g->u.int_cur - p.int_cur) / 20.0);
+    if( your_adjust < 1.0 )
+        your_adjust = 1.0;
     for( item_pricing &p : yours ) {
         p.price *= your_adjust;
     }
@@ -4093,7 +4178,14 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
     size_t them_off = 0, you_off = 0; // Offset from the start of the list
     size_t ch, help;
 
+    // Make a temporary copy of the NPC to make sure volume calculations are correct
+    npc temp = p;
+    int volume_left = temp.volume_capacity() - temp.volume_carried();
+    int weight_left = temp.weight_capacity() - temp.weight_carried();
+
     do {
+        auto &target_list = focus_them ? theirs : yours;
+        auto &offset = focus_them ? them_off : you_off;
         if (update) { // Time to re-draw
             update = false;
             // Draw borders, one of which is highlighted
@@ -4102,19 +4194,43 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
             for (int i = 1; i < FULL_SCREEN_WIDTH; i++) {
                 mvwputch(w_head, 3, i, c_white, LINE_OXOX);
             }
-            mvwprintz(w_head, 3, 30,
-                    (cash < 0 && (int)g->u.cash >= cash * -1) || (cash >= 0 && (int)p->cash  >= cash) ?
+
+            std::set<item *> without;
+            std::vector<item *> added;
+
+            inventory newinv;
+            for( auto &pricing : yours ) {
+                if( pricing.selected ) {
+                    added.push_back( pricing.itm );
+                }
+            }
+
+            for( auto &pricing : theirs ) {
+                if( pricing.selected ) {
+                    without.insert( pricing.itm );
+                }
+            }
+            temp.inv = inventory_exchange( p.inv, without, added );
+
+            volume_left = temp.volume_capacity() - temp.volume_carried();
+            weight_left = temp.weight_capacity() - temp.weight_carried();
+            mvwprintz( w_head, 3, 2, (volume_left < 0 || weight_left < 0) ? c_red : c_green,
+                       _("Volume: %d, %s"), volume_left,
+                       string_format( "Weight: %.1f %s",
+                                      convert_weight( weight_left ), weight_units() ).c_str() );
+            mvwprintz(w_head, 3, 60,
+                    (cash < 0 && (int)g->u.cash >= cash * -1) || (cash >= 0 && (int)p.cash  >= cash) ?
                     c_green : c_red, (cash >= 0 ? _("Profit $%.2f") : _("Cost $%.2f")),
                     (double)std::abs(cash)/100);
 
             if (deal != "") {
-                mvwprintz(w_head, 3, 45, (cost < 0 ? c_ltred : c_ltgreen), deal.c_str());
+                mvwprintz(w_head, 3, 40, (cost < 0 ? c_ltred : c_ltgreen), deal.c_str());
             }
             draw_border(w_them, (focus_them ? c_yellow : BORDER_COLOR));
             draw_border(w_you, (!focus_them ? c_yellow : BORDER_COLOR));
 
-            mvwprintz(w_them, 0, 2, (cash < 0 || (int)p->cash >= cash ? c_green : c_red),
-                        _("%s: $%.2f"), p->name.c_str(), (double)p->cash/100);
+            mvwprintz(w_them, 0, 2, (cash < 0 || (int)p.cash >= cash ? c_green : c_red),
+                        _("%s: $%.2f"), p.name.c_str(), (double)p.cash/100);
             mvwprintz(w_you,  0, 2, (cash > 0 || (int)g->u.cash >= cash*-1 ? c_green:c_red),
                         _("You: $%.2f"), (double)g->u.cash/100);
             // Draw their list of items, starting from them_off
@@ -4164,29 +4280,15 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
                 update = true;
                 break;
             case '<':
-                if (focus_them) {
-                    if (them_off > 0) {
-                        them_off -= ENTRIES_PER_PAGE;
-                        update = true;
-                    }
-                } else {
-                    if (you_off > 0) {
-                        you_off -= ENTRIES_PER_PAGE;
-                        update = true;
-                    }
+                if (offset > 0) {
+                    offset -= ENTRIES_PER_PAGE;
+                    update = true;
                 }
                 break;
             case '>':
-                if (focus_them) {
-                    if (them_off + ENTRIES_PER_PAGE < theirs.size()) {
-                        them_off += ENTRIES_PER_PAGE;
-                        update = true;
-                    }
-                } else {
-                    if (you_off + ENTRIES_PER_PAGE < yours.size()) {
-                        you_off += ENTRIES_PER_PAGE;
-                        update = true;
-                    }
+                if (offset + ENTRIES_PER_PAGE < target_list.size()) {
+                    offset += ENTRIES_PER_PAGE;
+                    update = true;
                 }
                 break;
             case '?':
@@ -4198,19 +4300,12 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
                 help = getch() - 'a';
                 werase(w_tmp);
                 delwin(w_tmp);
-                mvwprintz(w_head, 0, 0, c_white, header_message.c_str(), p->name.c_str());
+                mvwprintz(w_head, 0, 0, c_white, header_message.c_str(), p.name.c_str());
                 wrefresh(w_head);
                 update = true;
-                if (focus_them) {
-                    help += them_off;
-                    if( help < theirs.size() ) {
-                        popup(theirs[help].itm->info(), PF_NONE);
-                    }
-                } else {
-                    help += you_off;
-                    if( help < yours.size() ) {
-                        popup(yours[help].itm->info(), PF_NONE);
-                    }
+                help += offset;
+                if( help < target_list.size() ) {
+                    popup(target_list[help].itm->info(), PF_NONE);
                 }
                 break;
             case '\n': // Check if we have enough cash...
@@ -4220,82 +4315,86 @@ TAB key to switch lists, letters to pick items, Enter to finalize, Esc to quit,\
                     popup(_("Not enough cash!  You have $%.2f, price is $%.2f."), (double)g->u.cash/100, -(double)cash/100);
                     update = true;
                     ch = ' ';
-                //Else the player gets cash, and it should not make the NPC negative.
-                } else if (cash > 0 && (int)p->cash < cash  && ch != 'T') {
+                } else if (cash > 0 && (int)p.cash < cash  && ch != 'T') {
+                    //Else the player gets cash, and it should not make the NPC negative.
                     popup(_("Not enough cash! %s has $%.2f, but the price is $%.2f. Use (T) to force the trade."),
-                              p->name.c_str(), (double)p->cash/100, (double)cash/100);
+                              p.name.c_str(), (double)p.cash/100, (double)cash/100);
+                    update = true;
+                    ch = ' ';
+                } else if( volume_left < 0 || weight_left < 0 ) {
+                    // Make sure NPC doesn't go over allowed volume
+                    popup( _("The %s can't carry all that."), p.name.c_str() );
                     update = true;
                     ch = ' ';
                 }
                 break;
             default: // Letters & such
-                if (ch >= 'a' && ch <= 'z') {
-                    ch -= 'a';
-                    if (focus_them) {
-                        ch += them_off;
-                        if (ch < theirs.size()) {
-                            item_pricing &ip = theirs[ch];
-                            ip.selected = !ip.selected;
-                            if (ip.selected) {
-                                cash -= ip.price;
-                            } else {
-                                cash += ip.price;
-                            }
-                            update = true;
-                        }
-                    } else { // Focus is on the player's inventory
-                        ch += you_off;
-                        if (ch < yours.size()) {
-                            item_pricing &ip = yours[ch];
-                            ip.selected = !ip.selected;
-                            if (ip.selected) {
-                                cash += ip.price;
-                            } else {
-                                cash -= ip.price;
-                            }
-                            update = true;
-                        }
-                    }
-                    ch = 0;
+                if( ch < 'a' || ch > 'z' ) {
+                    continue;
                 }
-        }
-    } while (ch != KEY_ESCAPE && ch != '\n' && ch != 'T');
 
-    if (ch == '\n' || ch == 'T') {
-        inventory newinv;
+                ch -= 'a';
+                ch += offset;
+                if( ch < target_list.size() ) {
+                    item_pricing &ip = target_list[ch];
+                    ip.selected = !ip.selected;
+                    if( (ip.selected && focus_them) ||
+                        (!ip.selected && !focus_them) ) {
+                        cash -= ip.price;
+                    } else {
+                        cash += ip.price;
+                    }
+                    update = true;
+                }
+                ch = 0;
+        }
+    } while( ch != KEY_ESCAPE && ch != '\n' && ch != 'T' );
+
+    if( ch == '\n' || ch == 'T' ) {
         int practice = 0;
-        std::vector<item*> removing;
-        for (size_t i = 0; i < yours.size(); i++) {
-            if (yours[i].selected) {
-                newinv.push_back(*yours[i].itm);
+        // This weird exchange is needed to prevent pointer bugs
+        // Removing items from an inventory invalidates the pointers
+        std::set<item * > removing_yours;
+        std::vector<item *> giving_them;
+        for( const auto &pricing : yours ) {
+            if( pricing.selected ) {
+                giving_them.push_back( pricing.itm );
                 practice++;
-                removing.push_back(yours[i].itm);
+                removing_yours.insert( pricing.itm );
             }
-        }
-        // Do it in two passes, so removing items doesn't corrupt yours[]
-        for( auto &elem : removing ) {
-            g->u.i_rem( elem );
         }
 
-        for (size_t i = 0; i < theirs.size(); i++) {
-            item tmp = *theirs[i].itm;
-            if (theirs[i].selected) {
+        std::set<item*> removing_theirs;
+        std::vector<item *> giving_you;
+        for( const auto &pricing : theirs ) {
+            if( pricing.selected ) {
+                giving_you.push_back( pricing.itm );
                 practice += 2;
-                g->u.inv.push_back(tmp);
-            } else {
-                newinv.push_back(tmp);
+                removing_theirs.insert( pricing.itm );
             }
         }
-        g->u.practice( skill_barter, practice / 2 );
-        p->inv = newinv;
-        if(ch == 'T' && cash > 0) { //Trade was forced, give the NPC's cash to the player.
-            p->op_of_u.owed += (cash - p->cash);
-            g->u.cash += p->cash;
-            p->cash = 0;
+
+        const inventory &your_new_inv = inventory_exchange( g->u.inv,
+            removing_yours, giving_you );
+        const inventory &their_new_inv = inventory_exchange( p.inv,
+            removing_theirs, giving_them );
+
+        g->u.inv = your_new_inv;
+        p.inv = their_new_inv;
+
+        if( cash > (int)p.cash ) {
+            //Trade was forced, give the NPC's cash to the player.
+            p.op_of_u.owed += (cash - p.cash);
+            g->u.cash += p.cash;
+            p.cash = 0;
         } else {
             g->u.cash += cash;
-            p->cash   -= cash;
+            p.cash   -= cash;
         }
+
+        // TODO: Make this depend on prices
+        // TODO: Make this depend on npc price adjustment vs. your price adjustment
+        g->u.practice( skill_barter, practice / 2 );
     }
     werase(w_head);
     werase(w_you);
@@ -4663,7 +4762,7 @@ std::string give_item_to( npc &p, bool allow_use, bool allow_carry )
         return _("How?");
     }
 
-    if( given.is_dangerous() ) {
+    if( given.is_dangerous() && !g->u.has_trait( "DEBUG_MIND_CONTROL" ) ) {
         return _("Are you <swear> insane!?");
     }
 

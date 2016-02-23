@@ -20,7 +20,6 @@
     [ [ "crucible", -1 ] ],
     [
       [ "forge", 300 ],
-      [ "char_forge", 60 ],
       [ "oxy_torch", 60 ]
     ]
   ],
@@ -33,25 +32,6 @@
       [ "fur", 3 ],
       [ "leather", 3 ]
     ]
-  ]
-},{
-  "type" : "recipe",
-  "result": "gambeson",
-  "category": "CC_ARMOR",
-  "subcategory": "CSC_ARMOR_SUIT",
-  "skill_used": "tailor",
-  "difficulty": 4,
-  "time": 60000,
-  "reversible": false,
-  "autolearn": false,
-  "book_learn": [[ "textbook_armwest", 3 ]],
-  "tools": [
-    [
-      [ "sewing_kit", 30 ]
-    ]
-  ],
-  "components": [
-    [ [ "rag", 20 ] ]
   ]
 },{
   "type" : "recipe",
@@ -72,7 +52,6 @@
     [ [ "crucible", -1 ] ],
     [
       [ "forge", 350 ],
-      [ "char_forge", 70 ],
       [ "oxy_torch", 70 ]
     ]
   ],
@@ -104,7 +83,6 @@
     [ [ "crucible", -1 ] ],
     [
       [ "forge", 300 ],
-      [ "char_forge", 60 ],
       [ "oxy_torch", 60 ]
     ]
   ],
@@ -167,7 +145,6 @@
     [ [ "crucible", -1 ] ],
     [
       [ "forge", 500 ],
-      [ "char_forge", 100 ],
       [ "oxy_torch", 100 ]
     ]
   ],
@@ -193,7 +170,6 @@
     [ [ "swage", -1 ] ],
     [
       ["forge", 450],
-      ["char_forge", 90],
       ["oxy_torch", 90]
     ]
   ],
@@ -333,7 +309,6 @@
     [ [ "crucible", -1 ] ],
     [
       [ "forge", 300 ],
-      [ "char_forge", 60 ],
       [ "oxy_torch", 60 ]
     ],
     [
@@ -350,27 +325,5 @@
       [ "tanned_pelt", 1 ]
     ]
   ]
-},{
-    "type" : "recipe",
-    "result": "baldric",
-    "category": "CC_ARMOR",
-    "subcategory": "CSC_ARMOR_STORAGE",
-    "skill_used": "tailor",
-    "skills_required": [ "cutting", 1 ],
-    "difficulty": 5,
-    "time": 40000,
-    "reversible": false,
-    "autolearn": true,
-    "qualities":[
-        {"id":"HAMMER","level":1,"amount":1},
-        {"id":"CUT","level":1,"amount":1}
-    ],
-    "components": [
-        [ [ "leather", 3 ] ],
-        [ [ "leather", 10 ], [ "tanned_hide", 2 ] ],
-        [ ["superglue", 1] ],
-        [ ["2x4", 2] ],
-        [ ["nail", 8] ]
-    ]
 }
 ]

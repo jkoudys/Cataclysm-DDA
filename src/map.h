@@ -786,7 +786,7 @@ void add_corpse( const tripoint &p );
     void i_rem(const int x, const int y, item* it);
     void spawn_item(const int x, const int y, const std::string &itype_id,
                     const unsigned quantity=1, const long charges=0,
-                    const unsigned birthday=0, const int damlevel=0, const bool rand = true);
+                    const unsigned birthday=0, const int damlevel=0);
     int max_volume(const int x, const int y);
     int free_volume(const int x, const int y);
     int stored_volume(const int x, const int y);
@@ -812,7 +812,7 @@ void add_corpse( const tripoint &p );
     void spawn_natural_artifact( const tripoint &p, const artifact_natural_property prop );
     void spawn_item( const tripoint &p, const std::string &itype_id,
                      const unsigned quantity=1, const long charges=0,
-                     const unsigned birthday=0, const int damlevel=0, const bool rand = true);
+                     const unsigned birthday=0, const int damlevel=0);
     int max_volume( const tripoint &p );
     int free_volume( const tripoint &p );
     int stored_volume( const tripoint &p );
@@ -1079,6 +1079,12 @@ public:
          * Ignored if smaller than 0.
          */
         bool pl_sees( const tripoint &t, int max_range ) const;
+        /**
+         * Uses the map cache to tell if the player could see the given square.
+         * pl_sees implies pl_line_of_sight
+         * Used for infrared.
+         */
+        bool pl_line_of_sight( const tripoint &t, int max_range ) const;
     std::set<vehicle*> dirty_vehicle_list;
 
     /** return @ref abs_sub */
