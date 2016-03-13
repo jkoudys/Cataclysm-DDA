@@ -58,20 +58,21 @@ std::vector<item> item::magazine_convert() {
         return res;
     }
 
+    item *spare_mag = gunmod_find( "spare_mag" );
+
     // if item has integral magazine remove any magazine mods but do not mark item as converted
     if( magazine_integral() ) {
         if( !is_gun() ) {
             return res; // only guns can have attached gunmods
         }
 
-        int qty = has_gunmod( "spare_mag" ) >= 0 ? contents[ has_gunmod( "spare_mag" ) ].charges : 0;
+        int qty = spare_mag ? spare_mag->charges : 0;
         qty += charges - type->gun->clip; // excess ammo from magazine extensions
 
         // limit ammo to base capacity and return any excess as a new item
         charges = std::min( charges, long( type->gun->clip ) );
         if( qty > 0 ) {
-            res.emplace_back( get_curammo() ? get_curammo()->id : default_ammo( ammo_type() ), calendar::turn );
-            res.back().charges = qty;
+            res.emplace_back( ammo_current() != "null" ? ammo_current() : default_ammo( ammo_type() ), calendar::turn, qty );
         }
 
         contents.erase( std::remove_if( contents.begin(), contents.end(), []( const item& e ) {
@@ -83,7 +84,7 @@ std::vector<item> item::magazine_convert() {
 
     // now handle items using the new detachable magazines that haven't yet been converted
     item mag( magazine_default(), calendar::turn );
-    item ammo( get_curammo() ? get_curammo()->id : default_ammo( ammo_type() ), calendar::turn );
+    item ammo( ammo_current() != "null" ? ammo_current() : default_ammo( ammo_type() ), calendar::turn );
 
     // give base item an appropriate magazine and add to that any ammo originally stored in base item
     if( !magazine_current() ) {
@@ -96,7 +97,6 @@ std::vector<item> item::magazine_convert() {
     }
 
     // remove any spare magazine and replace it with an equivalent loaded magazine
-    item *spare_mag = has_gunmod( "spare_mag" ) >= 0 ? &contents[ has_gunmod( "spare_mag" ) ] : nullptr;
     if( spare_mag ) {
         res.push_back( mag );
         if( spare_mag->charges > 0 ) {
@@ -247,6 +247,7 @@ void Character::load(JsonObject &data)
     data.read( "int_bonus", int_bonus );
 
     // needs
+    data.read("thirst", thirst);
     data.read("hunger", hunger);
     data.read( "stomach_food", stomach_food);
     data.read( "stomach_water", stomach_water);
@@ -292,6 +293,7 @@ void Character::load(JsonObject &data)
     for( auto it = my_mutations.begin(); it != my_mutations.end(); ) {
         const auto &mid = it->first;
         if( mutation_branch::has( mid ) ) {
+            on_mutation_gain( mid );
             ++it;
         } else {
             debugmsg( "character %s has invalid mutation %s, it will be ignored", name.c_str(), mid.c_str() );
@@ -303,6 +305,9 @@ void Character::load(JsonObject &data)
 
     worn.clear();
     data.read( "worn", worn );
+    for( auto &w : worn ) {
+        on_item_wear( w );
+    }
 
     if( !data.read( "hp_cur", hp_cur ) ) {
         debugmsg("Error, incompatible hp_cur in save file '%s'", parray.str().c_str());
@@ -366,6 +371,7 @@ void Character::store(JsonOut &json) const
     json.member( "healthy_mod", healthy_mod );
 
     // needs
+    json.member( "thirst", thirst );
     json.member( "hunger", hunger );
     json.member( "stomach_food", stomach_food );
     json.member( "stomach_water", stomach_water );
@@ -409,7 +415,6 @@ void player::load(JsonObject &data)
     if( !data.read("posz", position.z) && g != nullptr ) {
       position.z = g->get_levz();
     }
-    data.read("thirst", thirst);
     data.read("fatigue", fatigue);
     data.read("stim", stim);
     data.read("pkill", pkill);
@@ -487,8 +492,6 @@ void player::store(JsonOut &json) const
     json.member( "posy", position.y );
     json.member( "posz", position.z );
 
-    // om-noms or lack thereof
-    json.member( "thirst", thirst );
     // energy
     json.member( "fatigue", fatigue );
     json.member( "stim", stim );
@@ -612,8 +615,7 @@ void player::serialize(JsonOut &json) const
     // Player only, books they have read at least once.
     json.member( "items_identified", items_identified );
 
-    // :(
-    json.member( "morale", morale );
+    morale.store( json );
 
     // mission stuff
     json.member("active_mission", active_mission == nullptr ? -1 : active_mission->get_id() );
@@ -742,9 +744,7 @@ void player::deserialize(JsonIn &jsin)
     items_identified.clear();
     data.read( "items_identified", items_identified );
 
-    morale.clear();
-    data.read( "morale", morale );
-    invalidate_morale_level();
+    morale.load( data );
 
     int tmpactive_mission;
     if( data.read( "active_mission", tmpactive_mission ) && tmpactive_mission != -1 ) {
@@ -1389,7 +1389,11 @@ void item::io( Archive& archive )
     };
 
     archive.template io<const itype>( "typeid", type, load_type, []( const itype& i ) { return i.id; }, io::required_tag() );
-    archive.io( "charges", charges, -1l );
+
+    // normalize legacy saves to always have charges >= 0
+    archive.io( "charges", charges, 0L );
+    charges = std::max( charges, 0L );
+
     archive.io( "burnt", burnt, 0 );
     archive.io( "poison", poison, 0 );
     archive.io( "bigness", bigness, 0 );
@@ -1944,7 +1948,11 @@ void Creature::load( JsonObject &jsin )
                     if ( !(std::istringstream(i.first) >> key_num) ) {
                         key_num = 0;
                     }
-                    effects[id][(body_part)key_num] = i.second;
+                    const body_part bp = static_cast<body_part>( key_num );
+                    effect &e = i.second;
+
+                    effects[id][bp] = e;
+                    on_effect_int_change( id, e.get_intensity(), bp );
                 }
             }
         }
@@ -1980,7 +1988,7 @@ void Creature::load( JsonObject &jsin )
     fake = false; // see Creature::load
 }
 
-void morale_point::deserialize( JsonIn &jsin )
+void player_morale::morale_point::deserialize( JsonIn &jsin )
 {
     JsonObject jo = jsin.get_object();
     type = static_cast<morale_type>( jo.get_int( "type_enum" ) );
@@ -1994,7 +2002,7 @@ void morale_point::deserialize( JsonIn &jsin )
     jo.read( "age", age );
 }
 
-void morale_point::serialize( JsonOut &json ) const
+void player_morale::morale_point::serialize( JsonOut &json ) const
 {
     json.start_object();
     json.member( "type_enum", static_cast<int>( type ) );
@@ -2006,4 +2014,14 @@ void morale_point::serialize( JsonOut &json ) const
     json.member( "decay_start", decay_start );
     json.member( "age", age );
     json.end_object();
+}
+
+void player_morale::store( JsonOut &jsout ) const
+{
+    jsout.member( "morale", points );
+}
+
+void player_morale::load( JsonObject &jsin )
+{
+    jsin.read( "morale", points );
 }

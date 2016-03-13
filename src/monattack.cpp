@@ -17,7 +17,7 @@
 #include "weighted_list.h"
 #include "mongroup.h"
 #include "translations.h"
-#include "morale.h"
+#include "morale_types.h"
 #include "npc.h"
 #include "event.h"
 #include "ui.h"
@@ -2790,9 +2790,11 @@ bool mattack::laser(monster *z)
     if (g->u.sees( *z )) {
         add_msg(m_warning, _("The %s's barrel spins and fires!"), z->name().c_str());
     }
+
     tmp.weapon = item("cerberus_laser", 0);
     tmp.weapon.set_curammo( "laser_capacitor" );
     tmp.weapon.charges = 100;
+
     tmp.fire_gun( target->pos(), tmp.weapon.burst_size() );
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
@@ -2871,12 +2873,10 @@ void mattack::rifle( monster *z, Creature *target )
     if (g->u.sees( *z )) {
         add_msg(m_warning, _("The %s opens up with its rifle!"), z->name().c_str());
     }
-    tmp.weapon = item( "fake_rifle", calendar::turn );
-    tmp.weapon.set_curammo( ammo_type );
-    tmp.weapon.charges = std::max(z->ammo[ammo_type], 30);
-    z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( target->pos(), tmp.weapon.burst_size() );
-    z->ammo[ammo_type] += tmp.weapon.charges;
+
+    tmp.weapon = item( "m4a1" ).ammo_set( ammo_type, z->ammo[ ammo_type ] );
+    z->ammo[ ammo_type ] -= tmp.fire_gun( target->pos(), tmp.weapon.burst_size() ) * tmp.weapon.ammo_required();
+
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
     }
@@ -2920,12 +2920,9 @@ void mattack::frag( monster *z, Creature *target ) // This is for the bots, not 
     if (g->u.sees( *z )) {
         add_msg(m_warning, _("The %s's grenade launcher fires!"), z->name().c_str());
     }
-    tmp.weapon = item("mgl", 0);
-    tmp.weapon.set_curammo( ammo_type );
-    tmp.weapon.charges = std::max(z->ammo[ammo_type], 30);
-    z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( target->pos(), tmp.weapon.burst_size() );
-    z->ammo[ammo_type] += tmp.weapon.charges;
+    tmp.weapon = item( "mgl" ).ammo_set( ammo_type, z->ammo[ ammo_type ] );
+    z->ammo[ ammo_type ] -= tmp.fire_gun( target->pos(), tmp.weapon.burst_size() ) * tmp.weapon.ammo_required();
+
     if (target == &g->u) {
         z->add_effect( effect_targeted, 3);
     }
@@ -2952,8 +2949,8 @@ void mattack::tankgun( monster *z, Creature *target )
         target->add_msg_if_player( m_warning, _("You're not sure why you've got a laser dot on you...") );
         //~ Sound of a tank turret swiveling into place
         sounds::sound(z->pos(), 10, _("whirrrrrclick."));
-        z->add_effect( effect_targeted, 5);
-        target->add_effect( effect_laserlocked, 5 );
+        z->add_effect( effect_targeted, 10 );
+        target->add_effect( effect_laserlocked, 10 );
         z->moves -= 200;
         // Should give some ability to get behind cover,
         // even though it's patently unrealistic.
@@ -2985,12 +2982,8 @@ void mattack::tankgun( monster *z, Creature *target )
     if (g->u.sees( *z )) {
         add_msg(m_warning, _("The %s's 120mm cannon fires!"), z->name().c_str());
     }
-    tmp.weapon = item("TANK", 0);
-    tmp.weapon.set_curammo( ammo_type );
-    tmp.weapon.charges = std::max(z->ammo[ammo_type], 5);
-    z->ammo[ammo_type] -= tmp.weapon.charges;
-    tmp.fire_gun( aim_point );
-    z->ammo[ammo_type] += tmp.weapon.charges;
+    tmp.weapon = item( "TANK" ).ammo_set( ammo_type, z->ammo[ ammo_type ] );
+    z->ammo[ ammo_type ] -= tmp.fire_gun( target->pos(), tmp.weapon.burst_size() ) * tmp.weapon.ammo_required();
 }
 
 bool mattack::searchlight(monster *z)
@@ -3858,9 +3851,9 @@ bool mattack::longswipe(monster *z)
                 !z->sees( *target ) ) {
                 return false; // Out of range
             }
-            
+
             z->moves -= 150;
-            
+
             if (target->uncanny_dodge()) {
                 return true;
             }
@@ -3900,7 +3893,7 @@ bool mattack::longswipe(monster *z)
 
     // Can we dodge the attack? Uses player dodge function % chance (melee.cpp)
     if (dodge_check(z, target)) {
-        target->add_msg_player_or_npc( _("The %s slashes at your neck! You duck!"), 
+        target->add_msg_player_or_npc( _("The %s slashes at your neck! You duck!"),
                                     _("The %s slashes at <npcname>'s neck! They duck!"), z->name().c_str() );
         target->on_dodge( z, z->type->melee_skill * 2  );
         return true;
@@ -4469,15 +4462,15 @@ bool mattack::kamikaze(monster *z)
         radius = exp_actor->emp_blast_radius;
     }
     // Extra check here to avoid sqrt if not needed
-    if (exp_actor->explosion_power > -1) {
-        int tmp = int(sqrt(double(exp_actor->explosion_power / 4)));
+    if (exp_actor->explosion.power > -1) {
+        int tmp = int(sqrt(double(exp_actor->explosion.power / 4)));
         if (tmp > radius) {
             radius = tmp;
         }
     }
-    if (exp_actor->explosion_shrapnel > -1) {
+    if( exp_actor->explosion.shrapnel.count > 0 ) {
         // Actual factor is 2 * radius, but figure most pieces of shrapnel will miss
-        int tmp = int(sqrt(double(exp_actor->explosion_power / 4)));
+        int tmp = int(sqrt(double(exp_actor->explosion.power / 4)));
         if (tmp > radius) {
             radius = tmp;
         }

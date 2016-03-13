@@ -24,7 +24,6 @@ class mission;
 class profession;
 nc_color encumb_color(int level);
 enum morale_type : int;
-class morale_point;
 enum game_message_type : int;
 class ma_technique;
 class martialart;
@@ -36,6 +35,7 @@ class start_location;
 using start_location_id = string_id<start_location>;
 struct it_comest;
 struct w_point;
+struct points_left;
 
 // This tries to represent both rating and
 // player's decision to respect said rating
@@ -120,18 +120,6 @@ struct stats : public JsonSerializer, public JsonDeserializer {
     }
 };
 
-struct encumbrance_data {
-    int iEnc = 0;
-    int iArmorEnc = 0;
-    int iBodyTempInt = 0;
-    double iLayers = 0.0;
-    bool operator ==( const encumbrance_data &RHS )
-    {
-        return this->iEnc == RHS.iEnc && this->iArmorEnc == RHS.iArmorEnc &&
-            this->iBodyTempInt == RHS.iBodyTempInt && this->iLayers == RHS.iLayers;
-    }
-};
-
 class player : public Character, public JsonSerializer, public JsonDeserializer
 {
     public:
@@ -144,7 +132,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
 
         // newcharacter.cpp
         bool create(character_type type, std::string tempname = "");
-        void randomize( bool random_scenario, int &points );
+        void randomize( bool random_scenario, points_left &points );
         bool load_template( const std::string &template_name );
         /** Calls Character::normalize()
          *  normalizes HP and bodytemperature
@@ -634,10 +622,21 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         void apply_damage(Creature *source, body_part bp, int amount) override;
         /** Modifies a pain value by player traits before passing it to Creature::mod_pain() */
         void mod_pain(int npain) override;
+        /** Sets new intensity of pain an reacts to it */
+        void set_pain(int npain) override;
+        /** Returns perceived pain (reduced with painkillers)*/
+        int get_perceived_pain() const override;
 
         void cough(bool harmful = false, int volume = 4);
 
         void add_pain_msg(int val, body_part bp) const;
+
+        /** Modifies intensity of painkillers  */
+        void mod_painkiller(int npkill);
+        /** Sets intensity of painkillers  */
+        void set_painkiller(int npkill);
+        /** Returns intensity of painkillers  */
+        int get_painkiller() const;
 
         /** Heals a body_part for dam */
         void heal(body_part healed, int dam);
@@ -728,6 +727,11 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         /** Handles rooting effects */
         void rooted_message() const;
         void rooted();
+
+        /** Check player capable of wearing an item.
+          * @param alert display reason for any failure */
+        bool can_wear( const item& it, bool alert = true ) const;
+
         /** Check player capable of wielding an item.
           * @param alert display reason for any failure */
         bool can_wield( const item& it, bool alert = true ) const;
@@ -754,7 +758,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          * @param prompt optional message to display in any menu
          * @return whether the item was successfully disposed of
          */
-        bool dispose_item( item& obj, const std::string& prompt = std::string() );
+        virtual bool dispose_item( item& obj, const std::string& prompt = std::string() );
 
         /**
          * Calculate (but do not deduct) the number of moves required when handling (eg. storing, drawing etc.) an item
@@ -765,12 +769,23 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int item_handling_cost( const item& it, bool effects = true, int factor = VOLUME_MOVE_COST) const;
 
         /**
+         * Calculate (but do not deduct) the number of moves required when storing an item in a container
+         * @param effects whether temporary player effects should be considered (eg. GRABBED, DOWNED)
+         * @param factor base move cost per unit volume before considering any other modifiers
+         * @return cost in moves ranging from 0 to MAX_HANDLING_COST
+         */
+        int item_store_cost( const item& it, const item& container, bool effects = true, int factor = VOLUME_MOVE_COST ) const;
+
+        /**
          * Calculate (but do not deduct) the number of moves required to reload an item with specified quantity of ammo
          * @param ammo either ammo or magazine to use when reloading the item
          * @param qty maximum units of ammo to reload capped by remaining capacity. Defaults to remaining capacity
          * (or 1 if RELOAD_ONE). Ignored if reloading using a magazine.
          */
         int item_reload_cost( const item& it, const item& ammo, long qty = -1 ) const;
+
+        /** Calculate (but do not deduct) the number of moves required to wear an item */
+        int item_wear_cost( const item& to_wear ) const;
 
         /** Wear item; returns false on fail. If interactive is false, don't alert the player or drain moves on completion. */
         bool wear(int pos, bool interactive = true);
@@ -815,10 +830,12 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          *  @return true if item was destroyed */
         bool consume_charges( item& used, long qty );
 
-        /** Removes selected gunmod from the entered weapon */
-        void remove_gunmod(item *weapon, unsigned id);
+        /** Removes gunmod after first unloading any contained ammo and returns true on success */
+        bool gunmod_remove( item& gun, item& mod );
+
         /** Starts activity to install gunmod having warned user about any risk of failure or irremovable mods s*/
         void gunmod_add( item& gun, item& mod );
+
         /** Attempts to install bionics, returns false if the player cancels prior to installation */
         bool install_bionics(const itype &type, int skill_level = -1);
         /** Handles reading effects and returns true if activity started */
@@ -860,18 +877,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int warmth(body_part bp) const;
         /** Returns warmth provided by an armor's bonus, like hoods, pockets, etc. */
         int bonus_item_warmth(body_part bp) const;
-        /** Returns ENC provided by armor, etc. */
-        int encumb(body_part bp) const;
-        /** Returns encumbrance that would apply for a body part if `new_item` was also worn */
-        int encumb( body_part bp, const item &new_item ) const;
-        /** Returns encumbrance caused by armor, etc., factoring in layering */
-        int encumb(body_part bp, double &layers, int &armorenc) const;
-        /** As above, but also treats the `new_item` as worn for encumbrance penalty purposes */
-        int encumb( body_part bp, double &layers, int &armorenc, const item &new_item ) const;
-        /** Returns encumbrance from mutations and bionics only */
-        int mut_cbm_encumb( body_part bp ) const;
-        /** Returns encumbrance from items only */
-        int item_encumb( body_part bp, double &layers, int &armorenc, const item &new_item ) const;
         /** Returns overall bashing resistance for the body_part */
         int get_armor_bash(body_part bp) const override;
         /** Returns overall cutting resistance for the body_part */
@@ -900,8 +905,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int shoe_type_count(const itype_id &it) const;
         /** Returns true if the player is wearing power armor */
         bool is_wearing_power_armor(bool *hasHelmet = NULL) const;
-        /** Returns true if the player is wearing active power */
-        bool is_wearing_active_power_armor() const;
         /** Returns wind resistance provided by armor, etc **/
         int get_wind_resistance(body_part bp) const;
 
@@ -915,7 +918,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         void cancel_activity();
 
         int get_morale_level() const; // Modified by traits, &c
-        void invalidate_morale_level();
         void add_morale( morale_type type, int bonus, int max_bonus = 0, int duration = 60,
                         int decay_start = 30, bool capped = false, const itype *item_type = nullptr );
         int has_morale( morale_type type ) const;
@@ -961,8 +963,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         item  *pick_usb(); // Pick a usb drive, interactively if it matters
 
         bool covered_with_flag( const std::string &flag, const std::bitset<num_bp> &parts ) const;
-        /** Bitset of all the body parts covered only with items with `flag` (or nothing) */
-        std::bitset<num_bp> exclusive_flag_coverage( const std::string &flag ) const;
         bool is_waterproof( const std::bitset<num_bp> &parts ) const;
 
         // has_amount works ONLY for quantity.
@@ -1129,7 +1129,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         bool last_climate_control_ret;
         std::string move_mode;
         int power_level, max_power_level;
-        int thirst;
         int fatigue;
         int tank_plut, reactor_plut, slow_rad;
         int oxygen;
@@ -1138,7 +1137,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         int driving_recoil;
         int scent;
         int dodges_left, blocks_left;
-        int stim, pkill, radiation;
+        int stim, radiation;
         unsigned long cash;
         int movecounter;
         std::array<int, num_bp> temp_cur, frostbite_timer, temp_conv;
@@ -1155,7 +1154,7 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         std::array<int, num_bp> drench_capacity;
         std::array<int, num_bp> body_wetness;
 
-        std::vector<morale_point> morale;
+        player_morale morale;
 
         int focus_pool;
 
@@ -1276,9 +1275,27 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
          * Check @ref mission::failed to see which case it is.
          */
         void on_mission_finished( mission &mission );
+        /**
+         * Called when a mutation is gained
+         */
+        virtual void on_mutation_gain( const std::string &mid ) override;
+        /**
+         * Called when a mutation is lost
+         */
+        virtual void on_mutation_loss( const std::string &mid ) override;
+        /**
+         * Called when an item is worn
+         */
+        virtual void on_item_wear( const item &it ) override;
+        /**
+         * Called when an item is taken off
+         */
+        virtual void on_item_takeoff( const item &it ) override;
+        /**
+         * Called when effect intensity has been changed
+         */
+        virtual void on_effect_int_change( const efftype_id &eid, int intensity, body_part bp = num_bp ) override;
 
-        // returns a struct describing the encumbrance of a body part
-        encumbrance_data get_encumbrance( size_t i ) const;
         // formats and prints encumbrance info to specified window
         void print_encumbrance( WINDOW * win, int line = -1, item *selected_limb = nullptr ) const;
 
@@ -1297,15 +1314,6 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         void load(JsonObject &jsin);
 
     private:
-        // Mutability is required for lazy initialization
-        mutable int morale_level;
-        mutable bool morale_level_is_valid;
-
-        /** Returns current traits multiplier for morale */
-        morale_mult get_traits_mult() const;
-        /** Returns current effects multiplier for morale */
-        morale_mult get_effects_mult() const;
-
         // Items the player has identified.
         std::unordered_set<std::string> items_identified;
         /** Check if an area-of-effect technique has valid targets */
@@ -1346,6 +1354,9 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
         void deactivate_mutation( const std::string &mut );
         bool has_fire(const int quantity) const;
         void use_fire(const int quantity);
+
+        void react_to_felt_pain( int intensity );
+
         /**
          * Has the item enough charges to invoke its use function?
          * Also checks if UPS from this player is used instead of item charges.
@@ -1354,6 +1365,8 @@ class player : public Character, public JsonSerializer, public JsonDeserializer
 
         bool can_study_recipe(const itype &book) const;
         bool try_study_recipe(const itype &book);
+
+        int pkill;
 
         std::vector<tripoint> auto_move_route;
         // Used to make sure auto move is canceled if we stumble off course

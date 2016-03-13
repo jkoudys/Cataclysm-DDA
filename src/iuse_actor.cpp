@@ -8,7 +8,7 @@
 #include "overmapbuffer.h"
 #include "sounds.h"
 #include "translations.h"
-#include "morale.h"
+#include "morale_types.h"
 #include "messages.h"
 #include "material.h"
 #include "event.h"
@@ -111,10 +111,7 @@ long iuse_transform::use(player *p, item *it, bool t, const tripoint &pos ) cons
         // Transform into something in a container, assume the content is
         // "created" right now and give the content the current time as birthday
         it->convert( container_id );
-        it->unset_curammo();
-        it->charges = -1;
-        it->contents.push_back(item(target_id, calendar::turn));
-        target = &it->contents.back();
+        target = &it->emplace_back( target_id );
     }
     target->active = active;
     if (target_charges > -2) {
@@ -144,51 +141,6 @@ std::string iuse_transform::get_name() const
     return iuse_actor::get_name();
 }
 
-
-
-auto_iuse_transform::~auto_iuse_transform()
-{
-}
-
-iuse_actor *auto_iuse_transform::clone() const
-{
-    return new auto_iuse_transform(*this);
-}
-
-void auto_iuse_transform::load( JsonObject &obj )
-{
-    iuse_transform::load( obj );
-    obj.read( "when_underwater", when_underwater );
-    obj.read( "non_interactive_msg", non_interactive_msg );
-}
-
-long auto_iuse_transform::use(player *p, item *it, bool t, const tripoint &pos) const
-{
-    if (t) {
-        if (!when_underwater.empty() && p != NULL && p->is_underwater()) {
-            // Dirty hack to display the "when underwater" message instead of the normal message
-            std::swap(const_cast<auto_iuse_transform *>(this)->when_underwater,
-                      const_cast<auto_iuse_transform *>(this)->msg_transform);
-            const long tmp = iuse_transform::use(p, it, t, pos);
-            std::swap(const_cast<auto_iuse_transform *>(this)->when_underwater,
-                      const_cast<auto_iuse_transform *>(this)->msg_transform);
-            return tmp;
-        }
-        // Normal use, don't need to do anything here.
-        return 0;
-    }
-    if (it->charges > 0 && !non_interactive_msg.empty()) {
-        if( p != nullptr ) {
-            p->add_msg_if_player(m_info, _( non_interactive_msg.c_str() ), it->tname().c_str());
-        }
-        // Activated by the player, but not allowed to do so
-        return 0;
-    }
-    return iuse_transform::use(p, it, t, pos);
-}
-
-
-
 explosion_iuse::~explosion_iuse()
 {
 }
@@ -203,10 +155,11 @@ extern std::vector<tripoint> points_for_gas_cloud(const tripoint &center, int ra
 
 void explosion_iuse::load( JsonObject &obj )
 {
-    obj.read( "explosion_power", explosion_power );
-    obj.read( "explosion_shrapnel", explosion_shrapnel );
-    obj.read( "explosion_distance_factor", explosion_distance_factor );
-    obj.read( "explosion_fire", explosion_fire );
+    if( obj.has_object( "explosion" ) ) {
+        auto expl = obj.get_object( "explosion" );
+        explosion = load_explosion_data( expl );
+    }
+
     obj.read( "draw_explosion_radius", draw_explosion_radius );
     if( obj.has_member( "draw_explosion_color" ) ) {
         draw_explosion_color = color_from_string( obj.get_string( "draw_explosion_color" ) );
@@ -243,9 +196,11 @@ long explosion_iuse::use(player *p, item *it, bool t, const tripoint &pos) const
         }
         return 0;
     }
-    if (explosion_power >= 0) {
-        g->explosion( pos, explosion_power, explosion_distance_factor, explosion_shrapnel, explosion_fire );
+
+    if( explosion.power >= 0.0f ) {
+        g->explosion( pos, explosion );
     }
+
     if (draw_explosion_radius >= 0) {
         g->draw_explosion( pos, draw_explosion_radius, draw_explosion_color);
     }
@@ -1933,6 +1888,23 @@ void bandolier_actor::load( JsonObject &obj )
     ammo = obj.get_tags( "ammo" );
 }
 
+void bandolier_actor::info( const item&, std::vector<iteminfo>& dump ) const
+{
+    if( !ammo.empty() ) {
+        auto str = std::accumulate( std::next( ammo.begin() ), ammo.end(),
+                                    string_format( "<stat>%s</stat>", ammo_name( *ammo.begin() ).c_str() ),
+                                    [&]( const std::string& lhs, const ammotype& rhs ) {
+                return lhs + string_format( ", <stat>%s</stat>", ammo_name( rhs ).c_str() );
+        } );
+
+        dump.emplace_back( "TOOL", string_format(
+            ngettext( "Can be activated to store a single round of ",
+                      "Can be activated to store up to <stat>%i</stat> rounds of ", capacity ),
+                      capacity ),
+            str );
+    }
+}
+
 bool bandolier_actor::can_store( const item &bandolier, const item &obj ) const
 {
     if( !obj.is_ammo() ) {
@@ -2804,4 +2776,35 @@ hp_part heal_actor::use_healing_item( player &healer, player &patient, item &it,
     }
 
     return healed;
+}
+
+void heal_actor::info( const item &, std::vector<iteminfo> &dump ) const
+{
+    if( head_power > 0 || torso_power > 0 || limb_power > 0 ) {
+        dump.emplace_back( "TOOL", _( "<bold>Base healing:</bold> " ), "", -999, true, "", true );
+        dump.emplace_back( "TOOL", _( "Head: " ), "", head_power, true, "", false );
+        dump.emplace_back( "TOOL", _( "  Torso: " ), "", torso_power, true, "", false );
+        dump.emplace_back( "TOOL", _( "  Limbs: " ), "", limb_power, true, "", true );
+        if( g != nullptr ) {
+            dump.emplace_back( "TOOL", _( "<bold>Actual healing:</bold> " ), "", -999, true, "", true );
+            dump.emplace_back( "TOOL", _( "Head: " ), "", get_heal_value( g->u, hp_head ), true, "", false );
+            dump.emplace_back( "TOOL", _( "  Torso: " ), "", get_heal_value( g->u, hp_torso ), true, "", false );
+            dump.emplace_back( "TOOL", _( "  Limbs: " ), "", get_heal_value( g->u, hp_arm_l ), true, "", true );
+        }
+    }
+
+    if( bleed > 0.0f || bite > 0.0f || infect > 0.0f ) {
+        dump.emplace_back( "TOOL", _( "<bold>Chance to heal (percent):</bold> " ), "", -999, true, "", true );
+        if( bleed > 0.0f ) {
+            dump.emplace_back( "TOOL", _( "<bold>Bleeding</bold>:" ), "", (int)(bleed * 100), true, "", true );
+        }
+        if( bite > 0.0f ) {
+            dump.emplace_back( "TOOL", _( "<bold>Bite</bold>:" ), "", (int)(bite * 100), true, "", true );
+        }
+        if( infect > 0.0f ) {
+            dump.emplace_back( "TOOL", _( "<bold>Infection</bold>:" ), "", (int)(infect * 100), true, "", true );
+        }
+    }
+
+    dump.emplace_back( "TOOL", _( "<bold>Moves to use</bold>:" ), "", move_cost );
 }

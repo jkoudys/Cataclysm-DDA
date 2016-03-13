@@ -1,7 +1,9 @@
+#include "weather.h"
+
+#include "coordinate_conversions.h"
 #include "options.h"
 #include "game.h"
 #include "map.h"
-#include "weather.h"
 #include "messages.h"
 #include "overmap.h"
 #include "overmapbuffer.h"
@@ -33,16 +35,16 @@ const efftype_id effect_glare( "glare" );
  */
 void weather_effect::glare()
 {
-    if (PLAYER_OUTSIDE && g->is_in_sunlight(g->u.pos()) &&
-        !g->u.worn_with_flag("SUN_GLASSES") && !g->u.has_bionic("bio_sunglasses")) {
-        if(!g->u.has_effect( effect_glare)) {
-            if (g->u.has_trait("CEPH_VISION")) {
+    if( PLAYER_OUTSIDE && g->is_in_sunlight( g->u.pos() ) && !g->u.in_sleep_state() &&
+        !g->u.worn_with_flag( "SUN_GLASSES" ) && !g->u.has_bionic( "bio_sunglasses" ) ) {
+        if( !g->u.has_effect( effect_glare ) ) {
+            if( g->u.has_trait( "CEPH_VISION" ) ) {
                 g->u.add_env_effect( effect_glare, bp_eyes, 2, 4 );
             } else {
                 g->u.add_env_effect( effect_glare, bp_eyes, 2, 2 );
             }
         } else {
-            if (g->u.has_trait("CEPH_VISION")) {
+            if( g->u.has_trait( "CEPH_VISION" ) ) {
                 g->u.add_env_effect( effect_glare, bp_eyes, 2, 2 );
             } else {
                 g->u.add_env_effect( effect_glare, bp_eyes, 2, 1 );
@@ -58,7 +60,7 @@ int get_rot_since( const int startturn, const int endturn, const tripoint &locat
 {
     // Ensure food doesn't rot in ice labs, where the
     // temperature is much less than the weather specifies.
-    tripoint const omt_pos = overmapbuffer::ms_to_omt_copy( location );
+    tripoint const omt_pos = ms_to_omt_copy( location );
     oter_id const & oter = overmap_buffer.ter( omt_pos );
     // TODO: extract this into a property of the overmap terrain
     if (is_ot_type("ice_lab", oter)) {
@@ -447,7 +449,7 @@ void weather_effect::light_acid()
                     add_msg(_("Your power armor protects you from the acidic drizzle."));
                 } else {
                     add_msg(m_warning, _("The acid rain stings, but is mostly harmless for now..."));
-                    if (one_in(10) && (g->u.pain < 10)) {
+                    if (one_in(10) && (g->u.get_pain() < 10)) {
                         g->u.mod_pain(1);
                     }
                 }
@@ -474,7 +476,7 @@ void weather_effect::acid()
                     add_msg(_("Your power armor protects you from the acid rain."));
                 } else {
                     add_msg(m_bad, _("The acid rain burns!"));
-                    if (one_in(2) && (g->u.pain < 100)) {
+                    if (one_in(2) && (g->u.get_pain() < 100)) {
                         g->u.mod_pain( rng(1, 5) );
                     }
                 }
@@ -541,7 +543,7 @@ std::string weather_forecast( point const &abs_sm_pos )
     // int weather_proportions[NUM_WEATHER_TYPES] = {0};
     double high = -100.0;
     double low = 100.0;
-    point const abs_ms_pos = overmapbuffer::sm_to_ms_copy( abs_sm_pos );
+    point const abs_ms_pos = sm_to_ms_copy( abs_sm_pos );
     // TODO wind direction and speed
     int last_hour = calendar::turn - ( calendar::turn % HOURS(1) );
     for(int d = 0; d < 6; d++) {

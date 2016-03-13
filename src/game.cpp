@@ -1,4 +1,6 @@
 #include "game.h"
+
+#include "coordinate_conversions.h"
 #include "rng.h"
 #include "input.h"
 #include "output.h"
@@ -60,7 +62,7 @@
 #include "mission.h"
 #include "compatibility.h"
 #include "mongroup.h"
-#include "morale.h"
+#include "morale_types.h"
 #include "worldfactory.h"
 #include "material.h"
 #include "martialarts.h"
@@ -80,7 +82,6 @@
 
 #include <map>
 #include <set>
-#include <queue>
 #include <algorithm>
 #include <string>
 #include <fstream>
@@ -765,7 +766,7 @@ bool game::start_game(std::string worldname)
         // map is loaded.
         start_loc.add_map_special( omtstart, scen->get_map_special() );
     }
-    tripoint lev = overmapbuffer::omt_to_sm_copy( omtstart );
+    tripoint lev = omt_to_sm_copy( omtstart );
     // The player is centered in the map, but lev[xyz] refers to the top left point of the map
     lev.x -= MAPSIZE / 2;
     lev.y -= MAPSIZE / 2;
@@ -1440,7 +1441,7 @@ bool game::do_turn()
     // m.vehmove used to do this, but now it only give them moves instead.
     for( auto &elem : MAPBUFFER ) {
         tripoint sm_loc = elem.first;
-        point sm_topleft = overmapbuffer::sm_to_ms_copy(sm_loc.x, sm_loc.y);
+        point sm_topleft = sm_to_ms_copy(sm_loc.x, sm_loc.y);
         point in_reality = m.getlocal(sm_topleft);
 
         submap *sm = elem.second;
@@ -3076,10 +3077,7 @@ bool game::handle_action()
             return false;
 
         case ACTION_QUICKLOAD:
-            MAPBUFFER.reset();
-            overmap_buffer.clear();
-            setup();
-            load( world_generator->active_world->world_name, base64_encode(u.name) );
+            quickload();
             return false;
 
         case ACTION_PL_INFO:
@@ -3324,7 +3322,7 @@ bool game::is_game_over()
         // deny player movement and dodging
         u.moves = 0;
         // prevent pain from updating
-        u.pain = 0;
+        u.set_pain( 0 );
         // prevent dodging
         u.dodges_left = 0;
         return false;
@@ -3651,6 +3649,7 @@ bool game::save()
              !save_uistate()){
             return false;
         } else {
+            world_generator->active_world->add_save( base64_encode( u.name ) );
             return true;
         }
     } catch (std::ios::failure &err) {
@@ -4229,7 +4228,7 @@ void game::debug()
                     }
                     break;
                     case D_PAIN: {
-                        int dbg_damage = query_int( "Cause how much pain? pain: %d", p.pain );
+                        int dbg_damage = query_int( "Cause how much pain? pain: %d", p.get_pain() );
                         p.mod_pain( dbg_damage );
                     }
                     break;
@@ -4237,7 +4236,7 @@ void game::debug()
                         uimenu smenu;
                         smenu.return_invalid = true;
                         smenu.addentry( 0, true, 'h', "%s: %d", _( "Hunger" ), p.get_hunger() );
-                        smenu.addentry( 1, true, 't', "%s: %d", _( "Thirst" ), p.thirst );
+                        smenu.addentry( 1, true, 't', "%s: %d", _( "Thirst" ), p.get_thirst() );
                         smenu.addentry( 2, true, 'f', "%s: %d", _( "Fatigue" ), p.fatigue );
                         smenu.addentry( 999, true, 'q', "%s", _( "[q]uit" ) );
                         smenu.selected = 0;
@@ -4250,7 +4249,7 @@ void game::debug()
                                 valid = true;
                                 break;
                             case 1:
-                                cur = p.thirst;
+                                cur = p.get_thirst();
                                 valid = true;
                                 break;
                             case 2:
@@ -4267,7 +4266,7 @@ void game::debug()
                                     p.set_hunger( value );
                                     break;
                                 case 1:
-                                    p.thirst = value;
+                                    p.set_thirst( value );
                                     break;
                                 case 2:
                                     p.fatigue = value;
@@ -4418,7 +4417,7 @@ void game::debug()
             wrefresh( w_terrain );
             getch();
 #else
-            popup( "This binary was not compiled with tiles support." );
+            popup( _( "This binary was not compiled with tiles support." ) );
 #endif
         }
         break;
@@ -6272,284 +6271,6 @@ void game::monmove()
     cleanup_dead();
 }
 
-void game::do_blast( const tripoint &p, const float power,
-                     const float distance_factor, const bool fire )
-{
-    const float tile_dist = 1.0f;
-    const float diag_dist = trigdist ? 1.41f * tile_dist : 1.0f * tile_dist;
-    const float zlev_dist = 2.0f; // Penalty for going up/down
-    // 7 3 5
-    // 1 . 2
-    // 6 4 8
-    // 9 and 10 are up and down
-    constexpr std::array<int, 10> x_offset{{ -1,  1,  0,  0,  1, -1, -1, 1, 0,  0 }};
-    constexpr std::array<int, 10> y_offset{{  0,  0, -1,  1, -1,  1, -1, 1, 0,  0 }};
-    constexpr std::array<int, 10> z_offset{{  0,  0,  0,  0,  0,  0,  0, 0, 1, -1 }};
-    const size_t max_index = m.has_zlevels() ? 10 : 8;
-
-    std::priority_queue< std::pair<float, tripoint>, std::vector< std::pair<float, tripoint> >, pair_greater_cmp > open;
-    std::set<tripoint> closed;
-    std::map<tripoint, float> dist_map;
-    open.push( std::make_pair( 0.0f, p ) );
-    dist_map[p] = 0.0f;
-    // Find all points to blast
-    while( !open.empty() ) {
-        // Add some random factor to effective distance to make it look cooler
-        const float distance = open.top().first * rng_float( 1.0f, 1.2f );
-        const tripoint pt = open.top().second;
-        open.pop();
-
-        if( closed.count( pt ) != 0 ) {
-            continue;
-        }
-
-        closed.insert( pt );
-
-        const float force = power * std::pow( distance_factor, distance );
-        if( force <= 1.0f ) {
-            continue;
-        }
-
-        if( m.impassable( pt ) && pt != p ) {
-            // Don't propagate further
-            continue;
-        }
-
-        // Those will be used for making "shaped charges"
-        // Don't check up/down (for now) - this will make 2D/3D balancing easier
-        int empty_neighbors = 0;
-        for( size_t i = 0; i < 8; i++ ) {
-            tripoint dest( pt.x + x_offset[i], pt.y + y_offset[i], pt.z + z_offset[i] );
-            if( closed.count( dest ) == 0 && m.valid_move( pt, dest, false, true ) ) {
-                empty_neighbors++;
-            }
-        }
-
-        empty_neighbors = std::max( 1, empty_neighbors );
-        // Iterate over all neighbors. Bash all of them, propagate to some
-        for( size_t i = 0; i < max_index; i++ ) {
-            tripoint dest( pt.x + x_offset[i], pt.y + y_offset[i], pt.z + z_offset[i] );
-            if( closed.count( dest ) != 0 ) {
-                continue;
-            }
-
-            // Up to 200% bonus for shaped charge
-            // But not if the explosion is fiery, then only half the force and no bonus
-            const float bash_force = !fire ?
-                                        force + ( 2 * force / empty_neighbors ) :
-                                        force / 2;
-            if( z_offset[i] == 0 ) {
-                // Horizontal - no floor bashing
-                m.bash( dest, bash_force, true, false, false );
-            } else if( z_offset[i] > 0 ) {
-                // Should actually bash through the floor first, but that's not really possible yet
-                m.bash( dest, bash_force, true, false, true );
-            } else if( !m.valid_move( pt, dest, false, true ) ) {
-                // Only bash through floor if it doesn't exist
-                // Bash the current tile's floor, not the one's below
-                m.bash( pt, bash_force, true, false, true );
-            }
-
-            float next_dist = distance;
-            next_dist += ( x_offset[i] == 0 || y_offset[i] == 0 ) ? tile_dist : diag_dist;
-            if( z_offset[i] != 0 ) {
-                if( !m.valid_move( pt, dest, false, true ) ) {
-                    continue;
-                }
-
-                next_dist += zlev_dist;
-            }
-
-            if( dist_map.count( dest ) == 0 || dist_map[dest] > next_dist ) {
-                open.push( std::make_pair( next_dist, dest ) );
-                dist_map[dest] = next_dist;
-            }
-        }
-    }
-
-    // Draw the explosion
-    std::map<tripoint, nc_color> explosion_colors;
-    for( auto &pt : closed ) {
-        if( m.impassable( pt ) ) {
-            continue;
-        }
-
-        const float force = power * std::pow( distance_factor, dist_map.at( pt ) );
-        nc_color col = c_red;
-        if( force < 10 ) {
-            col = c_white;
-        } else if( force < 30 ) {
-            col = c_yellow;
-        }
-
-        explosion_colors[pt] = col;
-    }
-
-    draw_custom_explosion( u.pos(), explosion_colors );
-
-    for( const tripoint &pt : closed ) {
-        const float force = power * std::pow( distance_factor, dist_map.at( pt ) );
-        if( force < 1.0f ) {
-            // Too weak to matter
-            continue;
-        }
-
-        m.smash_items( pt, force );
-
-        if( fire ) {
-            int density = (force > 50.0f) + (force > 100.0f);
-            if( force > 10.0f || x_in_y( force, 10.0f ) ) {
-                density++;
-            }
-
-            if( !m.has_zlevels() && m.is_outside( pt ) && density == 2 ) {
-                // In 3D mode, it would have fire fields above, which would then fall
-                // and fuel the fire on this tile
-                density++;
-            }
-
-            m.add_field( pt, fd_fire, density, 0 );
-        }
-
-        int vpart;
-        vehicle *veh = m.veh_at( pt, vpart );
-        if( veh != nullptr ) {
-            // TODO: Make this weird unit used by vehicle::damage more sensible
-            veh->damage( vpart, force, fire ? DT_HEAT : DT_BASH, false );
-        }
-
-        Creature *critter = critter_at( pt, true );
-        if( critter == nullptr ) {
-            continue;
-        }
-
-        add_msg( m_debug, "Blast hits %s with force %.1f",
-                 critter->disp_name().c_str(), force );
-
-        player *pl = dynamic_cast<player*>( critter );
-        if( pl == nullptr ) {
-            // TODO: player's fault?
-            const int dmg = force - ( critter->get_armor_bash( bp_torso ) / 2 );
-            const int actual_dmg = rng( dmg * 2, dmg * 3 );
-            critter->apply_damage( nullptr, bp_torso, actual_dmg );
-            critter->check_dead_state();
-            add_msg( m_debug, "Blast hits %s for %d damage", critter->disp_name().c_str(), actual_dmg );
-            continue;
-        }
-
-        // Print messages for all NPCs
-        pl->add_msg_player_or_npc( m_bad, _("You're caught in the explosion!"),
-                                          _("<npcname> is caught in the explosion!") );
-
-        struct blastable_part {
-            body_part bp;
-            float low_mul;
-            float high_mul;
-            float armor_mul;
-        };
-
-        static const std::array<blastable_part, 6> blast_parts = { {
-            { bp_torso, 2.0f, 3.0f, 0.5f },
-            { bp_head,  2.0f, 3.0f, 0.5f },
-            // Hit limbs harder so that it hurts more without being much more deadly
-            { bp_leg_l, 2.0f, 3.5f, 0.4f },
-            { bp_leg_r, 2.0f, 3.5f, 0.4f },
-            { bp_arm_l, 2.0f, 3.5f, 0.4f },
-            { bp_arm_r, 2.0f, 3.5f, 0.4f },
-        } };
-
-        for( const auto &blp : blast_parts ) {
-            const int part_dam = rng( force * blp.low_mul, force * blp.high_mul );
-            const std::string hit_part_name = body_part_name_accusative( blp.bp );
-            const auto dmg_instance = damage_instance( DT_BASH, part_dam, 0, blp.armor_mul );
-            const auto result = pl->deal_damage( nullptr, blp.bp, dmg_instance );
-            const int res_dmg = result.total_damage();
-
-            add_msg( m_debug, "%s for %d raw, %d actual",
-                     hit_part_name.c_str(), part_dam, res_dmg );
-            if( res_dmg > 0 ) {
-                pl->add_msg_if_player( m_bad, _("Your %s is hit for %d damage!"),
-                                       hit_part_name.c_str(), res_dmg );
-            }
-        }
-    }
-}
-
-
-void game::explosion( const tripoint &p, float power, float factor,
-                      int shrapnel_count, bool fire )
-{
-    const int noise = power * (fire ? 2 : 10);
-    if( noise >= 30 ) {
-        sounds::sound( p, noise, _("a huge explosion!") );
-        sfx::play_variant_sound( "explosion", "huge", 100);
-    } else if( noise >= 4 ) {
-        sounds::sound( p, noise, _("an explosion!") );
-        sfx::play_variant_sound( "explosion", "default", 100);
-    } else {
-        sounds::sound( p, 3, _("a loud pop!") );
-        sfx::play_variant_sound( "explosion", "small", 100);
-    }
-
-    if( factor >= 1.0f ) {
-        debugmsg( "called game::explosion with factor >= 1.0 (infinite size)" );
-    } else if( factor > 0.0f ) {
-        do_blast( p, power, factor, fire );
-    }
-
-    if( shrapnel_count > 0 ) {
-        const int radius = 2 * int(sqrt(double(power / 4)));
-        shrapnel( p, power * 2, shrapnel_count, radius );
-    }
-}
-
-void game::shrapnel( const tripoint &p, int power, int count, int radius )
-{
-    if( power <= 0 ) {
-        return;
-    }
-
-    if( radius < 0 ) {
-        return;
-    }
-
-    npc fake_npc;
-    fake_npc.name = _("Shrapnel");
-    fake_npc.set_fake(true);
-    fake_npc.setpos( p );
-    projectile proj;
-    proj.speed = 100;
-    proj.range = radius;
-    proj.proj_effects.insert( "DRAW_AS_LINE" );
-    proj.proj_effects.insert( "NULL_SOURCE" );
-    for( int i = 0; i < count; i++ ) {
-        // TODO: Z-level shrapnel, but not before z-level ranged attacks
-        tripoint sp{ static_cast<int> (rng( p.x - radius, p.x + radius )),
-                     static_cast<int> (rng( p.y - radius, p.y + radius )),
-                     p.z };
-
-        proj.impact = damage_instance::physical( power, power, 0, 0 );
-
-        Creature *critter_in_center = critter_at( p ); // Very unfortunate critter
-        if( critter_in_center != nullptr ) {
-            dealt_projectile_attack dda; // Cool variable name
-            dda.proj = proj;
-            // For first shrapnel piece:
-            // 50% chance for 50%-100% base (power to 2 * power)
-            // 50% chance for 0-25% base
-            // Each one after that gets a progressively lower chance of hitting
-            dda.missed_by = rng_float( 0.4, 1.0 ) + (i * 1.0 / count);
-            critter_in_center->deal_projectile_attack( nullptr, dda );
-        }
-
-        if( sp != p ) {
-            // This needs to be high enough to prevent game from thinking that
-            //  the fake npc is scoring headshots.
-            fake_npc.projectile_attack( proj, sp, 3600 );
-        }
-    }
-}
-
 void game::flashbang( const tripoint &p, bool player_immune)
 {
     draw_explosion( p, 8, c_white );
@@ -7556,10 +7277,11 @@ void game::smash()
         return;
     }
 
-    for (auto it = m.i_at(smashp).begin(); it != m.i_at(smashp).end(); ++it) {
-        if ( it->is_corpse() && it->damage < CORPSE_PULP_THRESHOLD ) {
+    for( const auto &maybe_corpse : m.i_at( smashp ) ) {
+        if ( maybe_corpse.is_corpse() && maybe_corpse.damage < CORPSE_PULP_THRESHOLD &&
+             maybe_corpse.get_mtype()->has_flag( MF_REVIVES ) ) {
             // do activity forever. ACT_PULP stops itself
-            u.assign_activity(ACT_PULP, INT_MAX, 0);
+            u.assign_activity( ACT_PULP, INT_MAX, 0 );
             u.activity.placement = smashp;
             return; // don't smash terrain if we've smashed a corpse
         }
@@ -8378,10 +8100,10 @@ void game::examine( const tripoint &examp )
 
     const tripoint player_pos = u.pos();
 
-    if (m.has_furn(examp)) {
-        xfurn_t.examine(&u, &m, examp);
+    if( m.has_furn( examp ) ) {
+        xfurn_t.examine( u, examp );
     } else {
-        xter_t.examine(&u, &m, examp);
+        xter_t.examine( u, examp );
     }
 
     // Did the player get moved? Bail out if so; our examp probably
@@ -8414,7 +8136,7 @@ void game::examine( const tripoint &examp )
     }
 
     if( !m.tr_at( examp ).is_null() ) {
-        iexamine::trap(&u, &m, examp);
+        iexamine::trap( u, examp );
         draw_ter();
     }
 
@@ -8581,9 +8303,11 @@ void game::handle_multi_item_info( const tripoint &lp, WINDOW *w_look, const int
             // items are displayed from the live view, don't do this here
             return;
         }
-        auto items = m.i_at( lp );
-        trim_and_print(w_look, line++, column, getmaxx(w_look) - 2, c_ltgray, _("There is a %s there."), items[0].tname().c_str());
-        if (items.size() > 1) {
+        const maptile &cur_maptile = g->m.maptile_at( lp );
+        const item &displayed_item = cur_maptile.get_uppermost_item();
+
+        trim_and_print(w_look, line++, column, getmaxx(w_look) - 2, c_ltgray, _("There is a %s there."), displayed_item.tname().c_str());
+        if (cur_maptile.get_item_count() > 1) {
             mvwprintw(w_look, line++, column, _("There are other items there as well."));
         }
     } else if (m.has_flag("CONTAINER", lp) && !m.could_see_items( lp, u)) {
@@ -8859,8 +8583,8 @@ void game::zones_manager()
 
             } else if (action == "SHOW_ZONE_ON_MAP") {
                 //show zone position on overmap;
-                tripoint player_overmap_position = overmapbuffer::ms_to_omt_copy( m.getabs( u.pos() ) );
-                tripoint zone_overmap = overmapbuffer::ms_to_omt_copy( zones.zones[active_index].get_center_point() );
+                tripoint player_overmap_position = ms_to_omt_copy( m.getabs( u.pos() ) );
+                tripoint zone_overmap = ms_to_omt_copy( zones.zones[active_index].get_center_point() );
                 overmap::draw_zones( player_overmap_position, zone_overmap, active_index );
 
                 zones_manager_draw_borders(w_zones_border, w_zones_info_border, zone_ui_height, width);
@@ -10482,7 +10206,7 @@ bool game::handle_liquid(item &liquid, bool from_ground, bool infinite, item *so
             return false;
         }
 
-        if (cont->charges > 0 && cont->has_curammo() && cont->ammo_current() != liquid.typeId()) {
+        if( cont->charges > 0 && cont->ammo_current() != liquid.typeId() ) {
             add_msg(m_info, _("You can't mix loads in your %s."), cont->tname().c_str());
             return false;
         }
@@ -10568,7 +10292,7 @@ int game::move_liquid(item &liquid)
                 return -1;
             }
 
-            if (cont->charges > 0 && cont->has_curammo() && cont->ammo_current() != liquid.typeId()) {
+            if( cont->charges > 0 && cont->ammo_current() != liquid.typeId() ) {
                 add_msg(m_info, _("You can't mix loads in your %s."), cont->tname().c_str());
                 return -1;
             }
@@ -10955,7 +10679,7 @@ void game::plfire( bool burst, const tripoint &default_target )
 
                 actions.push_back( [&]{ u.invoke_item( &w, "holster" ); } );
 
-            } else if( w.is_gun() && w.has_gunmod( "shoulder_strap" ) >= 0 ) {
+            } else if( w.is_gun() && w.gunmod_find( "shoulder_strap" ) ) {
                 // wield item currently worn using shoulder strap
                 options.push_back( w.display_name() );
                 actions.push_back( [&]{ u.wield( w ); } );
@@ -10972,7 +10696,7 @@ void game::plfire( bool burst, const tripoint &default_target )
         return;
     }
 
-    item& gun = u.weapon.active_gunmod() ? *u.weapon.active_gunmod() : u.weapon;
+    item& gun = u.weapon.gunmod_current() ? *u.weapon.gunmod_current() : u.weapon;
 
     if( !gun.is_gun() && !gun.has_flag( "REACH_ATTACK" ) ) {
         return;
@@ -11005,25 +10729,19 @@ void game::plfire( bool burst, const tripoint &default_target )
             }
         }
 
-        if( gun.has_flag("NO_AMMO") ) {
-            gun.charges = 1;
-            gun.set_curammo( "generic_no_ammo" );
-        }
-
-
         if( gun.has_flag("FIRE_TWOHAND") && ( !u.has_two_arms() || u.worn_with_flag("RESTRICT_HANDS") ) ) {
             add_msg(m_info, _("You need two free hands to fire your %s."), gun.tname().c_str() );
             return;
         }
 
         if( gun.has_flag("RELOAD_AND_SHOOT") && gun.ammo_remaining() == 0 ) {
-            item_location ammo = gun.pick_reload_ammo( u );
-            if( !ammo ) {
+            item::reload_option opt = gun.pick_reload_ammo( u );
+            if( !opt ) {
                 return; // menu cancelled
             }
 
-            reload_time += u.item_reload_cost( gun, *ammo, 1 );
-            if( !gun.reload( u, std::move( ammo ), 1 ) ) {
+            reload_time += opt.moves;
+            if( !gun.reload( u, std::move( opt.ammo ), 1 ) ) {
                 return; // unable to reload
             }
 
@@ -11483,15 +11201,22 @@ void game::reload( int pos )
 
     // bows etc do not need to reload.
     if( it->has_flag( "RELOAD_AND_SHOOT" ) ) {
-        add_msg( m_info, _( "Your %s does not need to be reloaded, it reloads and fires in a single motion." ),
+        add_msg( m_info, _( "The %s does not need to be reloaded, it reloads and fires in a single motion." ),
                  it->tname().c_str() );
         return;
     }
 
+    // for holsters and ammo pouches try to reload any contained item
+    if( it->type->can_use( "holster" ) && !it->contents.empty() ) {
+        it = &it->contents[ 0 ];
+    }
+
     switch( u.rate_action_reload( *it ) ) {
         case HINT_IFFY:
-            add_msg( m_info, _( "Your %s is already fully loaded!" ), it->tname().c_str() );
-            return;
+            if( it->ammo_remaining() > 0 && it->ammo_remaining() == it->ammo_capacity() ) {
+                add_msg( m_info, _( "The %s is already fully loaded!" ), it->tname().c_str() );
+                return;
+            } // intentional fall-through
 
         case HINT_CANT:
             add_msg( m_info, _( "You can't reload a %s!." ), it->tname().c_str() );
@@ -11501,38 +11226,14 @@ void game::reload( int pos )
             break;
     }
 
-    auto loc = it->pick_reload_ammo( u );
-    if( loc ) {
-        const item& ammo = loc->is_ammo_container() ? loc->contents[0] : *loc;
-
-        item *target = nullptr;
-        if( it->active_gunmod() && it->active_gunmod()->can_reload( ammo.typeId() ) ) {
-            target = it->active_gunmod(); // prefer reloading active gunmod
-
-        } else if( it->can_reload( ammo.typeId() ) ) {
-            target = it; // otherwise reload item itself
-
-        } else {
-            for( const auto mod : it->gunmods() ) {
-                if( mod->can_reload( ammo.typeId() ) ) {
-                    target = mod; // finally try to reload any other auxiliary gunmod
-                    break;
-                }
-            }
-        }
-        if( !target ) {
-            debugmsg( "Unable to find suitable reload target" );
-            return; // not expected when player::rate_action_reload() == true
-        }
-
-        int qty = 1;// @todo pick_reload_ammo should return also target and qty
-        if( ammo.is_ammo() && !target->has_flag( "RELOAD_ONE") ) {
-            qty = std::min( ammo.charges, target->ammo_capacity() - target->ammo_remaining() );
-        }
-
+    item::reload_option opt = it->pick_reload_ammo( u );
+    if( opt ) {
         std::stringstream ss;
         ss << pos;
-        u.assign_activity( ACT_RELOAD, u.item_reload_cost( *target, ammo, qty ), qty, loc.obtain( u, qty ), ss.str() );
+
+        long fetch = !opt.ammo->is_ammo_container() ? opt.qty : 1;
+        u.assign_activity( ACT_RELOAD, opt.moves, opt.qty, opt.ammo.obtain( u, fetch ), ss.str() );
+
         u.inv.restack( &u );
     }
 
@@ -11594,7 +11295,7 @@ bool add_or_drop_with_msg( player &u, item &it )
     return true;
 }
 
-void game::unload( item &it )
+bool game::unload( item &it )
 {
     // Unload a container consuming moves per item successfully removed
     if( it.is_container() && !it.contents.empty() ) {
@@ -11606,7 +11307,7 @@ void game::unload( item &it )
             u.moves -= mv;
             return true;
         } ), it.contents.end() );
-        return;
+        return true;
     }
 
     // If item can be unloaded more than once (currently only guns) prompt user to choose
@@ -11628,7 +11329,7 @@ void game::unload( item &it )
     // Next check for any reasons why the item cannot be unloaded
     if( target->ammo_type() == "NULL" || target->ammo_capacity() <= 0 ) {
         add_msg( m_info, _("You can't unload a %s!"), target->tname().c_str() );
-        return;
+        return false;
     }
 
     if( target->has_flag( "NO_UNLOAD" ) ) {
@@ -11637,7 +11338,7 @@ void game::unload( item &it )
         } else {
             add_msg( m_info, _( "You can't unload a %s!" ), target->tname().c_str() );
         }
-        return;
+        return false;
     }
 
     if( !target->magazine_current() && target->ammo_remaining() <= 0 ) {
@@ -11646,7 +11347,7 @@ void game::unload( item &it )
         } else {
             add_msg( m_info, _( "Your %s isn't loaded." ), target->tname().c_str() );
         }
-        return;
+        return false;
     }
 
     if( target->is_magazine() ) {
@@ -11657,14 +11358,14 @@ void game::unload( item &it )
             }
             u.moves -= u.item_reload_cost( *target, e ) / 2;
             return true;
-        } ), it.contents.end() );
+        } ), target->contents.end() );
 
         add_msg( _( "You unload your %s." ), target->tname().c_str() );
-        return;
+        return true;
 
     } else if( target->magazine_current() ) {
         if( !add_or_drop_with_msg( u, *target->magazine_current() ) ) {
-            return;
+            return false;
         }
         // Eject magazine consuming half as much time as required to insert it
         u.moves -= u.item_reload_cost( *target, *target->magazine_current() ) / 2;
@@ -11682,16 +11383,22 @@ void game::unload( item &it )
                 add_msg( _( "You recover %i unused plutonium." ), qty );
             } else {
                 add_msg( m_info, _( "You can't remove partially depleted plutonium!" ) );
-                return;
+                return false;
             }
         }
 
         // Construct a new ammo item and try to drop it
-        item ammo( target->ammo_current(), calendar::turn );
-        ammo.charges = qty;
+        item ammo( target->ammo_current(), calendar::turn, qty );
 
-        if( !add_or_drop_with_msg( u, ammo ) ) {
-            return;
+        if( ammo.made_of( LIQUID ) ) {
+            add_or_drop_with_msg( u, ammo );
+            qty -= ammo.charges;
+            if( qty <= 0 ) {
+                return false; // no liquid was moved
+            }
+
+        } else if( !add_or_drop_with_msg( u, ammo ) ) {
+            return false;
         }
 
         // If successful remove appropriate qty of ammo consuming half as much time as required to load it
@@ -11713,6 +11420,7 @@ void game::unload( item &it )
     }
 
     add_msg( _( "You unload your %s." ), target->tname().c_str() );
+    return true;
 }
 
 void game::wield( int pos )
@@ -12432,12 +12140,12 @@ void game::place_player( const tripoint &dest_loc )
     if (m.has_flag("ROUGH", dest_loc) && (!u.in_vehicle)) {
         if (one_in(5) && u.get_armor_bash(bp_foot_l) < rng(2, 5)) {
             add_msg(m_bad, _("You hurt your left foot on the %s!"),
-                    m.has_flag_ter_or_furn( "ROUGH", dest_loc) ? m.tername(dest_loc).c_str() : m.furnname(dest_loc).c_str() );
+                    m.has_flag_ter( "ROUGH", dest_loc) ? m.tername(dest_loc).c_str() : m.furnname(dest_loc).c_str() );
             u.deal_damage( nullptr, bp_foot_l, damage_instance( DT_CUT, 1 ) );
         }
         if (one_in(5) && u.get_armor_bash(bp_foot_r) < rng(2, 5)) {
             add_msg(m_bad, _("You hurt your right foot on the %s!"),
-                    m.has_flag_ter_or_furn( "ROUGH", dest_loc) ? m.tername(dest_loc).c_str() : m.furnname(dest_loc).c_str() );
+                    m.has_flag_ter( "ROUGH", dest_loc) ? m.tername(dest_loc).c_str() : m.furnname(dest_loc).c_str() );
             u.deal_damage( nullptr, bp_foot_l, damage_instance( DT_CUT, 1 ) );
         }
     }
@@ -13551,7 +13259,7 @@ tripoint game::find_or_make_stairs( map &mp, const int z_after, bool &rope_ladde
                     u.mod_pain(5);
                     u.apply_damage( nullptr, bp_torso, 5 );
                     u.mod_hunger(10);
-                    u.thirst += 10;
+                    u.mod_thirst(10);
                 } else {
                     add_msg(_("You gingerly descend using your vines."));
                 }
@@ -13559,7 +13267,7 @@ tripoint game::find_or_make_stairs( map &mp, const int z_after, bool &rope_ladde
                 add_msg(_("You effortlessly lower yourself and leave a vine rooted for future use."));
                 rope_ladder = true;
                 u.mod_hunger(10);
-                u.thirst += 10;
+                u.mod_thirst(10);
             }
         } else {
             return tripoint_min;
@@ -14592,6 +14300,26 @@ void game::quicksave()
     last_save_timestamp = now;
 }
 
+void game::quickload()
+{
+    const WORLDPTR active_world = world_generator->active_world;
+    if ( active_world == nullptr ) {
+        return;
+    }
+
+    const std::string &save_name = base64_encode(u.name);
+    if( active_world->save_exists( save_name ) ) {
+        if( moves_since_last_save != 0 ) { // See if we need to reload anything
+            MAPBUFFER.reset();
+            overmap_buffer.clear();
+            setup();
+            load( active_world->world_name, save_name );
+        }
+    } else {
+        popup_getkey( _( "No saves for %s yet." ), u.name.c_str() );
+    }
+}
+
 void game::autosave()
 {
     //Don't autosave if the min-autosave interval has not passed since the last autosave/quicksave.
@@ -14689,7 +14417,7 @@ void game::process_artifact(item *it, player *p)
             case ARTC_PAIN:
                 if (calendar::turn.seconds() == 0) {
                     add_msg(m_bad, _("You suddenly feel sharp pain for no reason."));
-                    p->pain += 3 * rng(1, 3);
+                    p->mod_pain_noresist( 3 * rng(1, 3) );
                     it->charges++;
                 }
                 break;
@@ -14763,7 +14491,7 @@ void game::process_artifact(item *it, player *p)
 
         case AEP_THIRST:
             if (one_in(120)) {
-                p->thirst++;
+                p->mod_thirst(1);
             }
             break;
 
@@ -15051,6 +14779,6 @@ overmap &game::get_cur_om() const
 {
     // The player is located in the middle submap of the map.
     const tripoint sm = m.get_abs_sub() + tripoint( MAPSIZE / 2, MAPSIZE / 2, 0 );
-    const tripoint pos_om = overmapbuffer::sm_to_om_copy( sm );
+    const tripoint pos_om = sm_to_om_copy( sm );
     return overmap_buffer.get( pos_om.x, pos_om.y );
 }

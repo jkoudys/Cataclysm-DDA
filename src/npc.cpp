@@ -1,7 +1,6 @@
-#include <fstream>
-#include <sstream>
-
 #include "npc.h"
+
+#include "coordinate_conversions.h"
 #include "rng.h"
 #include "map.h"
 #include "game.h"
@@ -17,13 +16,15 @@
 #include "mission.h"
 #include "json.h"
 #include "sounds.h"
-#include "morale.h"
+#include "morale_types.h"
 #include "overmap.h"
 #include "vehicle.h"
 #include "mtype.h"
 #include "iuse_actor.h"
 
 #include <algorithm>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 #define NPC_LOW_VALUE       5
@@ -79,7 +80,6 @@ npc::npc()
     guard_pos = no_goal_point;
     goal = no_goal_point;
     fatigue = 0;
-    thirst = 0;
     fetching_item = false;
     has_new_items = true;
     worst_item_value = 0;
@@ -882,69 +882,56 @@ std::list<item> starting_clothes( npc_class type, bool male )
  return ret;
 }
 
-std::list<item> starting_inv(npc *me, npc_class type)
+std::list<item> starting_inv( npc *me, npc_class type )
 {
- int total_space = me->volume_capacity();
- std::list<item> ret;
- ret.emplace_back( "lighter", 0 );
- itype_id tmp;
- item tmpitem;
+    std::list<item> res;
+    res.emplace_back( "lighter" );
 
-// First, if we're wielding a gun, get some ammo for it
- if (me->weapon.is_gun()) {
-  tmp = default_ammo(me->weapon.type->gun->ammo);
-  if (tmp == "" || tmp == "UPS"){
-    add_msg( m_debug, "Unknown ammo type for spawned NPC: '%s'", tmp.c_str() );
-  }else {
-      item itammo( tmp, 0 );
-      itammo = itammo.in_its_container();
-      if( itammo.made_of( LIQUID ) ) {
-          item container( "bottle_plastic", 0 );
-          container.put_in( itammo );
-          itammo = container;
-      }
-      if (total_space >= itammo.volume()) {
-       ret.push_back(itammo);
-       total_space -= ret.back().volume();
-      }
-      while ((type == NC_COWBOY || type == NC_BOUNTY_HUNTER || !one_in(3)) &&
-             !one_in(2) && total_space >= itammo.volume()) {
-       ret.push_back(itammo);
-       total_space -= ret.back().volume();
-      }
-  }
- }
+    // If wielding a gun, get some additional ammo for it
+    if( me->weapon.is_gun() ) {
+        item ammo( default_ammo( me->weapon.ammo_type() ) );
+        ammo = ammo.in_its_container();
+        if( ammo.made_of( LIQUID ) ) {
+            item container( "bottle_plastic" );
+            container.put_in( ammo );
+            ammo = container;
+        }
 
- int stopChance = 25;
- if (type == NC_ARSONIST)
-  ret.push_back(item("molotov", 0));
- if (type == NC_EVAC_SHOPKEEP || type == NC_TRADER){
-  total_space += 30;
-  stopChance = 40;
- }
+        // NC_COWBOY and NC_BOUNTY_HUNTER get 2-4 whilst all others get 1 or 2
+        int qty = 1 + ( type == NC_COWBOY || type == NC_BOUNTY_HUNTER );
+        qty = rng( qty, qty * 2 );
 
- while (total_space > 0 && !one_in(stopChance)) {
-    tmpitem = random_item_from( type, "misc" );
-    if( tmpitem.is_null() ) {
-        continue;
+        while ( qty-- != 0 && me->can_pickVolume( ammo.volume() ) ) {
+            // @todo give NPC a default magazine instead
+            res.push_back( ammo );
+        }
     }
-    if( !one_in( 3 ) && tmpitem.has_flag( "VARSIZE" ) ) {
-        tmpitem.item_tags.insert( "FIT" );
-    }
-    if (total_space >= tmpitem.volume()) {
-        ret.push_back(tmpitem);
-        ret.back() = ret.back().in_its_container();
-        total_space -= ret.back().volume();
-    }
- }
 
- for (std::list<item>::iterator iter = ret.begin(); iter != ret.end(); ++iter) {
-  if(item_group::group_contains_item("trader_avoid", iter->type->id)) {
-   iter = ret.erase(iter);
-   --iter;
-  }
- }
- return ret;
+    if( type == NC_ARSONIST ) {
+        res.emplace_back( "molotov" );
+    }
+
+    // NC_COWBOY and NC_BOUNTY_HUNTER get 5-15 whilst all others get 3-6
+    int qty = ( type == NC_EVAC_SHOPKEEP || type == NC_TRADER ) ? 5 : 2;
+    qty = rng( qty, qty * 3 );
+
+    while ( qty-- != 0 ) {
+        item tmp = random_item_from( type, "misc" ).in_its_container();
+        if( !tmp.is_null() ) {
+            if( !one_in( 3 ) && tmp.has_flag( "VARSIZE" ) ) {
+                tmp.item_tags.insert( "FIT" );
+            }
+            if( me->can_pickVolume( tmp.volume() ) ) {
+                res.push_back( tmp );
+            }
+        }
+    }
+
+    res.erase( std::remove_if( res.begin(), res.end(), [&]( const item& e ) {
+        return item_group::group_contains_item( "trader_avoid", e.typeId() );
+    } ), res.end() );
+
+    return res;
 }
 
 void npc::spawn_at(int x, int y, int z)
@@ -954,7 +941,7 @@ void npc::spawn_at(int x, int y, int z)
     position.x = rng(0, SEEX - 1);
     position.y = rng(0, SEEY - 1);
     position.z = z;
-    const point pos_om = overmapbuffer::sm_to_om_copy( mapx, mapy );
+    const point pos_om = sm_to_om_copy( mapx, mapy );
     overmap &om = overmap_buffer.get( pos_om.x, pos_om.y );
     om.npcs.push_back(this);
 }
@@ -1058,13 +1045,13 @@ void npc::starting_weapon(npc_class type)
     } else if (best->ident() == skill_archery ) {
         sel_weapon = random_item_from( type, "archery" );
     }else if (best->ident() == skill_pistol ) {
-        sel_weapon = random_item_from( type, "pistols", "pistols" );
+        sel_weapon = random_item_from( type, "pistol", "guns_pistol_common" );
     }else if (best->ident() == skill_shotgun ) {
-        sel_weapon = random_item_from( type, "shotgun", "shotguns" );
+        sel_weapon = random_item_from( type, "shotgun", "guns_shotgun_common" );
     }else if (best->ident() == skill_smg ) {
-        sel_weapon = random_item_from( type, "smg", "smg" );
+        sel_weapon = random_item_from( type, "smg", "guns_smg_common" );
     }else if (best->ident() == skill_rifle ) {
-        sel_weapon = random_item_from( type, "rifle", "rifles" );
+        sel_weapon = random_item_from( type, "rifle", "guns_rifle_common" );
     }else if (best->ident() == skill_launcher ) {
         sel_weapon = random_item_from( type, "launcher" );
     }
@@ -1074,13 +1061,8 @@ void npc::starting_weapon(npc_class type)
     }
     weapon = sel_weapon;
 
-    if (weapon.is_gun())
-    {
-        const std::string tmp = default_ammo( weapon.type->gun->ammo );
-        if( tmp != "" ) {
-            weapon.charges = weapon.type->gun->clip;
-            weapon.set_curammo( tmp );
-        }
+    if( weapon.is_gun() ) {
+        weapon.ammo_set( default_ammo( weapon.type->gun->ammo ) );
     }
 }
 
@@ -1128,6 +1110,7 @@ bool npc::wear_if_wanted( const item &it )
     }
 
     bool encumb_ok = true;
+    const auto new_enc = get_encumbrance( it );
     do {
         // Strip until we can put the new item on
         // This is one of the reasons this command is not used by the AI
@@ -1142,10 +1125,7 @@ bool npc::wear_if_wanted( const item &it )
                 return false;
             }
 
-            double layers = 0;
-            int armor_enc = 0;
-            int enc = encumb( bp, layers, armor_enc, it );
-            if( enc > max_encumb[i] ) {
+            if( new_enc[i].encumbrance > max_encumb[i] ) {
                 encumb_ok = false;
                 break;
             }
@@ -1318,7 +1298,7 @@ void npc::form_opinion(player *u)
   op_of_u.trust -= 2;
  if (u->stim > 20 || u->stim < -20)
   op_of_u.trust -= 1;
- if (u->pkill > 30)
+ if (u->get_painkiller() > 30)
   op_of_u.trust -= 1;
 
  if (u->has_trait("PRETTY"))
@@ -1675,8 +1655,7 @@ std::vector<npc::item_pricing> npc::init_selling()
         // sort them by types and values
         // allow selling some of them
         auto &it = i->front();
-        if( it.type->id == "lighter" && !found_lighter
-            && it.num_charges() >= 10 ) {
+        if( it.type->id == "lighter" && !found_lighter && it.ammo_remaining() >= 10 ) {
             found_lighter = true;
             continue;
         }
@@ -1793,8 +1772,8 @@ int npc::value( const item &it, int market_price ) const
             comestval++;
         } if( get_hunger() > 40 ) {
             comestval += (comest->get_nutrition() + get_hunger() - 40) / 6;
-        } if( thirst > 40 ) {
-            comestval += (comest->quench + thirst - 40) / 4;
+        } if( get_thirst() > 40 ) {
+            comestval += (comest->quench + get_thirst() - 40) / 4;
         }
         if( comestval > 0 && can_eat( it ) == EDIBLE ) {
             ret += comestval;
@@ -1887,7 +1866,7 @@ item &npc::get_healing_item( bool bleed, bool bite, bool infect, bool first_best
 
 bool npc::has_painkiller()
 {
-    return inv.has_enough_painkiller( pain );
+    return inv.has_enough_painkiller( get_pain() );
 }
 
 bool npc::took_painkiller() const
@@ -2222,10 +2201,10 @@ void npc::shift(int sx, int sy)
 
     position.x -= shiftx;
     position.y -= shifty;
-    const point pos_om_old = overmapbuffer::sm_to_om_copy( mapx, mapy );
+    const point pos_om_old = sm_to_om_copy( mapx, mapy );
     mapx += sx;
     mapy += sy;
-    const point pos_om_new = overmapbuffer::sm_to_om_copy( mapx, mapy );
+    const point pos_om_new = sm_to_om_copy( mapx, mapy );
     if( pos_om_old != pos_om_new ) {
         overmap &om_old = overmap_buffer.get( pos_om_old.x, pos_om_old.y );
         overmap &om_new = overmap_buffer.get( pos_om_new.x, pos_om_new.y );
@@ -2682,4 +2661,49 @@ float npc::speed_rating() const
     ret *= 100.0f / run_cost( 100, false );
 
     return ret;
+}
+
+bool npc::dispose_item( item& obj, const std::string & )
+{
+    using dispose_option = struct {
+        int moves;
+        std::function<void()> action;
+    };
+
+    std::vector<dispose_option> opts;
+
+    for( auto& e : worn ) {
+        if( e.can_holster( obj ) ) {
+            auto ptr = dynamic_cast<const holster_actor *>( e.type->get_use( "holster" )->get_actor_ptr() );
+            opts.emplace_back( dispose_option {
+                item_store_cost( obj, e, false, ptr->draw_cost ),
+                [this,ptr,&e,&obj]{ ptr->store( *this, e, obj ); }
+            } );
+        }
+    }
+
+    if( volume_carried() + obj.volume() <= volume_capacity() ) {
+        opts.emplace_back( dispose_option {
+            item_handling_cost( obj ) * INVENTORY_HANDLING_FACTOR,
+            [this,&obj] {
+                moves -= item_handling_cost( obj ) * INVENTORY_HANDLING_FACTOR;
+                inv.add_item_keep_invlet( i_rem( &obj ) );
+                inv.unsort();
+            }
+        } );
+    }
+
+    if( opts.empty() ) {
+        // Drop it
+        g->m.add_item_or_charges( pos(), i_rem( &obj ) );
+        return true;
+    }
+
+    const auto mn = std::min_element( opts.begin(), opts.end(),
+        []( const dispose_option &lop, const dispose_option &rop ) {
+        return lop.moves < rop.moves;
+    } );
+
+    mn->action();
+    return true;
 }

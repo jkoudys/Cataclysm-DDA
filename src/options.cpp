@@ -1104,10 +1104,20 @@ void options_manager::init()
 
     mOptionsSort["debug"]++;
 
-    OPTIONS["INITIAL_POINTS"] = cOpt("debug", _("Initial points"),
-                                     _("Initial points available on character generation."),
-                                     0, 1000, 6
-                                    );
+    OPTIONS["INITIAL_STAT_POINTS"] = cOpt("debug", _("Initial stat points"),
+                                          _("Initial points available to spend on stats on character generation."),
+                                          0, 1000, 2
+                                         );
+
+    OPTIONS["INITIAL_TRAIT_POINTS"] = cOpt("debug", _("Initial trait points"),
+                                           _("Initial points available to spend on traits on character generation."),
+                                           0, 1000, 2
+                                          );
+
+    OPTIONS["INITIAL_SKILL_POINTS"] = cOpt("debug", _("Initial skill points"),
+                                           _("Initial points available to spend on skills on character generation."),
+                                           0, 1000, 2
+                                           );
 
     OPTIONS["MAX_TRAIT_POINTS"] = cOpt("debug", _("Maximum trait points"),
                                        _("Maximum trait points available for character generation."),
@@ -1641,10 +1651,19 @@ void options_manager::show(bool ingame)
             }
         }
     }
+    for( auto &iter : WOPTIONS_OLD ) {
+        if( iter.second.getValue() != ACTIVE_WORLD_OPTIONS[iter.first].getValue() ) {
+            options_changed = true;
+            world_options_changed = true;
+        }
+    }
 
     if (options_changed) {
         if(query_yn(_("Save changes?"))) {
             save(ingame && world_options_changed);
+            if( world_options_changed ) {
+                world_generator->save_world( world_generator->active_world, false );
+            }
         } else {
             used_tiles_changed = false;
             OPTIONS = OPTIONS_OLD;

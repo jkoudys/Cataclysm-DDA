@@ -2522,7 +2522,9 @@ double player::weapon_value( const item &weap, long ammo ) const
     const double less = std::min( val_gun, val_melee );
 
     // A small bonus for guns you can also use to hit stuff with (bayonets etc.)
-    return more + (less / 2.0);
+    const double my_val = more + (less / 2.0);
+    add_msg( m_debug, "%s sum value: %.1f", weap.tname().c_str(), my_val );
+    return my_val;
 }
 
 double player::gun_value( const item &weap, long ammo ) const
@@ -2533,7 +2535,7 @@ double player::gun_value( const item &weap, long ammo ) const
         return 0.0;
     }
 
-    if( ammo == 0 && !weap.has_flag("NO_AMMO") ) {
+    if( ammo < weap.ammo_required() ) {
         return 0.0;
     }
 
@@ -2569,17 +2571,6 @@ double player::gun_value( const item &weap, long ammo ) const
     // Don't penalize high-damage weapons for no skill
     // Point blank shotgun blasts don't require much skill
     gun_value += damage_bonus * std::max( 1.0, skill_scaling );
-
-    // Bonus that only applies when we have ammo to spare
-    double multi_ammo_bonus = gun.burst / 2.0;
-    multi_ammo_bonus += gun.clip / 2.5;
-    if( ammo <= 10 && !weap.has_flag("NO_AMMO") ) {
-        gun_value = gun_value * ammo / 10;
-    } else if( ammo < 30 ) {
-        gun_value += multi_ammo_bonus * (30.0 / ammo);
-    } else {
-        gun_value += multi_ammo_bonus;
-    }
 
     add_msg( m_debug, "%s as gun: %.1f total, %.1f for damage+pierce, %.1f skill scaling",
              weap.tname().c_str(), gun_value, damage_bonus, skill_scaling );
@@ -2629,6 +2620,8 @@ double player::melee_value( const item &weap ) const
     if( reach > 1.0f ) {
         my_value *= 1.0f + 0.5f * (sqrtf( reach ) - 1.0f);
     }
+
+    add_msg( m_debug, "%s as melee: %.1f", weap.tname().c_str(), my_value );
 
     return std::max( 0.0, my_value );
 }

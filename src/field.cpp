@@ -761,7 +761,7 @@ bool map::process_fields_in_submap( submap *const current_submap,
                             // explosions will destroy items on this square, iterating
                             // backwards makes sure that every item is visited.
                             for( auto explosive = items_here.begin(); explosive != items_here.end(); ) {
-                                if( explosive->type->explode_in_fire() ) {
+                                if( explosive->type->explode_in_fire ) {
                                     // Make a copy and let the copy explode.
                                     item tmp = *explosive;
                                     i_rem( p, explosive );
@@ -833,10 +833,10 @@ bool map::process_fields_in_submap( submap *const current_submap,
                                             // large intrinsic effect blows up with half
                                             // the ammos damage in force, for each bullet,
                                             // just creating shrapnel.
-                                            g->explosion( p, ammo_type->damage / 2, 0.5f, 1 );
+                                            g->explosion( p, ammo_type->damage / 2, 0.5f, false, 1 );
                                         } else if( special ) {
                                             // If it has a special effect just trigger it.
-                                            ammo_effects( p, ammo_type->ammo_effects );
+                                            apply_ammo_effects( p, ammo_type->ammo_effects );
                                         }
                                     }
                                     charges_remaining -= rounds_exploded;

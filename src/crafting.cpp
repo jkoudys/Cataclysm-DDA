@@ -10,7 +10,6 @@
 #include "json.h"
 #include "map.h"
 #include "messages.h"
-#include "morale.h"
 #include "npc.h"
 #include "options.h"
 #include "output.h"
@@ -205,7 +204,7 @@ bool player::crafting_allowed( const std::string &rec_name )
 
 bool player::crafting_allowed( const recipe &rec )
 {
-    if( !has_morale_to_craft() ) { // See morale.h
+    if( !has_morale_to_craft() ) {
         add_msg( m_info, _( "Your morale is too low to craft..." ) );
         return false;
     }
@@ -1333,7 +1332,7 @@ bool player::disassemble( item &dis_item, int dis_pos,
             recipe_ident = fake_recipe_book;
         }
     }
-
+    
     if( recipe_ident.empty() ) {
         // No recipe exists, or the item cannot be disassembled
         if( msg_and_query ) {
@@ -1541,6 +1540,14 @@ void player::complete_disassemble( int item_pos, const tripoint &loc,
     if( veh != nullptr ) {
         veh_part = veh->part_with_feature(veh_part, "CARGO");
     }
+    
+    // If we're trying to disassemble usb drive with some software in it
+    // Erase contents of the usb drive to prevent spawning of software as item in inventory
+    if ( !dis_item.contents.empty() ) {
+        if ( dis_item.contents[0].is_software() ) {
+            dis_item.contents.erase( dis_item.contents.begin() );
+        }
+    }
 
     add_msg(_("You disassemble the %s into its components."), dis_item.tname().c_str());
     // Remove any batteries, ammo and mods first
@@ -1704,7 +1711,7 @@ void remove_ammo(item *dis_item, player &p)
                 remove_ammo( &contents[i], p );
                 i++;
             } else {
-                p.remove_gunmod( dis_item, i );
+                p.gunmod_remove( *dis_item, contents[ i ] );
             }
             continue;
         }
