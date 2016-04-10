@@ -20,12 +20,16 @@ src/drawing_primitives.cpp
 src/editmap.cpp
 src/explosion.cpp
 src/gamemode.cpp
+src/gates.cpp
+src/gates.h
+src/help.cpp
 src/item_action.cpp
 src/item_location.cpp
 src/itype.cpp
 src/iuse_software.cpp
 src/live_view.cpp
 src/lua_console.cpp
+src/main_menu.cpp
 src/map_selector.cpp
 src/mapsharing.cpp
 src/material.cpp
@@ -58,6 +62,7 @@ src/tutorial.cpp
 src/vehicle_selector.cpp
 src/version.cpp
 src/weather_gen.cpp
+src/wish.cpp
 src/action.h
 src/active_item_cache.h
 src/activity_handlers.h
@@ -140,6 +145,7 @@ src/omdata.h
 src/options.h
 src/overmap_types.h
 src/path_info.h
+src/pathfinding.h
 src/pickup.h
 src/platform_win.h
 src/player_activity.h

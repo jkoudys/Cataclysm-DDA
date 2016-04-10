@@ -545,30 +545,29 @@ void Creature::deal_projectile_attack( Creature *source, dealt_projectile_attack
     dealt_dam.bp_hit = bp_hit;
 
     // Apply ammo effects to target.
-    const std::string target_material = get_material();
     if (proj.proj_effects.count("FLAME")) {
-        if (0 == target_material.compare("veggy") || 0 == target_material.compare("cotton") ||
-            0 == target_material.compare("wool") || 0 == target_material.compare("paper") ||
-            0 == target_material.compare("wood" ) ) {
+        if (made_of( material_id( "veggy" ) ) || made_of( material_id( "cotton" ) ) ||
+            made_of( material_id( "wool" ) ) || made_of( material_id( "paper" ) ) ||
+            made_of( material_id( "wood" ) ) ) {
             add_effect( effect_onfire, rng(8, 20));
-        } else if (0 == target_material.compare("flesh") || 0 == target_material.compare("iflesh") ) {
+        } else if (made_of( material_id( "flesh" ) ) || made_of( material_id( "iflesh" ) ) ) {
             add_effect( effect_onfire, rng(5, 10));
         }
     } else if (proj.proj_effects.count("INCENDIARY") ) {
-        if (0 == target_material.compare("veggy") || 0 == target_material.compare("cotton") ||
-            0 == target_material.compare("wool") || 0 == target_material.compare("paper") ||
-            0 == target_material.compare("wood") ) {
+        if (made_of( material_id( "veggy" ) ) || made_of( material_id( "cotton" ) ) ||
+            made_of( material_id( "wool" ) ) || made_of( material_id( "paper" ) ) ||
+            made_of( material_id( "wood" ) ) ) {
             add_effect( effect_onfire, rng(2, 6));
-        } else if ( (0 == target_material.compare("flesh") || 0 == target_material.compare("iflesh") ) &&
+        } else if ( (made_of( material_id( "flesh" ) ) || made_of( material_id( "iflesh" ) ) ) &&
                     one_in(4) ) {
             add_effect( effect_onfire, rng(1, 4));
         }
     } else if (proj.proj_effects.count("IGNITE")) {
-        if (0 == target_material.compare("veggy") || 0 == target_material.compare("cotton") ||
-            0 == target_material.compare("wool") || 0 == target_material.compare("paper") ||
-            0 == target_material.compare("wood") ) {
+        if (made_of( material_id( "veggy" ) ) || made_of( material_id( "cotton" ) ) ||
+            made_of( material_id( "wool" ) ) || made_of( material_id( "paper" ) ) ||
+            made_of( material_id( "wood" ) ) ) {
             add_effect( effect_onfire, rng(6, 6));
-        } else if (0 == target_material.compare("flesh") || 0 == target_material.compare("iflesh") ) {
+        } else if (made_of( material_id( "flesh" ) ) || made_of( material_id( "iflesh" ) ) ) {
             add_effect( effect_onfire, rng(10, 10));
         }
     }
@@ -1424,6 +1423,10 @@ void Creature::draw(WINDOW *w, int player_x, int player_y, bool inverted) const
 
 void Creature::draw( WINDOW *w, const tripoint &p, bool inverted ) const
 {
+    if (is_draw_tiles_mode()) {
+        return;
+    }
+
     int draw_x = getmaxx(w) / 2 + posx() - p.x;
     int draw_y = getmaxy(w) / 2 + posy() - p.y;
     if(inverted) {

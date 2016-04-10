@@ -79,7 +79,6 @@ bool defense_game::init()
     g->u.per_cur = g->u.per_max;
     g->u.int_cur = g->u.int_max;
     g->u.dex_cur = g->u.dex_max;
-    init_itypes();
     init_mtypes();
     init_constructions();
     init_recipes();
@@ -113,7 +112,7 @@ void defense_game::per_turn()
         g->u.set_hunger(0);
     }
     if (!sleep) {
-        g->u.fatigue = 0;
+        g->u.set_fatigue(0);
     }
     if (int(calendar::turn) % (time_between_waves * 10) == 0) {
         current_wave++;
@@ -175,14 +174,6 @@ void defense_game::post_action(action_id act)
 void defense_game::game_over()
 {
     popup(_("You managed to survive through wave %d!"), current_wave);
-}
-
-void defense_game::init_itypes()
-{
-    item::find_type( "2x4" )->volume = 0;
-    item::find_type( "2x4" )->weight = 0;
-    item::find_type( "landmine" )->price = 300;
-    item::find_type( "bot_turret" )->price = 6000;
 }
 
 void defense_game::init_mtypes()

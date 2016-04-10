@@ -22,7 +22,6 @@
     "recoil": 10,
     "durability": 6,
     "burst": 30,
-    "reload": 100,
     "barrel_length": 1,
     "valid_mod_locations": [ [ "accessories", 3 ], [ "barrel", 1 ], [ "bore", 1 ], [ "grip", 1 ], [ "mechanism", 4 ], [ "muzzle", 1 ], [ "rail", 1 ], [ "sights", 1 ], [ "stock", 1 ], [ "underbarrel", 1 ] ],
     "magazines": [
@@ -53,7 +52,6 @@
     "recoil": -75,
     "durability": 8,
     "clip_size": 19,
-    "reload": 90,
     "valid_mod_locations": [ [ "accessories", 4 ], [ "barrel", 1 ], [ "bore", 1 ], [ "grip", 1 ], [ "mechanism", 4 ], [ "muzzle", 1 ], [ "rail", 1 ], [ "sights", 1 ], [ "stock", 1 ], [ "underbarrel", 1 ] ],
     "flags": "RELOAD_ONE"
   },
@@ -80,7 +78,6 @@
     "recoil": 30,
     "durability": 6,
     "clip_size": 4,
-    "reload": 100,
     "valid_mod_locations": [ [ "accessories", 2 ], [ "barrel", 1 ], [ "bore", 1 ], [ "grip", 1 ], [ "mechanism", 4 ], [ "rail", 1 ], [ "sights", 1 ], [ "stock", 1 ], [ "underbarrel", 1 ] ],
     "flags": [ "RELOAD_ONE", "NEVER_JAMS", "RELOAD_EJECT" ]
   },
@@ -108,7 +105,7 @@
     "durability": 6,
     "loudness": 25,
     "clip_size": 1,
-    "reload": 250,
+    "reload": 200,
     "barrel_length": 2,
     "valid_mod_locations": [ [ "accessories", 2 ], [ "muzzle", 1 ], [ "stock", 1 ] ],
     "flags": [ "RELOAD_ONE", "RELOAD_EJECT" ]
@@ -160,7 +157,6 @@
     "aim_speed": 6,
     "recoil": -75,
     "durability": 8,
-    "reload": 100,
     "barrel_length": 2,
     "valid_mod_locations": [ [ "accessories", 4 ], [ "barrel", 1 ], [ "bore", 1 ], [ "grip", 1 ], [ "mechanism", 4 ], [ "muzzle", 1 ], [ "rail", 1 ], [ "sights", 1 ], [ "stock", 1 ], [ "underbarrel", 1 ] ],
     "magazine_well": 1,
@@ -172,29 +168,12 @@
   },
   {
     "id": "ruger_lcr_22",
+    "copy-from": "ruger_lcr_38",
     "type": "GUN",
     "name": "Ruger LCR .22",
     "name_plural": "Ruger LCR .22",
-    "description": "A compact, double-action-only revolver designed for easy concealment, with a stainless steel cylinder and aluminum frame.  This version is chambered in .22 Long Rifle.",
-    "weight": 422,
-    "volume": 1,
-    "price": 54500,
-    "bashing": 8,
-    "to_hit": -2,
-    "material": [ "steel", "aluminum", "plastic" ],
-    "symbol": "(",
-    "color": "dark_gray",
-    "skill": "pistol",
     "ammo": "22",
-    "dispersion": 225,
-    "sight_dispersion": 90,
-    "aim_speed": 4,
-    "recoil": 90,
-    "durability": 8,
-    "clip_size": 8,
-    "reload": 80,
-    "valid_mod_locations": [ [ "accessories", 2 ], [ "barrel", 1 ], [ "bore", 1 ], [ "grip", 1 ], [ "mechanism", 4 ], [ "rail", 1 ], [ "sights", 1 ], [ "stock", 1 ], [ "underbarrel", 1 ] ],
-    "flags": [ "RELOAD_ONE", "NEVER_JAMS", "RELOAD_EJECT" ]
+    "clip_size": 8
   },
   {
     "id": "sig_mosquito",
@@ -217,7 +196,6 @@
     "aim_speed": 4,
     "recoil": 60,
     "durability": 8,
-    "reload": 100,
     "valid_mod_locations": [ [ "accessories", 2 ], [ "barrel", 1 ], [ "bore", 1 ], [ "grip", 1 ], [ "mechanism", 4 ], [ "muzzle", 1 ], [ "rail", 1 ], [ "sights", 1 ], [ "stock", 1 ], [ "underbarrel", 1 ] ],
     "magazine_well": 1,
     "magazines": [
@@ -245,7 +223,6 @@
     "aim_speed": 4,
     "recoil": 75,
     "durability": 7,
-    "reload": 100,
     "valid_mod_locations": [ [ "accessories", 2 ], [ "barrel", 1 ], [ "bore", 1 ], [ "grip", 1 ], [ "mechanism", 4 ], [ "muzzle", 1 ], [ "rail", 1 ], [ "sights", 1 ], [ "stock", 1 ], [ "underbarrel", 1 ] ],
     "magazines": [
       [ "22", [ "sw22mag" ] ]

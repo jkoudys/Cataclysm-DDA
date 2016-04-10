@@ -611,7 +611,6 @@
       ["yeast", 10],
       ["molasses", 5],
       ["vodka", 20],
-      ["chem_ethanol", 2],
       ["apple_cider", 50],
       ["fruit_wine", 7],
       ["brandy", 5],
@@ -1781,7 +1780,6 @@
       ["frame", 20],
       ["hdframe", 10],
       ["metal_tank", 10],
-      ["metal_tank_small", 15],
       ["metal_tank_little", 10],
       ["water_faucet", 10],
       ["wire", 50],
@@ -3369,10 +3367,6 @@
       ["pocketwatch", 5],
       ["sf_watch", 5],
       ["file", 5],
-      ["l_base_223", 5],
-      ["l_car_223_kit", 5],
-      ["l_mbr_223_kit", 2],
-      ["l_dsr_223_kit", 2],
       ["RPG", 1],
       ["RPG-7_ammo", 1],
       ["cx4", 2],
@@ -3732,16 +3726,8 @@
     "type" : "item_group",
     "id" : "ambulance_equipment",
     "items":[
-      ["stethoscope", 24],
-      ["scissors", 10],
-      ["scalpel", 10],
-      ["syringe", 10],
-      ["adrenaline_injector", 6],
-      ["vacutainer", 2],
-      ["gloves_medical", 15],
-      ["mask_dust", 10],
-      ["medical_tape", 10],
-      ["smoxygen_tank", 3]
+      { "group": "tools_medical", "prob": 100 },
+      { "group": "drugs_emergency", "prob": 50 }
     ]
   },{
     "type" : "item_group",
@@ -4124,7 +4110,6 @@
       ["purifier", 12],
       ["plut_cell", 10],
       ["ftk93", 1],
-      ["nx17", 1],
       ["canister_goo", 8],
       ["UPS_off", 5],
       ["adv_UPS_off", 3],
@@ -4253,6 +4238,7 @@
     "id" : "pawn",
     "items":[
       { "group" : "mags_pawnshop", "prob" : 300 },
+      ["oxylamp", 50],
       ["polisher", 6],
       ["wakizashi_inferior", 30],
       ["katana_inferior", 30],
@@ -4889,7 +4875,6 @@
       ["jerrycan", 10],
       ["jerrycan_big", 10],
       ["metal_tank", 10],
-      ["metal_tank_small", 15],
       ["metal_tank_little", 10],
       ["jack", 10],
       ["anvil", 5],
@@ -6533,7 +6518,6 @@
       ["m1014", 1],
       ["steyr_aug", 6],
       ["v29", 1],
-      ["nx17", 1],
       ["flamethrower", 1],
       ["flashlight", 40],
       ["radio", 20],
@@ -6766,8 +6750,7 @@
     "type" : "item_group",
     "id" : "laserturret",
     "items":[
-      ["cerberus_laser", 1],
-      ["laser_capacitor", 8]
+      ["cerberus_laser", 1]
       ]
   },{
     "type" : "item_group",
@@ -6993,7 +6976,6 @@
       ["m240", 1],
       ["m27iar", 1],
       ["ftk93", 1],
-      ["nx17", 1],
       ["m320", 5],
       ["m320_mod", 10],
       ["ugl_buttstock", 10],
@@ -8219,6 +8201,7 @@
 "type" : "item_group",
 "id" : "antique",
         "items" : [
+      ["oxylamp", 50],
       ["cow_bell", 15],
       ["sickle", 2],
       ["scythe",2],
@@ -8759,38 +8742,6 @@
       ["months_old_newspaper", 20],
       ["weeks_old_newspaper", 100],
       ["newest_newspaper", 100],
-      ["survnote", 1]
-    ]
-  },{
-    "type" : "item_group",
-    "id" : "doctorsoffice",
-    "items":[
-      ["bandages", 100],
-      ["cotton_ball", 100],
-      ["1st_aid", 50],
-      ["disinfectant", 100],
-      ["medical_gauze", 100],
-      ["medical_tape", 50],
-      ["smoxygen_tank", 20],
-      ["bfipowder", 20],
-      ["quikclot", 20],
-      ["saline", 100],
-      ["eyedrops", 20],
-      ["aspirin", 100],
-      ["dayquil", 25],
-      ["nyquil", 25],
-      ["inhaler", 50],
-      ["syringe", 100],
-      ["adrenaline_injector", 5],
-      ["vacutainer", 5],
-      ["flu_shot", 20],
-      ["vaccine_shot", 20],
-      ["gloves_medical", 100],
-      ["stethoscope", 30],
-      ["mask_dust", 60],
-      ["string_6", 50],
-      ["scissors", 20],
-      ["emergency_book", 20],
       ["survnote", 1]
     ]
   },{

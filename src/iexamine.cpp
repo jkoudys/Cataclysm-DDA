@@ -68,13 +68,13 @@ void iexamine::gaspump(player &p, const tripoint &examp)
     for( auto item_it = items.begin(); item_it != items.end(); ++item_it ) {
         if( item_it->made_of(LIQUID) ) {
             ///\EFFECT_DEX decreases chance of spilling gas from a pump
-            if( one_in(10 + p.dex_cur) ) {
-                add_msg(m_bad, _("You accidentally spill the %s."), item_it->type_name(1).c_str());
-                item spill( item_it->type->id, calendar::turn );
-                const auto min = item_it->liquid_charges( 1 );
+            if( one_in(10 + p.get_dex()) ) {
+                add_msg(m_bad, _("You accidentally spill the %s."), item_it->type_name().c_str());
+                item spill( item_it->typeId(), calendar::turn );
+                const int spill_min = item_it->liquid_charges( 1 );
                 ///\EFFECT_DEX decreases amount of gas spilled from a pump
-                const auto max = item_it->liquid_charges( 1 ) * 8.0 / p.dex_cur;
-                spill.charges = rng( min, max );
+                const int spill_max = item_it->liquid_charges( 1 ) * 8.0 / std::max( 1, p.get_dex() );
+                spill.charges = rng( spill_min, spill_max );
                 g->m.add_item_or_charges( p.pos(), spill, 1 );
                 item_it->charges -= spill.charges;
                 if( item_it->charges < 1 ) {
@@ -84,7 +84,7 @@ void iexamine::gaspump(player &p, const tripoint &examp)
                 p.moves -= 300;
                 if( g->handle_liquid( *item_it, true, false ) ) {
                     add_msg(_("With a clang and a shudder, the %s pump goes silent."),
-                            item_it->type_name(1).c_str());
+                            item_it->type_name().c_str() );
                     items.erase( item_it );
                 }
             }
@@ -569,11 +569,6 @@ void iexamine::toilet(player &p, const tripoint &examp)
             // The bottling happens in handle_liquid, but delay of action
             // does not.
             p.moves -= 100;
-        } else if( !drained && initial_charges == water->charges ){
-            int charges_consumed = p.drink_from_hands( *water );
-            // Drink_from_hands handles moves, but doesn't decrease water
-            // charges.
-            water->charges -= charges_consumed;
         }
 
         if( drained || water->charges <= 0 ) {
@@ -598,7 +593,7 @@ void iexamine::controls_gate(player &p, const tripoint &examp)
         none( p, examp );
         return;
     }
-    g->open_gate( examp, g->m.ter( examp ) );
+    g->open_gate( examp );
 }
 
 void iexamine::cardreader(player &p, const tripoint &examp)
@@ -1311,8 +1306,8 @@ void iexamine::flower_poppy(player &p, const tripoint &examp)
         p.moves -= 150; // You take your time...
         add_msg(_("You slowly suck up the nectar."));
         p.mod_hunger(-25);
+        p.mod_fatigue(20);
         p.add_effect( effect_pkill2, 70);
-        p.fatigue += 20;
         // Please drink poppy nectar responsibly.
         if (one_in(20)) {
             p.add_addiction(ADD_PKILLER, 1);
@@ -1763,7 +1758,7 @@ void iexamine::kiln_empty(player &p, const tripoint &examp)
         return;
     }
 
-    std::vector< std::string > kilnable{ "wood", "bone" };
+    static const std::vector<material_id> kilnable{ material_id( "wood" ), material_id( "bone" ) };
     bool fuel_present = false;
     auto items = g->m.i_at( examp );
     for( auto i : items ) {
@@ -2349,7 +2344,7 @@ void iexamine::shrub_wildveggies( player &p, const tripoint &examp )
     return;
 }
 
-int sum_up_item_weight_by_material( map_stack &stack, const std::string &material, bool remove_items )
+int sum_up_item_weight_by_material( map_stack &stack, const material_id &material, bool remove_items )
 {
     int sum_weight = 0;
     for( auto item_it = stack.begin(); item_it != stack.end(); ) {
@@ -2386,7 +2381,7 @@ void iexamine::recycler(player &p, const tripoint &examp)
     // check for how much steel, by weight, is in the recycler
     // only items made of STEEL are checked
     // IRON and other metals cannot be turned into STEEL for now
-    int steel_weight = sum_up_item_weight_by_material( items_on_map, "steel", false );
+    int steel_weight = sum_up_item_weight_by_material( items_on_map, material_id( "steel" ), false );
     if (steel_weight == 0) {
         add_msg(m_info,
                 _("The recycler is currently empty.  Drop some metal items onto it and examine it again."));
@@ -2420,7 +2415,7 @@ void iexamine::recycler(player &p, const tripoint &examp)
 
     // Sum up again, this time remove the items,
     // ignore result, should be the same as before.
-    sum_up_item_weight_by_material( items_on_map, "steel", true );
+    sum_up_item_weight_by_material( items_on_map, material_id( "steel" ), true );
 
     double recover_factor = rng(6, 9) / 10.0;
     steel_weight = (int)(steel_weight * recover_factor);
@@ -2529,7 +2524,7 @@ void iexamine::water_source(player &p, const tripoint &examp)
     p.activity.values.push_back(water.bday);
 }
 
-itype *furn_t::crafting_pseudo_item_type() const
+const itype * furn_t::crafting_pseudo_item_type() const
 {
     if (crafting_pseudo_item.empty()) {
         return NULL;
@@ -2537,14 +2532,13 @@ itype *furn_t::crafting_pseudo_item_type() const
     return item::find_type( crafting_pseudo_item );
 }
 
-itype *furn_t::crafting_ammo_item_type() const
+const itype *furn_t::crafting_ammo_item_type() const
 {
-    const it_tool *toolt = dynamic_cast<const it_tool *>(crafting_pseudo_item_type());
-    if (toolt != NULL && toolt->ammo_id != "NULL") {
-        const std::string ammoid = default_ammo(toolt->ammo_id);
-        return item::find_type( ammoid );
+    const itype *pseudo = crafting_pseudo_item_type();
+    if( pseudo->tool && pseudo->tool->ammo_id != "NULL" ) {
+        return item::find_type( default_ammo( pseudo->tool->ammo_id ) );
     }
-    return NULL;
+    return nullptr;
 }
 
 static long count_charges_in_list(const itype *type, const map_stack &items)
@@ -2560,8 +2554,8 @@ static long count_charges_in_list(const itype *type, const map_stack &items)
 void iexamine::reload_furniture(player &p, const tripoint &examp)
 {
     const furn_t &f = g->m.furn_at(examp);
-    itype *type = f.crafting_pseudo_item_type();
-    itype *ammo = f.crafting_ammo_item_type();
+    const itype *type = f.crafting_pseudo_item_type();
+    const itype *ammo = f.crafting_ammo_item_type();
     if (type == NULL || ammo == NULL) {
         add_msg(m_info, _("This %s can not be reloaded!"), f.name.c_str());
         return;
