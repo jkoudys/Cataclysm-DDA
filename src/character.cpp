@@ -364,7 +364,7 @@ void Character::recalc_sight_limits()
     vision_mode_cache.reset();
 
     // Set sight_max.
-    if (has_effect( effect_blind ) || worn_with_flag("BLIND") || has_active_bionic("bio_blindfold")) {
+    if( is_blind() ) {
         sight_max = 0;
     } else if( has_effect( effect_boomered ) && (!(has_trait("PER_SLIME_OK"))) ) {
         sight_max = 1;
@@ -906,40 +906,14 @@ bool Character::worn_with_flag( std::string flag ) const
     return false;
 }
 
-SkillLevel& Character::skillLevel(const skill_id &ident)
+SkillLevel& Character::get_skill_level(const skill_id &ident)
 {
     if( !ident ) {
         static SkillLevel none;
         none.level( 0 );
         return none;
     }
-    return skillLevel( &ident.obj() );
-}
-
-SkillLevel& Character::skillLevel(const Skill* _skill)
-{
-    return _skills[_skill];
-}
-
-SkillLevel& Character::skillLevel(Skill const &_skill)
-{
-    return skillLevel(&_skill);
-}
-
-SkillLevel const& Character::get_skill_level(const Skill* _skill) const
-{
-    const auto iter = _skills.find( _skill );
-    if( iter != _skills.end() ) {
-        return iter->second;
-    }
-
-    static SkillLevel const dummy_result;
-    return dummy_result;
-}
-
-SkillLevel const& Character::get_skill_level(const Skill &_skill) const
-{
-    return get_skill_level(&_skill);
+    return _skills[ident];
 }
 
 SkillLevel const& Character::get_skill_level(const skill_id &ident) const
@@ -948,7 +922,24 @@ SkillLevel const& Character::get_skill_level(const skill_id &ident) const
         static const SkillLevel none{};
         return none;
     }
-    return get_skill_level( &ident.obj() );
+
+    const auto iter = _skills.find( ident );
+    if( iter != _skills.end() ) {
+        return iter->second;
+    }
+
+    static SkillLevel const dummy_result;
+    return dummy_result;
+}
+
+void Character::set_skill_level( const skill_id &ident, const int level )
+{
+    get_skill_level( ident ).level( level );
+}
+
+void Character::boost_skill_level( const skill_id &ident, const int delta )
+{
+    set_skill_level( ident, delta + get_skill_level( ident ) );
 }
 
 bool Character::meets_skill_requirements( const std::map<skill_id, int> &req ) const
@@ -1489,7 +1480,10 @@ void Character::mod_hunger(int nhunger)
 
 void Character::set_hunger(int nhunger)
 {
-    hunger = nhunger;
+    if( hunger != nhunger ) {
+        hunger = nhunger;
+        on_stat_change( "hunger", hunger );
+    }
 }
 
 int Character::get_thirst() const
@@ -1504,7 +1498,10 @@ void Character::mod_thirst(int nthirst)
 
 void Character::set_thirst(int nthirst)
 {
-    thirst = nthirst;
+    if( thirst != nthirst ) {
+        thirst = nthirst;
+        on_stat_change( "thirst", thirst );
+    }
 }
 
 int Character::get_stomach_food() const
@@ -1539,7 +1536,11 @@ void Character::mod_fatigue(int nfatigue)
 
 void Character::set_fatigue(int nfatigue)
 {
-    fatigue = std::max( nfatigue, -1000 );
+    nfatigue = std::max( nfatigue, -1000 );
+    if( fatigue != nfatigue ) {
+        fatigue = nfatigue;
+        on_stat_change( "fatigue", fatigue );
+    }
 }
 
 int Character::get_fatigue() const
@@ -1946,4 +1947,11 @@ bool Character::made_of( const material_id &m ) const {
     // TODO: check for mutations that change this.
     static const std::vector<material_id> fleshy = { material_id( "flesh" ), material_id( "hflesh" ) };
     return std::find( fleshy.begin(), fleshy.end(), m ) != fleshy.end();
+}
+
+bool Character::is_blind() const
+{
+    return ( worn_with_flag( "BLIND" ) ||
+             has_effect( effect_blind ) ||
+             has_active_bionic( "bio_blindfold" ) );
 }

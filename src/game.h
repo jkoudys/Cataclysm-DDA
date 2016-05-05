@@ -24,6 +24,9 @@ extern game *g;
 
 #ifdef TILES
 extern void try_sdl_update();
+extern void invalidate_map_framebuffer();
+extern void invalidate_overmap_framebuffer();
+extern void clear_window_area( WINDOW* win );
 #endif // TILES
 
 extern bool trigdist;
@@ -73,6 +76,7 @@ enum target_mode {
 enum activity_type : int;
 enum body_part : int;
 enum weather_type : int;
+enum action_id : int;
 
 struct special_game;
 struct mtype;
@@ -157,11 +161,11 @@ class game
         /** Used in main.cpp to determine what type of quit is being performed. */
         quit_status uquit;
         /** Saving and loading functions. */
-        void serialize(std::ofstream &fout);  // for save
-        void unserialize(std::ifstream &fin);  // for load
-        bool unserialize_legacy(std::ifstream &fin);  // for old load
-        void unserialize_master(std::ifstream &fin);  // for load
-        bool unserialize_master_legacy(std::ifstream &fin);  // for old load
+        void serialize(std::ostream &fout);  // for save
+        void unserialize(std::istream &fin);  // for load
+        bool unserialize_legacy(std::istream &fin);  // for old load
+        void unserialize_master(std::istream &fin);  // for load
+        bool unserialize_master_legacy(std::istream &fin);  // for old load
 
         /** write stats of all loaded items of the given type to stdout */
         void dump_stats( const std::string& what );
@@ -302,7 +306,7 @@ class game
          * If the monster was revived, the caller should remove the corpse item.
          * If reviving failed, the item is unchanged, as is the environment (no new monsters).
          */
-        bool revive_corpse( const tripoint &location, const item &corpse );
+        bool revive_corpse( const tripoint &location, item &corpse );
         /** Handles player input parts of gun firing (target selection, etc.). Actual firing is done
          *  in player::fire_gun(). This is interactive and should not be used by NPC's. */
         void plfire( bool burst, const tripoint &default_target = tripoint_min );
@@ -620,7 +624,7 @@ class game
         void print_menu(WINDOW *w_open, int iSel, const int iMenuOffsetX, int iMenuOffsetY,
                         bool bShowDDA = true);
         bool load_master(std::string worldname); // Load the master data file, with factions &c
-        void load_weather(std::ifstream &fin);
+        void load_weather(std::istream &fin);
         void load(std::string worldname, std::string name); // Load a player-specific save file
         bool start_game(std::string worldname); // Starts a new game in a world
         void start_special_game(special_game_id gametype); // See gamemode.cpp
@@ -628,17 +632,16 @@ class game
         //private save functions.
         // returns false if saving failed for whatever reason
         bool save_factions_missions_npcs();
-        void serialize_master(std::ofstream &fout);
+        void serialize_master(std::ostream &fout);
         // returns false if saving failed for whatever reason
         bool save_artifacts();
         // returns false if saving failed for whatever reason
         bool save_maps();
-        void save_weather(std::ofstream &fout);
+        void save_weather(std::ostream &fout);
         // returns false if saving failed for whatever reason
         bool save_uistate();
         void load_uistate(std::string worldname);
         // Data Initialization
-        void init_npctalk();
         void init_fields();
         void init_faction_data();
         void init_autosave();     // Initializes autosave parameters
@@ -700,7 +703,8 @@ class game
         void takeoff(int pos = INT_MIN); // Remove armor  'T'
         void change_side(int pos = INT_MIN); // Change the side on which an item is worn 'c'
         void reload(); // Reload a wielded gun/tool  'r'
-        void reload(int pos);
+        void reload( int pos, bool prompt = false );
+        void mend( int pos = INT_MIN );
 public:
         bool unload( item &it ); // Unload a gun/tool  'U'
         void unload(int pos = INT_MIN);
@@ -761,6 +765,8 @@ private:
         int  mon_info(WINDOW *); // Prints a list of nearby monsters
         void handle_key_blocking_activity(); // Abort reading etc.
         bool handle_action();
+        bool try_get_right_click_action( action_id &act, const tripoint &mouse_target );
+        bool try_get_left_click_action( action_id &act, const tripoint &mouse_target );
 
         void item_action_menu(); // Displays item action menu
 
@@ -784,6 +790,7 @@ private:
         void draw_HP();          // Draws the player's HP and Power level
         /** Draws the sidebar (if it's visible), including all windows there */
         void draw_sidebar();
+        void draw_sidebar_messages();
         void draw_pixel_minimap();  // Draws the pixel minimap based on the player's current location
 
         //  int autosave_timeout();  // If autosave enabled, how long we should wait for user inaction before saving.
@@ -793,10 +800,7 @@ private:
 
         // Input related
         // Handles box showing items under mouse
-        bool handle_mouseview(input_context &ctxt,
-                              std::string &action,
-                              const visibility_variables &cache);
-        void hide_mouseview(); // Hides the mouse hover box and redraws what was under it
+        bool handle_mouseview( input_context &ctxt, std::string &action );
 
         // On-request draw functions
         void draw_overmap();        // Draws the overmap, allows note-taking etc.

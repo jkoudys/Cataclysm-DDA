@@ -12,33 +12,30 @@
 
 namespace
 {
-void draw_mid_pane( WINDOW *win, item const &worn_item );
-
 std::string clothing_layer( item const &worn_item );
 std::vector<std::string> clothing_properties( item const &worn_item, int width );
 std::vector<std::string> clothing_flags_description( item const &worn_item );
 
 void draw_mid_pane( WINDOW *w_sort_middle, item const &worn_item )
 {
-    mvwprintz( w_sort_middle, 0, 1, c_white, worn_item.type_name( 1 ).c_str() );
     int middle_w = getmaxx( w_sort_middle );
+    size_t i = fold_and_print( w_sort_middle, 0, 1, middle_w - 1, c_white,
+                               worn_item.type_name( 1 ) ) - 1;
     std::vector<std::string> props = clothing_properties( worn_item, middle_w - 3 );
-    size_t i;
-    for( i = 0; i < props.size(); ++i ) {
-        // headers are green, info is gray
-        nc_color c = ( props[i][0] == '[' ? c_green : c_ltgray );
-        mvwprintz( w_sort_middle, i + 1, 2, c, props[i].c_str() );
+    for( auto &iter : props ) {
+        // [headers] are green, info is gray
+        nc_color color = ( iter[0] == '[' ? c_green : c_ltgray );
+        mvwprintz( w_sort_middle, ++i, 2, color, iter.c_str() );
     }
 
     i += 2;
     i += fold_and_print( w_sort_middle, i, 0, middle_w, c_ltblue,
-                         "%s", clothing_layer( worn_item ).c_str() );
+                         clothing_layer( worn_item ) );
 
     std::vector<std::string> desc = clothing_flags_description( worn_item );
     if( !desc.empty() ) {
         for( size_t j = 0; j < desc.size(); ++j ) {
-            i += -1 + fold_and_print( w_sort_middle, i + j, 0, middle_w,
-                                      c_ltblue, "%s", desc[j].c_str() );
+            i += -1 + fold_and_print( w_sort_middle, i + j, 0, middle_w, c_ltblue, desc[j] );
         }
     }
 }
@@ -152,6 +149,27 @@ std::vector<layering_item_info> items_cover_bp( const Character &c, int bp )
     return s;
 }
 
+void draw_grid( WINDOW *w, int left_pane_w, int mid_pane_w )
+{
+    const int win_w = getmaxx( w );
+    const int win_h = getmaxy( w );
+
+    draw_border( w );
+    mvwhline( w, 2, 1, 0, win_w - 2 );
+    mvwvline( w, 3, left_pane_w + 1, 0, win_h - 4 );
+    mvwvline( w, 3, left_pane_w + mid_pane_w + 2, 0, win_h - 4 );
+
+    // intersections
+    mvwputch( w, 2, 0, BORDER_COLOR, LINE_XXXO );
+    mvwputch( w, 2, win_w - 1, BORDER_COLOR, LINE_XOXX );
+    mvwputch( w, 2, left_pane_w + 1, BORDER_COLOR, LINE_OXXX );
+    mvwputch( w, win_h - 1, left_pane_w + 1, BORDER_COLOR, LINE_XXOX );
+    mvwputch( w, 2, left_pane_w + mid_pane_w + 2, BORDER_COLOR, LINE_OXXX );
+    mvwputch( w, win_h - 1, left_pane_w + mid_pane_w + 2, BORDER_COLOR, LINE_XXOX );
+
+    wrefresh( w );
+}
+
 void player::sort_armor()
 {
     /* Define required height of the right pane:
@@ -180,11 +198,11 @@ void player::sort_armor()
     * + 7 - ASSUMPTION: max possible number of flags @ item
     * + 13 - warmth & enc block
     */
-    int req_mid_h = 3 + 1 + 8 + 7 + 13;
+    const int req_mid_h = 3 + 1 + 8 + 7 + 13;
 
     const int win_h = std::min( TERMY, std::max( FULL_SCREEN_HEIGHT,
                                 std::max( req_right_h, req_mid_h ) ) );
-    const int win_w = FULL_SCREEN_WIDTH + ( TERMX - FULL_SCREEN_WIDTH ) / 3;
+    const int win_w = FULL_SCREEN_WIDTH + ( TERMX - FULL_SCREEN_WIDTH ) * 3 / 4;
     const int win_x = TERMX / 2 - win_w / 2;
     const int win_y = TERMY / 2 - win_h / 2;
 
@@ -214,19 +232,7 @@ void player::sort_armor()
 
     // Layout window
     WINDOW *w_sort_armor = newwin( win_h, win_w, win_y, win_x );
-    draw_border( w_sort_armor );
-    mvwhline( w_sort_armor, 2, 1, 0, win_w - 2 );
-    mvwvline( w_sort_armor, 3, left_w + 1, 0, win_h - 4 );
-    mvwvline( w_sort_armor, 3, left_w + middle_w + 2, 0, win_h - 4 );
-    // intersections
-    mvwhline( w_sort_armor, 2, 0, LINE_XXXO, 1 );
-    mvwhline( w_sort_armor, 2, win_w - 1, LINE_XOXX, 1 );
-    mvwvline( w_sort_armor, 2, left_w + 1, LINE_OXXX, 1 );
-    mvwvline( w_sort_armor, win_h - 1, left_w + 1, LINE_XXOX, 1 );
-    mvwvline( w_sort_armor, 2, left_w + middle_w + 2, LINE_OXXX, 1 );
-    mvwvline( w_sort_armor, win_h - 1, left_w + middle_w + 2, LINE_XXOX, 1 );
-    wrefresh( w_sort_armor );
-
+    draw_grid( w_sort_armor, left_w, middle_w );
     // Subwindows (between lines)
     WINDOW *w_sort_cat    = newwin( 1, win_w - 4, win_y + 1, win_x + 2 );
     WINDOW *w_sort_left   = newwin( cont_h, left_w,   win_y + 3, win_x + 1 );
@@ -314,13 +320,10 @@ void player::sort_armor()
                 mvwprintz( w_sort_left, drawindex + 1, 0, c_yellow, ">>" );
             }
 
-            if( itemindex == selected ) {
-                mvwprintz( w_sort_left, drawindex + 1, 3, dam_color[int( tmp_worn[itemindex]->damage + 1 )],
-                           tmp_worn[itemindex]->type_name( 1 ).c_str() );
-            } else {
-                mvwprintz( w_sort_left, drawindex + 1, 2, dam_color[int( tmp_worn[itemindex]->damage + 1 )],
-                           tmp_worn[itemindex]->type_name( 1 ).c_str() );
-            }
+            const int offset_x = ( itemindex == selected ) ? 3 : 2;
+            trim_and_print( w_sort_left, drawindex + 1, offset_x, left_w - offset_x - 3,
+                            dam_color[int( tmp_worn[itemindex]->damage + 1 )],
+                            tmp_worn[itemindex]->type_name( 1 ).c_str() );
             mvwprintz( w_sort_left, drawindex + 1, left_w - 3, c_ltgray, "%3d",
                        tmp_worn[itemindex]->get_storage() );
         }
@@ -336,10 +339,11 @@ void player::sort_armor()
         }
 
         // Items stats
-        if( leftListSize ) {
+        if( leftListSize > 0 ) {
             draw_mid_pane( w_sort_middle, *tmp_worn[leftListIndex] );
         } else {
-            mvwprintz( w_sort_middle, 0, 1, c_white, _( "Nothing to see here!" ) );
+            fold_and_print( w_sort_middle, 0, 1, middle_w - 1, c_white,
+                            _( "Nothing to see here!" ) );
         }
 
         mvwprintz( w_encumb, 0, 1, c_white, _( "Encumbrance and Warmth" ) );
@@ -351,7 +355,6 @@ void player::sort_armor()
                    _( "Encumbrance" ) );
 
         // Right list
-
         rightListSize = 0;
         for( int cover = 0, pos = 1; cover < num_bp; cover++ ) {
             bool combined = false;
@@ -361,14 +364,14 @@ void player::sort_armor()
             }
             if( rightListSize >= rightListOffset && pos <= cont_h - 2 ) {
                 mvwprintz( w_sort_right, pos, 1, ( cover == tabindex ? c_yellow : c_white ),
-                           "%s:", ( combined ? bpp_asText[cover] : bp_asText[cover] ).c_str() );
+                           "%s:", body_part_name_as_heading( bp_aBodyPart[cover], combined ? 2 : 1 ).c_str() );
                 pos++;
             }
             rightListSize++;
             for( auto &elem : items_cover_bp( *this, cover ) ) {
                 if( rightListSize >= rightListOffset && pos <= cont_h - 2 ) {
-                    mvwprintz( w_sort_right, pos, 2, dam_color[elem.damage + 1],
-                               elem.name.c_str() );
+                    trim_and_print( w_sort_right, pos, 2, right_w - 4, dam_color[elem.damage + 1],
+                                    elem.name.c_str() );
                     mvwprintz( w_sort_right, pos, right_w - 2, c_ltgray, "%d",
                                elem.encumber );
                     pos++;
@@ -515,9 +518,7 @@ void player::sort_armor()
                     popup( _( "Can't put this on" ) );
                 }
             }
-            // TODO: fix up along with hack below
-            draw_border( w_sort_armor );
-            wrefresh( w_sort_armor );
+            draw_grid( w_sort_armor, left_w, middle_w );
         } else if( action == "REMOVE_ARMOR" ) {
             // query (for now)
             if( leftListIndex < ( int ) tmp_worn.size() ) {
@@ -569,9 +570,9 @@ The sum of these values is the effective encumbrance value your character has fo
                           ctxt.get_desc( "EQUIP_ARMOR" ).c_str(),
                           ctxt.get_desc( "REMOVE_ARMOR" ).c_str()
                         );
-            //TODO: refresh the window properly. Current method erases the intersection symbols
-            draw_border( w_sort_armor ); // hack to mark whole window for redrawing
-            wrefresh( w_sort_armor );
+            draw_grid( w_sort_armor, left_w, middle_w );
+        } else if( action == "HELP_KEYBINDINGS" ) {
+            draw_grid( w_sort_armor, left_w, middle_w );
         } else if( action == "QUIT" ) {
             exit = true;
         }

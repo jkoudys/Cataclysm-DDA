@@ -47,12 +47,12 @@ itype_id ESCAPE_ITEMS[NUM_ESCAPE_ITEMS] = {
 
 // A list of alternate attack items (e.g. grenades), from least to most valuable
 #ifndef NUM_ALT_ATTACK_ITEMS
-#define NUM_ALT_ATTACK_ITEMS 18
+#define NUM_ALT_ATTACK_ITEMS 16
 itype_id ALT_ATTACK_ITEMS[NUM_ALT_ATTACK_ITEMS] = {
     "knife_combat", "spear_wood", "molotov", "pipebomb", "grenade",
-    "gasbomb", "bot_manhack", "tazer", "dynamite", "granade", "mininuke",
+    "gasbomb", "bot_manhack", "tazer", "dynamite", "mininuke",
     "molotov_lit", "pipebomb_act", "grenade_act", "gasbomb_act",
-    "dynamite_act", "granade_act", "mininuke_act"
+    "dynamite_act", "mininuke_act"
 };
 #endif
 
@@ -879,9 +879,9 @@ npc_action npc::address_needs()
     return address_needs( ai_cache.danger );
 }
 
-bool wants_to_reload( const item &it )
+bool wants_to_reload( const npc& who, const item &it )
 {
-    if( !it.can_reload() ) {
+    if( !who.can_reload( it ) ) {
         return false;
     }
 
@@ -914,7 +914,7 @@ item &npc::find_reloadable()
     // TODO: Make it understand smaller and bigger magazines
     item *reloadable = nullptr;
     visit_items( [this, &reloadable]( item *node ) {
-        if( !wants_to_reload( *node ) ) {
+        if( !wants_to_reload( *this, *node ) ) {
             return VisitResponse::SKIP;
         }
         const auto it_loc = node->pick_reload_ammo( *this ).ammo;
@@ -949,7 +949,7 @@ bool npc::can_reload_current()
 
 item_location npc::find_usable_ammo( const item &weap )
 {
-    if( !weap.can_reload() ) {
+    if( !can_reload( weap ) ) {
         return item_location();
     }
 
@@ -1112,9 +1112,7 @@ npc_action npc::long_term_goal_action()
 bool npc::alt_attack_available()
 {
     for( auto &elem : ALT_ATTACK_ITEMS ) {
-        if( ( !is_following() || rules.use_grenades ||
-              !( item::find_type( elem )->item_tags.count( "GRENADE" ) ) ) &&
-            has_amount( elem, 1 ) ) {
+        if( ( !is_following() || rules.use_grenades ) && has_amount( elem, 1 ) ) {
             return true;
         }
     }
@@ -1298,7 +1296,7 @@ bool npc::wont_hit_friend( const tripoint &tar, int weapon_index ) const
 
 bool npc::need_to_reload() const
 {
-    if( !weapon.can_reload() ) {
+    if( !can_reload( weapon ) ) {
         return false;
     }
 
@@ -1420,10 +1418,10 @@ void npc::move_to( const tripoint &pt, bool no_bashing )
         ///\EFFECT_STR_NPC increases recoil recovery speed
 
         ///\EFFECT_GUN_NPC increases recoil recovery speed
-        if (int(str_cur / 2) + skillLevel( skill_gun ) >= (int)recoil) {
+        if (int(str_cur / 2) + get_skill_level( skill_gun ) >= (int)recoil) {
             recoil = MIN_RECOIL;
         } else {
-            recoil -= int(str_cur / 2) + skillLevel( skill_gun );
+            recoil -= int(str_cur / 2) + get_skill_level( skill_gun );
             recoil = int(recoil / 2);
         }
     }
@@ -1567,7 +1565,7 @@ void npc::move_to_next()
     }
 
     move_to( path[0] );
-    if( pos() == path[0] ) { // Move was successful
+    if( !path.empty() && pos() == path[0] ) { // Move was successful
         path.erase( path.begin() );
     }
 }
@@ -1694,6 +1692,10 @@ void npc::move_away_from( const tripoint &pt, bool no_bash_atk )
     int chance = 2;
     for( const tripoint &p : g->m.points_in_radius( pos(), 1 ) ) {
         if( p == pos() ) {
+            continue;
+        }
+
+        if( p == g->u.pos() ) {
             continue;
         }
 
@@ -1995,7 +1997,7 @@ void npc::drop_items(int weight, int volume)
 
 bool npc::find_corpse_to_pulp()
 {
-    if( is_following() && !rules.allow_pulp ) {
+    if( is_following() && ( !rules.allow_pulp || g->u.in_vehicle ) ) {
         return false;
     }
 
@@ -2190,9 +2192,7 @@ void npc::alt_attack()
      * See npc.h for definition of ALT_ATTACK_ITEMS
      */
     for( auto &elem : ALT_ATTACK_ITEMS ) {
-        if( ( !is_following() || rules.use_grenades ||
-              !( item::find_type( elem )->item_tags.count( "GRENADE" ) ) ) &&
-            has_amount( elem, 1 ) ) {
+        if( ( !is_following() || rules.use_grenades ) && has_amount( elem, 1 ) ) {
             which = elem;
         }
     }
@@ -2438,6 +2438,10 @@ float rate_food( const item &it, int want_nutr, int want_quench )
     if( food == nullptr ) {
         // Not food
         return 0.0f;
+    }
+
+    if( food->parasites ) {
+        return 0.0;
     }
 
     int nutr = food->nutr;

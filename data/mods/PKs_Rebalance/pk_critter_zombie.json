@@ -29,7 +29,7 @@
             {
             "type" : "bite",
             "cooldown" : 7,
-            "no_infection_chance" : 20,
+            "no_infection_chance" : 5,
             "min_mul" : 0.5, "//" : "strong jaws"
         }]
     },{
@@ -96,14 +96,34 @@
         "upgrades":{
         "into_group": "GROUP_CHILD_ZOMBIE_UPGRADE",
         "half_life": 14
-    }
+      }
+    },{
+    "type" : "MONSTER",
+    "id" : "mon_zombie_biter",
+    "edit-mode" : "modify",
+    "diff":16,
+    "aggression":100,
+    "morale":100,
+    "speed":110,
+    "melee_skill":6,
+    "melee_dice":3,
+    "melee_dice_sides":7,
+    "melee_cut":4,
+    "dodge":3,
+    "armor_bash":5,
+    "armor_cut":2,
+    "vision_day":25,
+    "vision_night":15,
+    "death_drops": "default_zombie_death_drops",
+    "hp":100,
+    "description":"A distorted human body with sleek muscles.  Its jaws have elongated into a ursine-like snout, dripping with foul smelling saliva."
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_swimmer",
     "edit-mode" : "modify",
         "upgrades":{
-      "into": "mon_zombie_biter",
-      "half_life": 10
+      "into": "mon_zombie_mancroc",
+      "half_life": 14
       }
     },{
     "type" : "MONSTER",
@@ -163,14 +183,6 @@
       }
     },{
     "type" : "MONSTER",
-    "id" : "mon_zombie_brute",
-    "edit-mode" : "modify",
-        "upgrades":{
-      "into_group": "GROUP_ZOMBIE_BRUTE",
-      "half_life": 28
-      }
-    },{
-    "type" : "MONSTER",
     "id" : "mon_zombie_shady",
     "edit-mode" : "modify",
         "upgrades":{
@@ -204,7 +216,7 @@
       },
     "hp":115,
     "death_function": "NORMAL",
-    "flags":["SEES", "HEARS", "REVIVES", "SWIMS", "STUMBLES", "SMELLS", "WARM", "BASHES", "GRABS", "GROUP_BASH", "POISON", "NO_BREATHE"]
+    "flags":["SEES", "HEARS", "REVIVES", "STUMBLES", "SMELLS", "WARM", "BASHES", "GRABS", "GROUP_BASH", "POISON", "NO_BREATHE"]
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_master",
@@ -235,47 +247,26 @@
       }
     },{
     "type" : "MONSTER",
+    "edit-mode" : "modify",
     "id" : "mon_zombie_brute_ninja",
-    "name": "zombie nightstalker",
-    "species":"ZOMBIE",
-    "default_faction":"zombie",
-    "symbol":"Z",
-    "color":"dkgray_red",
-    "size":"MEDIUM",
-    "material":"flesh",
-    "diff":24,
-    "aggression":100,
-    "morale":100,
     "speed":110,
     "melee_skill":10,
     "melee_dice":6,
     "melee_dice_sides":4,
     "melee_cut":6,
-    "dodge":5,
-    "armor_bash":14,
+    "dodge":4,
+    "armor_bash":12,
     "armor_cut":8,
     "armor_stab":10,
     "vision_day":40,
     "vision_night":20,
     "death_drops": "default_zombie_death_drops",
     "hp":220,
-    "death_function":["NORMAL"],
-    "special_attacks":[["SMASH", 30], ["STRETCH_ATTACK", 3], ["LONGSWIPE", 15]],
-    "description":"Somehow this brute hides in the dark like some kind of boogeyman.  Very agile for such a large zombie.",
-    "flags":["SEES", "HEARS", "GOODHEARING", "SMELLS", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON", "NIGHT_INVISIBILITY"]
+    "special_attacks":[["SMASH", 40], ["STRETCH_ATTACK", 3], ["LONGSWIPE", 20]]
     },{
     "type" : "MONSTER",
+    "edit-mode" : "modify",
     "id" : "mon_zombie_brute_grappler",
-    "name": "zombie wrestling brute",
-    "species":"ZOMBIE",
-    "default_faction":"zombie",
-    "symbol":"Z",
-    "color":"red_white",
-    "size":"MEDIUM",
-    "material":"flesh",
-    "diff":24,
-    "aggression":100,
-    "morale":100,
     "speed":95,
     "melee_skill":7,
     "melee_dice":3,
@@ -296,9 +287,7 @@
             "cooldown" : 15,
             "no_infection_chance" : 5,
             "min_mul" : 0.5, "//" : "stronger jaws"
-        }],
-    "description":"A slab of festering muscle the size of a well-toned bodybuilder. Seems more eager to strangle the life from you than eat you, though is probably capable of both.",
-    "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "REVIVES", "BONES", "PUSH_MON"]
+        }]
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_pk",
@@ -454,7 +443,7 @@
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_swimmer_pk",
-    "name": "swimmimg zombie",
+    "name": "swimming zombie",
     "species":"ZOMBIE",
     "default_faction":"zombie",
     "symbol":"Z",
@@ -491,6 +480,35 @@
     "flags":["SEES", "HEARS", "SMELLS", "STUMBLES", "WARM", "BASHES", "GROUP_BASH", "POISON", "NO_BREATHE", "BLEED", "SWIMS", "REVIVES", "BONES", "PUSH_MON"]
     },{
     "type" : "MONSTER",
+    "edit-mode" : "modify",
+    "id" : "mon_zombie_mancroc",
+    "speed":100,
+    "melee_skill":4,
+    "melee_dice":3,
+    "melee_dice_sides":5,
+    "melee_cut":8,
+    "dodge":2,
+    "armor_bash":8,
+    "armor_cut":10,
+    "vision_day":25,
+    "vision_night":5,
+    "death_drops": "mon_zombie_swimmer_death_drops",
+    "hp":120,
+    "death_function":["NORMAL"],
+    "special_attacks":[
+        {
+            "type" : "bite",
+            "cooldown" : 10,
+            "accuracy" : 7,
+            "damage_max_instance" : [
+                {"damage_type" : "stab", "amount" : 8, "armor_multiplier" : 0.3},
+                {"damage_type" : "bash", "amount" : 18, "armor_multiplier" : 0.3}
+            ]
+        },
+        ["GRAB", 20], ["GRAB_DRAG", 10]
+    ]
+    },{
+    "type" : "MONSTER",
     "id" : "mon_zombie_scales",
     "name": "encrusted zombie",
     "species":"ZOMBIE",
@@ -506,7 +524,7 @@
     "melee_skill":7,
     "melee_dice":2,
     "melee_dice_sides":8,
-    "melee_cut":4,
+    "melee_cut":1,
     "dodge":2,
     "armor_bash":12,
     "armor_cut":16,
@@ -559,7 +577,7 @@
     "death_function":"NORMAL",
     "special_attacks":[["STRETCH_BITE", 15], ["STRETCH_ATTACK", 10]],
     "description":"With empty black sockets this creature surveys its surroundings delibrately.  As it scans, its body pulsates and contorts in a fashion that should break most bones.",
-    "flags":["SEES", "HEARS", "SMELLS", "REVIVES", "WARM", "SWIMS", "BASHES", "GRABS", "GROUP_BASH", "POISON", "NO_BREATHE"]   
+    "flags":["SEES", "HEARS", "SMELLS", "REVIVES", "WARM", "BASHES", "GRABS", "GROUP_BASH", "POISON", "NO_BREATHE"]   
     },{
     "type" : "MONSTER",
     "id" : "mon_zombie_crawler_pk",
@@ -680,7 +698,7 @@
         }
     ],
     "description":"Its face disfigured and scabbed over, this child-sized corpse has been forged through constant combat, imbibing it with remarkable agility, speed, and savage brutality.  It bears scars that indicate that this isn't the first (or second) time it has died.",
-    "flags":["SWIMS", "SEES", "HEARS", "SMELLS", "WARM", "BASHES", "BLEED", "POISON", "NO_BREATHE", "REVIVES", "BONES"],
+    "flags":["SEES", "HEARS", "SMELLS", "WARM", "BASHES", "BLEED", "POISON", "NO_BREATHE", "REVIVES", "BONES"],
     "categories":["CLASSIC"]
     },{
     "type" : "MONSTER",

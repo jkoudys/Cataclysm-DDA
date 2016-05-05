@@ -29,6 +29,8 @@
 #  make TILES=1 SOUND=1
 # Disable gettext, on some platforms the dependencies are hard to wrangle.
 #  make LOCALIZE=0
+# Disable backtrace support, not available on all platforms
+#  make BACKTRACE=0
 # Compile localization files for specified languages
 #  make localization LANGUAGES="<lang_id_1>[ lang_id_2][ ...]"
 #  (for example: make LANGUAGES="zh_CN zh_TW" for Chinese)
@@ -119,7 +121,6 @@ ODIR = obj
 ODIRTILES = obj/tiles
 W32ODIR = objwin
 W32ODIRTILES = objwin/tiles
-DDIR = .deps
 
 OS  = $(shell uname -s)
 
@@ -139,6 +140,7 @@ else
   CXX = $(CROSS)$(OS_COMPILER)
   LD  = $(CROSS)$(OS_LINKER)
 endif
+STRIP = $(CROSS)strip
 RC  = $(CROSS)windres
 AR  = $(CROSS)ar
 
@@ -155,19 +157,37 @@ LDFLAGS += $(PROFILE)
 ifdef RELEASE
   ifeq ($(NATIVE), osx)
     ifeq ($(shell $(CXX) -E -Os - < /dev/null > /dev/null 2>&1 && echo fos),fos)
-      CXXFLAGS += -Os
+      OPTLEVEL = -Os
     else
-      CXXFLAGS += -O3
+      OPTLEVEL = -O3
     endif
   else
     # MXE ICE Workaround
-  	ifeq (${CXXVERSION}, 4.9.3)
-	    CXXFLAGS += -O3
-  	else
-  		CXXFLAGS += -Os
-  	endif
-    LDFLAGS += -s
+    ifeq (${CXXVERSION}, 4.9.3)
+      OPTLEVEL = -O3
+    else
+      OPTLEVEL = -Os
+    endif
   endif
+  ifdef LTO
+    ifdef CLANG
+      # LLVM's LTO will complain if the optimization level isn't between O0 and
+      # O3 (inclusive)
+      OPTLEVEL = -O3
+    endif
+  endif
+  CXXFLAGS += $(OPTLEVEL)
+
+  ifdef LTO
+    LDFLAGS += -fuse-ld=gold
+    ifdef CLANG
+      LTOFLAGS += -flto
+    else
+      LTOFLAGS += -flto=jobserver -flto-odr-type-merging
+    endif
+  endif
+  CXXFLAGS += $(LTOFLAGS)
+
   # OTHERS += -mmmx -m3dnow -msse -msse2 -msse3 -mfpmath=sse -mtune=native
   # Strip symbols, generates smaller executable.
   OTHERS += $(RELEASE_FLAGS)
@@ -179,6 +199,9 @@ endif
 
 ifdef CLANG
   ifeq ($(NATIVE), osx)
+    USE_LIBCXX = 1
+  endif
+  ifdef USE_LIBCXX
     OTHERS += -stdlib=libc++
     LDFLAGS += -stdlib=libc++
   endif
@@ -193,13 +216,14 @@ endif
 
 ifndef RELEASE
   ifeq ($(shell $(CXX) -E -Og - < /dev/null > /dev/null 2>&1 && echo fog),fog)
-    CXXFLAGS += -Og
+    OPTLEVEL = -Og
   else
-    CXXFLAGS += -O0
+    OPTLEVEL = -O0
   endif
+  CXXFLAGS += $(OPTLEVEL)
 endif
 
-OTHERS += --std=c++11
+OTHERS += -std=c++11
 
 CXXFLAGS += $(WARNINGS) $(DEBUG) $(PROFILE) $(OTHERS) -MMD
 
@@ -299,6 +323,7 @@ endif
 
 # Global settings for Windows targets
 ifeq ($(TARGETSYSTEM),WINDOWS)
+  BACKTRACE = 0
   CHKJSON_BIN = chkjson.exe
   TARGET = $(W32TARGET)
   BINDIST = $(W32BINDIST)
@@ -366,26 +391,27 @@ endif
 ifdef LUA
   ifeq ($(TARGETSYSTEM),WINDOWS)
     ifdef MSYS2
-      LUA_CANDIDATES = lua5.2 lua-5.2 lua5.1 lua-5.1 lua
-      LUA_FOUND = $(firstword $(foreach lua,$(LUA_CANDIDATES),\
-          $(shell if $(PKG_CONFIG) --silence-errors --exists $(lua); then echo $(lua);fi)))
-      LUA_PKG += $(if $(LUA_FOUND),$(LUA_FOUND),$(error "Lua not found by $(PKG_CONFIG), install it or make without 'LUA=1'"))
-      LDFLAGS += $(shell $(PKG_CONFIG) --silence-errors --libs $(LUA_PKG))
-      CXXFLAGS += $(shell $(PKG_CONFIG) --silence-errors --cflags $(LUA_PKG))
-      LUA_BINARY = $(LUA_PKG)
-	else
+      LUA_USE_PKGCONFIG := 1
+    else
       # Windows expects to have lua unpacked at a specific location
-      LDFLAGS += -llua
-	endif
+      LUA_LIBS := -llua
+    endif
   else
+    LUA_USE_PKGCONFIG := 1
+  endif
+
+  ifdef LUA_USE_PKGCONFIG
+    # On unix-like systems, use pkg-config to find lua
     LUA_CANDIDATES = lua5.2 lua-5.2 lua5.1 lua-5.1 lua
     LUA_FOUND = $(firstword $(foreach lua,$(LUA_CANDIDATES),\
         $(shell if $(PKG_CONFIG) --silence-errors --exists $(lua); then echo $(lua);fi)))
-    LUA_PKG += $(if $(LUA_FOUND),$(LUA_FOUND),$(error "Lua not found by $(PKG_CONFIG), install it or make without 'LUA=1'"))
-    # On unix-like systems, use pkg-config to find lua
-    LDFLAGS += $(shell $(PKG_CONFIG) --silence-errors --libs $(LUA_PKG))
-    CXXFLAGS += $(shell $(PKG_CONFIG) --silence-errors --cflags $(LUA_PKG))
+    LUA_PKG = $(if $(LUA_FOUND),$(LUA_FOUND),$(error "Lua not found by $(PKG_CONFIG), install it or make without 'LUA=1'"))
+    LUA_LIBS := $(shell $(PKG_CONFIG) --silence-errors --libs $(LUA_PKG))
+    LUA_CFLAGS := $(shell $(PKG_CONFIG) --silence-errors --cflags $(LUA_PKG))
   endif
+
+  LDFLAGS += $(LUA_LIBS)
+  CXXFLAGS += $(LUA_CFLAGS)
 
   CXXFLAGS += -DLUA
   LUA_DEPENDENCIES = $(LUASRC_DIR)/catabindings.cpp
@@ -480,15 +506,20 @@ else
 endif
 
 ifeq ($(TARGETSYSTEM),CYGWIN)
+  BACKTRACE = 0
   ifeq ($(LOCALIZE),1)
     # Work around Cygwin not including gettext support in glibc
     LDFLAGS += -lintl -liconv
   endif
 endif
 
-# BSDs have backtrace() and friends in a separate library
 ifeq ($(BSD), 1)
-  LDFLAGS += -lexecinfo
+  # BSDs have backtrace() and friends in a separate library
+  ifeq ($(BACKTRACE), 1)
+    LDFLAGS += -lexecinfo
+    # ...which requires the frame pointer
+    CXXFLAGS += -fno-omit-frame-pointer
+  endif
 
  # And similarly, their libcs don't have gettext built in
   ifeq ($(LOCALIZE),1)
@@ -499,6 +530,10 @@ endif
 # Global settings for Windows targets (at end)
 ifeq ($(TARGETSYSTEM),WINDOWS)
     LDFLAGS += -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion
+endif
+
+ifeq ($(BACKTRACE),1)
+  DEFINES += -DBACKTRACE
 endif
 
 ifeq ($(LOCALIZE),1)
@@ -552,13 +587,23 @@ ifeq ($(USE_XDG_DIR),1)
   DEFINES += -DUSE_XDG_DIR
 endif
 
+ifdef LTO
+  # Depending on the compiler version, LTO usually requires all the
+  # optimization flags to be specified on the link line, and requires them to
+  # match the original invocations.
+  LDFLAGS += $(CXXFLAGS)
+endif
+
 all: version $(ASTYLE) $(TARGET) $(L10N) tests
 	@
 
-$(TARGET): $(ODIR) $(DDIR) $(OBJS)
-	$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+$(TARGET): $(ODIR) $(OBJS)
+	+$(LD) $(W32FLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+ifdef RELEASE
+	$(STRIP) $(TARGET)
+endif
 
-cataclysm.a: $(ODIR) $(DDIR) $(OBJS)
+cataclysm.a: $(ODIR) $(OBJS)
 	$(AR) rcs cataclysm.a $(filter-out $(ODIR)/main.o $(ODIR)/messages.o,$(OBJS))
 
 .PHONY: version json-verify
@@ -573,9 +618,6 @@ json-verify:
 
 $(ODIR):
 	mkdir -p $(ODIR)
-
-$(DDIR):
-	@mkdir $(DDIR)
 
 $(ODIR)/%.o: $(SRC_DIR)/%.cpp
 	$(CXX) $(CPPFLAGS) $(DEFINES) $(CXXFLAGS) -c $< -o $@

@@ -35,6 +35,7 @@ ignorable = {
     "ITEM_BLACKLIST",
     "item_group",
     "ITEM_OPTION",
+    "ITEM_WHITELIST",
     "monitems",
     "MONSTER_BLACKLIST",
     "MONSTER_FACTION",
@@ -60,6 +61,9 @@ ignorable = {
 #   "sound" member
 #   "messages" member containing an array of translatable strings
 automatically_convertible = {
+    "fault",
+    "vitamin",
+    "ENGINE",
     "AMMO",
     "ammunition_type",
     "ARMOR",
@@ -255,14 +259,31 @@ def extract_scenarios(item):
     outfile = get_outfile("scenario")
     # writestr will not write string if it is None.
     name = item.get("name")
-    writestr(outfile, name)
+    writestr(outfile,
+             name,
+             context="scenario_male",
+             comment="Name for scenario '{}' for a male character".format(name))
+    writestr(outfile,
+             name,
+             context="scenario_female",
+             comment="Name for scenario '{}' for a female character".format(name))
     if name:
         msg = item.get("description")
         if msg:
-            writestr(outfile, msg, comment="Description for scenario '{}'.".format(name))
+            writestr(outfile,
+                     msg,
+                     context="scen_desc_male",
+                     comment="Description for scenario '{}' for a male character.".format(name))
+            writestr(outfile,
+                     msg,
+                     context="scen_desc_female",
+                     comment="Description for scenario '{}' for a female character.".format(name))
         msg = item.get("start_name")
         if msg:
-            writestr(outfile, msg, comment="Starting location for scenario '{}'.".format(name))
+            writestr(outfile,
+                     msg,
+                     context="start_name",
+                     comment="Starting location for scenario '{}'.".format(name))
     else:
         for f in ["description", "start_name"]:
             found = item.get(f, None)
@@ -276,7 +297,12 @@ def extract_mapgen(item):
             for special in item["object"][objkey]:
                 for speckey in special:
                     if speckey == "signage":
-                        writestr(outfile, special[speckey])
+                        writestr(outfile, special[speckey], comment="Sign")
+        if objkey == "signs":
+            obj = item["object"][objkey]
+            for k in obj.keys():
+                sign = obj[k].get("signage", None)
+                writestr(outfile, sign, comment="Sign")
 
 def extract_recipes(item):
     outfile = get_outfile("recipe")
@@ -589,6 +615,10 @@ def extract(item, infilename):
     if "messages" in item:
         for message in item["messages"]:
             writestr(outfile, message, **kwargs)
+            wrote = True
+    if "mod_targets" in item:
+        for target in item["mod_targets"]:
+            writestr(outfile, target, **kwargs)
             wrote = True
     if "valid_mod_locations" in item:
         for mod_loc in item["valid_mod_locations"]:

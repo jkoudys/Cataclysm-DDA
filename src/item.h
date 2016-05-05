@@ -35,6 +35,8 @@ class ma_technique;
 using matec_id = string_id<ma_technique>;
 class Skill;
 using skill_id = string_id<Skill>;
+class fault;
+using fault_id = string_id<fault>;
 
 enum damage_type : int;
 
@@ -252,30 +254,37 @@ class item : public JsonSerializer, public JsonDeserializer, public visitable<it
  // Returns the category of this item.
  const item_category &get_category() const;
 
-    /**
-     * Whether a tool or gun is potentially reloadable (optionally considering a specific ammo)
-     * @param ammo if set also check item currently compatible with this specific ammo or magazine
-     * @note items currently loaded with a detachable magazine are considered reloadable
-     * @note items with integral magazines are reloadable if free capacity permits (+/- ammo matches)
-     */
-    bool can_reload( const itype_id& ammo = std::string() ) const;
+    class reload_option {
+        public:
+            reload_option() = default;
 
-    struct reload_option {
-        const item *target = nullptr;
-        item_location ammo;
-        long qty = 0;
-        int moves = 0;
+            reload_option( const player *who, const item *target, const item *parent, item_location&& ammo );
 
-        operator bool() const {
-            return target && ammo && qty > 0;
-        }
+            const player *who = nullptr;
+            const item *target = nullptr;
+            item_location ammo;
+
+            long qty() const { return qty_; }
+            void qty( long val );
+
+            int moves() const;
+
+            operator bool() const {
+                return who && target && ammo && qty_ > 0;
+            }
+
+        private:
+            long qty_ = 0;
+            long max_qty = LONG_MAX;
+            const item *parent = nullptr;
     };
 
     /**
      * Select suitable ammo with which to reload the item
      * @param u player inventory to search for suitable ammo.
+     * @param prompt force display of the menu even if only one choice
      */
-    reload_option pick_reload_ammo( player &u ) const;
+    reload_option pick_reload_ammo( player &u, bool prompt = false ) const;
 
     /**
      * Reload item using ammo from location returning true if sucessful
@@ -327,6 +336,9 @@ class item : public JsonSerializer, public JsonDeserializer, public visitable<it
 
     /* Volume of an item or of a single unit for charged items multipled by 1000 */
     int precise_unit_volume() const;
+
+    /** Required strength to be able to successfully lift the item unaided by equipment */
+    int lift_strength() const;
 
     /**
      * @name Melee
@@ -413,8 +425,11 @@ class item : public JsonSerializer, public JsonDeserializer, public visitable<it
     bool is_sealable_container() const;
     /** Whether this item has no contents at all. */
     bool is_container_empty() const;
-    /** Whether this item has no more free capacity for its current content. */
-    bool is_container_full() const;
+    /**
+     * Whether this item has no more free capacity for its current content.
+     * @param allow_bucket Allow filling non-sealable containers
+     */
+    bool is_container_full( bool allow_bucket = false ) const;
     /**
      * Fill item with liquid up to its capacity. This works for guns and tools that accept
      * liquid ammo.
@@ -460,8 +475,6 @@ class item : public JsonSerializer, public JsonDeserializer, public visitable<it
     /*@}*/
 
     int get_quality( const std::string &quality_id ) const;
-    bool has_quality( std::string quality_id ) const;
-    bool has_quality( std::string quality_id, int quality_value ) const;
     bool count_by_charges() const;
     bool craft_has_charges();
 
@@ -521,7 +534,11 @@ public:
     /** Turn item was put into a fridge or 0 if not in any fridge. */
     int fridge = 0;
 
- int brewing_time() const;
+    /** Turns for this item to be fully fermented. */
+    int brewing_time() const;
+    /** The results of fermenting this item. */
+    const std::vector<itype_id> &brewing_results() const;
+
  void detonate( const tripoint &p ) const;
 
     /**
@@ -560,14 +577,14 @@ public:
      */
     std::vector<const material_type*> made_of_types() const;
     /**
-     * Check we are made of at least one of a set (e.g. true if even
+     * Check we are made of at least one of a set (e.g. true if at least
      * one item of the passed in set matches any material).
      * @param mat_idents Set of material ids.
      */
     bool made_of_any( const std::vector<material_id> &mat_idents ) const;
     /**
      * Check we are made of only the materials (e.g. false if we have
-     * one material not in the set).
+     * one material not in the set or no materials at all).
      * @param mat_idents Set of material ids.
      */
     bool only_made_of( const std::vector<material_id> &mat_idents ) const;
@@ -628,6 +645,9 @@ public:
      * for other players. The player is identified by its id.
      */
     void mark_as_used_by_player(const player &p);
+    /** Marks the item as filthy, so characters with squeamish trait can't wear it. 
+    */
+    bool is_disgusting_for( const player &p ) const;
     /**
      * This is called once each turn. It's usually only useful for active items,
      * but can be called for inactive items without problems.
@@ -686,6 +706,7 @@ public:
  bool is_ammo_container() const; // does this item contain ammo? (excludes magazines)
  bool is_bionic() const;
  bool is_magazine() const;
+ bool is_ammo_belt() const;
  bool is_ammo() const;
  bool is_armor() const;
  bool is_book() const;
@@ -698,6 +719,11 @@ public:
  bool is_artifact() const;
     bool is_bucket() const;
     bool is_bucket_nonempty() const;
+
+    bool is_brewable() const;
+    bool is_engine() const;
+
+    bool is_faulty() const;
 
     /**
      * Can this item have given item/itype as content?
@@ -712,11 +738,14 @@ public:
         /**
          * Is it ever possible to reload this item?
          * Only the base item is considered with any mods ignored
-         * @see item::can_reload() to check current state of base item
+         * @see player::can_reload()
          */
         bool is_reloadable() const;
 
         bool is_dangerous() const; // Is it an active grenade or something similar that will hurt us?
+
+        /** Is item derived from a zombie? */
+        bool is_tainted() const;
 
         /**
          * Is this item flexible enough to be worn on body parts like antlers?
@@ -1276,6 +1305,15 @@ public:
         /*@}*/
 
         /**
+         * @name Vehicle parts
+         *
+         *@{*/
+
+        /** for combustion engines the displacement (cc) */
+        int engine_displacement() const;
+        /*@}*/
+
+        /**
          * Returns the pointer to use_function with name use_name assigned to the type of
          * this item or any of its contents. Checks contents recursively.
          * Returns nullptr if not found.
@@ -1334,6 +1372,7 @@ public:
         const mtype* corpse = nullptr;
         std::set<matec_id> techniques; // item specific techniques
         light_emission light = nolight;
+
 public:
      char invlet = 0;      // Inventory letter
      long charges;
@@ -1353,6 +1392,9 @@ public:
     int frequency = 0;       // Radio frequency
     int note = 0;            // Associated dynamic text snippet.
     int irridation = 0;      // Tracks radiation dosage.
+
+    /** What faults (if any) currently apply to this item */
+    std::set<fault_id> faults;
 
  std::set<std::string> item_tags; // generic item specific flags
     unsigned item_counter = 0; // generic counter to be used with item flags
