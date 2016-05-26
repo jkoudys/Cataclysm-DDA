@@ -446,7 +446,7 @@ std::string effect::disp_name() const
     }
 
     // End result should look like "name (l. arm)" or "name [intensity] (l. arm)"
-    std::stringstream ret;
+    std::ostringstream ret;
     if (eff_type->use_name_ints()) {
         if(eff_type->name[intensity - 1] == "") {
             return "";
@@ -479,7 +479,7 @@ struct desc_freq {
 
 std::string effect::disp_desc(bool reduced) const
 {
-    std::stringstream ret;
+    std::ostringstream ret;
     // First print stat changes, adding + if value is positive
     int tmp = get_avg_mod("STR", reduced);
     if (tmp > 0) {
@@ -775,25 +775,24 @@ int effect::get_max_intensity() const
 {
     return eff_type->max_intensity;
 }
-void effect::set_intensity(int nintensity)
+
+int effect::set_intensity( int val, bool alert )
 {
-    intensity = nintensity;
-    // Cap to [1, max_intensity]
-    if (intensity > eff_type->max_intensity) {
-        intensity = eff_type->max_intensity;
-    } else if (intensity < 1) {
-        intensity = 1;
+    val = std::max( std::min( val, eff_type->max_intensity ), 1 );
+
+    if( alert && val < intensity ) {
+        if ( val - 1 < int( eff_type->decay_msgs.size() ) ) {
+            add_msg( eff_type->decay_msgs[ val - 1 ].second,
+                     eff_type->decay_msgs[ val - 1 ].first.c_str() );
+        }
     }
+
+    return intensity = val;
 }
-void effect::mod_intensity(int nintensity)
+
+int effect::mod_intensity( int mod, bool alert )
 {
-    intensity += nintensity;
-    // Cap to [1, max_intensity]
-    if (intensity > eff_type->max_intensity) {
-        intensity = eff_type->max_intensity;
-    } else if (intensity < 1) {
-        intensity = 1;
-    }
+    return set_intensity( intensity + mod, alert );
 }
 
 const std::vector<std::string> &effect::get_resist_traits() const
@@ -1008,7 +1007,7 @@ double effect::get_percentage(std::string arg, int val, bool reduced) const
     return ret;
 }
 
-bool effect::activated(unsigned int turn, std::string arg, int val, bool reduced, double mod) const
+bool effect::activated(int turn, std::string arg, int val, bool reduced, double mod) const
 {
     auto &mod_data = eff_type->mod_data;
     auto found_top_base = mod_data.find(std::make_tuple("base_mods", reduced, arg, "chance_top"));
