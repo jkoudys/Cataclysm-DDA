@@ -54,7 +54,6 @@
 
 #define HIGH_STAT 14 // The point after which stats cost double
 #define MAX_STAT 20 // The point after which stats can not be increased further
-#define MAX_SKILL 20 // The maximum selectable skill level
 
 #define NEWCHAR_TAB_MAX 6 // The ID of the rightmost tab
 
@@ -1668,13 +1667,10 @@ tab_direction set_skills(WINDOW *w, player *u, points_left &points)
                                                ( lhs.second == rhs.second && lhs.first < rhs.first );
                        } );
 
-            std::string rec_temp = "";
-            for( auto rec = elem.second.begin(); rec != elem.second.end(); ++rec ) {
-                if( !rec_temp.empty() ) {
-                    rec_temp += ", ";
-                }
-                rec_temp += rec->first + " (" + to_string(rec->second) + ")";
-            }
+            const std::string rec_temp = enumerate_as_string( elem.second.begin(), elem.second.end(),
+            []( const std::pair<std::string, int> &rec ) {
+                return string_format( "%s (%d)", rec.first.c_str(), rec.second );
+            } );
 
             if( elem.first == currentSkill->name() ) {
                 rec_disp = "\n \n<color_c_brown>" + rec_temp + "</color>" + rec_disp;
@@ -2011,6 +2007,9 @@ tab_direction set_scenario(WINDOW *w, player *u, points_left &points)
             wprintz(w_flags, c_ltgray, ("\n"));
         } else if ( sorted_scens[cur_id]->has_flag("WIN_START")) {
             wprintz(w_flags, c_ltgray, _("Winter start"));
+            wprintz(w_flags, c_ltgray, ("\n"));
+        } else if ( sorted_scens[cur_id]->has_flag("SUM_ADV_START")) {
+            wprintz(w_flags, c_ltgray, _("Next summer start"));
             wprintz(w_flags, c_ltgray, ("\n"));
         }
 

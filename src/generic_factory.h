@@ -245,13 +245,13 @@ class generic_factory
             const auto iter = map.find( obj.id );
             if( iter != map.end() ) {
                 T &result = list[iter->second];
-                result = std::move( obj );
+                result = obj;
                 result.id.set_cid( iter->second );
                 return result;
             }
 
             const int_id<T> cid( list.size() );
-            list.push_back( std::move( obj ) );
+            list.push_back( obj );
 
             T &result = list.back();
             result.id.set_cid( cid );
@@ -842,5 +842,83 @@ class string_id_reader : public generic_typed_reader<string_id_reader<T>>
             return string_id<T>( jin.get_string() );
         }
 };
+
+
+template <typename T>
+typename std::enable_if<std::is_arithmetic<T>::value, bool>::type assign(
+    JsonObject &jo, const std::string &name, T &val, bool strict = false )
+{
+    T out;
+    double scalar;
+
+    if( jo.get_object( "relative" ).read( name, out ) ) {
+        out += val;
+
+    } else if( jo.get_object( "proportional" ).read( name, scalar ) ) {
+        if( scalar <= 0 ) {
+            jo.throw_error( "invalid proportional scalar", name );
+        }
+        out = val * scalar;
+
+    } else if( !jo.read( name, out ) ) {
+
+        return false;
+    }
+
+    if( strict && out == val ) {
+        jo.throw_error( "assignment does not update value", name );
+    }
+
+    val = out;
+    return true;
+}
+
+template <typename T>
+typename std::enable_if<std::is_constructible<T, std::string>::value, bool>::type assign(
+    JsonObject &jo, const std::string &name, T &val, bool = false )
+{
+
+    return jo.read( name, val );
+}
+
+template <typename T>
+bool assign( JsonObject &jo, const std::string &name, nc_color &val, bool = false )
+{
+    if( jo.has_string( name ) ) {
+        val = color_from_string( jo.get_string( name ) );
+        return true;
+    }
+    return false;
+}
+
+template <typename T>
+typename std::enable_if<std::is_constructible<T, std::string>::value, bool>::type assign(
+    JsonObject &jo, const std::string &name, std::set<T> &val, bool = false )
+{
+
+    if( jo.has_string( name ) || jo.has_array( name ) ) {
+        val = jo.get_tags<T>( name );
+        return true;
+    }
+
+    bool res = false;
+
+    auto add = jo.get_object( "extend" );
+    if( add.has_string( name ) || add.has_array( name ) ) {
+        auto tags = add.get_tags<T>( name );
+        val.insert( tags.begin(), tags.end() );
+        res = true;
+    }
+
+    auto del = jo.get_object( "delete" );
+    if( del.has_string( name ) || del.has_array( name ) ) {
+        for( const auto &e : del.get_tags<T>( name ) ) {
+            val.erase( e );
+        }
+        res = true;
+    }
+
+    return res;
+}
 
 #endif

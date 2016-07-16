@@ -304,7 +304,7 @@ bool gun_actor::call( monster &z ) const
     if( z.friendly ) {
         int max_range = 0;
         for( const auto &e : ranges ) {
-            max_range = std::max( { max_range, e.first.first, e.first.second } );
+            max_range = std::max( std::max( max_range, e.first.first ), e.first.second );
         }
 
         int hostiles; // hostiles which cannot be engaged without risking friendly fire
@@ -375,17 +375,16 @@ void gun_actor::shoot( monster &z, Creature &target, const std::string &mode ) c
     item gun( gun_type );
     gun.gun_set_mode( mode );
 
-    itype_id ammo = ( ammo_type != "NULL" ) ? ammo_type : gun.ammo_default();
+    itype_id ammo = ( ammo_type != "null" ) ? ammo_type : gun.ammo_default();
+    if( ammo != "null" ) {
+        gun.ammo_set( ammo, z.ammo[ ammo ] );
+    }
 
-    if( ammo != "NULL" && z.ammo[ ammo ] < gun.ammo_required() ) {
+    if( !gun.ammo_sufficient() ) {
         if( !no_ammo_sound.empty() ) {
             sounds::sound( z.pos(), 10, _( no_ammo_sound.c_str() ) );
         }
         return;
-    }
-
-    if( ammo != "NULL" ) {
-        gun.ammo_set( ammo, z.ammo[ ammo ] );
     }
 
     npc tmp;
@@ -411,7 +410,7 @@ void gun_actor::shoot( monster &z, Creature &target, const std::string &mode ) c
     }
 
     tmp.weapon = gun;
-    tmp.worn.push_back( item( "fake_UPS", calendar::turn, 1000 ) );
+    tmp.i_add( item( "UPS_off", calendar::turn, 1000 ) );
 
     if( g->u.sees( z ) ) {
         add_msg( m_warning, _( description.c_str() ), z.name().c_str(), tmp.weapon.gun_type().c_str() );

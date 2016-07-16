@@ -109,12 +109,7 @@
       [ "chemistry_set", 5 ]
     ]
   ],
-  "components": [
-    [
-      [ "water", 1 ],
-      [ "water_clean", 1 ]
-    ]
-  ]
+  "components": [ [ [ "salt_water", 1 ] ] ]
 },{
   "type" : "recipe",
   "result": "tallow_tainted",
@@ -604,7 +599,6 @@
       [ "tallow_tainted", 2 ],
       [ "meat_tainted", 3 ],
       [ "dry_meat_tainted", 3 ],
-      [ "veggy_tainted", 5 ],
       [ "slime_scrap", 5 ],
       [ "fetus", 1 ],
       [ "arm", 2 ],
@@ -1551,7 +1545,7 @@
   "category": "CC_CHEM",
   "subcategory": "CSC_CHEM_MUTAGEN",
   "skill_used": "cooking",
-  "requires_skills": [ "firstaid", 1 ],
+  "skills_required": [ "firstaid", 1 ],
   "difficulty": 9,
   "time": 10000,
   "reversible": false,
@@ -1709,7 +1703,7 @@
   "category": "CC_CHEM",
   "subcategory": "CSC_CHEM_MUTAGEN",
   "skill_used": "cooking",
-  "requires_skills": [ "firstaid", 1 ],
+  "skills_required": [ "firstaid", 1 ],
   "difficulty": 10,
   "time": 20000,
   "reversible": false,
@@ -1774,7 +1768,7 @@
   "category": "CC_CHEM",
   "subcategory": "CSC_CHEM_MUTAGEN",
   "skill_used": "cooking",
-  "requires_skills": [ "firstaid", 1 ],
+  "skills_required": [ "firstaid", 1 ],
   "difficulty": 10,
   "time": 12500,
   "reversible": false,
@@ -1833,7 +1827,7 @@
   "category": "CC_CHEM",
   "subcategory": "CSC_CHEM_MUTAGEN",
   "skill_used": "cooking",
-  "requires_skills": [ "firstaid", 1 ],
+  "skills_required": [ "firstaid", 1 ],
   "difficulty": 10,
   "time": 15000,
   "reversible": false,
@@ -1894,7 +1888,7 @@
   "category": "CC_CHEM",
   "subcategory": "CSC_CHEM_MUTAGEN",
   "skill_used": "cooking",
-  "requires_skills": [ "firstaid", 1 ],
+  "skills_required": [ "firstaid", 1 ],
   "difficulty": 10,
   "time": 12500,
   "reversible": false,
@@ -2476,6 +2470,25 @@
     ]
     ],
   "components": [ [ [ "chem_hydrogen_peroxide", 5 ] ] ]
+},
+{
+    "type" : "recipe",
+    "result": "chem_hydrogen_peroxide",
+    "result_mult": 5,
+    "category": "CC_CHEM",
+    "subcategory": "CSC_CHEM_DRUGS",
+    "skill_used": "cooking",
+    "skills_required": [["firstaid", 3]],
+    "difficulty": 4,
+    "time": 6000,
+    "autolearn": true,
+    "book_learn": [["recipe_labchem", 3 ], ["textbook_chemistry", 3]],
+    "qualities": [{"id":"BOIL","level":2}, {"id":"CHEM","level":1}],
+    "tools": [[[ "hotplate", 10 ], [ "toolset", 10 ], [ "fire", -1 ]]],
+    "components": [
+      [[ "chem_hydrogen_peroxide_conc", 1 ]],
+      [[ "water", 5 ], ["water_clean", 5]]
+    ]
 },
 {
   "type" : "recipe",

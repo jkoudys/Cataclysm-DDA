@@ -101,6 +101,7 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/melee.cpp
     ${CMAKE_SOURCE_DIR}/src/defense.cpp
     ${CMAKE_SOURCE_DIR}/src/npc.cpp
+    ${CMAKE_SOURCE_DIR}/src/npc_class.cpp
     ${CMAKE_SOURCE_DIR}/src/text_snippets.cpp
     ${CMAKE_SOURCE_DIR}/src/pickup.cpp
     ${CMAKE_SOURCE_DIR}/src/mapbuffer.cpp
@@ -110,6 +111,7 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/ui.cpp
     ${CMAKE_SOURCE_DIR}/src/newcharacter.cpp
     ${CMAKE_SOURCE_DIR}/src/scenario.cpp
+    ${CMAKE_SOURCE_DIR}/src/scent_map.cpp
     ${CMAKE_SOURCE_DIR}/src/faction.cpp
     ${CMAKE_SOURCE_DIR}/src/wish.cpp
     ${CMAKE_SOURCE_DIR}/src/bionics.cpp
@@ -122,6 +124,7 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/computer.cpp
     ${CMAKE_SOURCE_DIR}/src/trap.cpp
     ${CMAKE_SOURCE_DIR}/src/game.cpp
+    ${CMAKE_SOURCE_DIR}/src/game_inventory.cpp
     ${CMAKE_SOURCE_DIR}/src/gates.cpp
     ${CMAKE_SOURCE_DIR}/src/monattack.cpp
     ${CMAKE_SOURCE_DIR}/src/effect.cpp
@@ -157,6 +160,7 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/iuse.cpp
     ${CMAKE_SOURCE_DIR}/src/crafting.cpp
     ${CMAKE_SOURCE_DIR}/src/pathfinding.cpp
+    ${CMAKE_SOURCE_DIR}/src/projectile.cpp
     ${CMAKE_SOURCE_DIR}/src/mission_companion.cpp
     ${CMAKE_SOURCE_DIR}/src/recipe_dictionary.cpp
     ${CMAKE_SOURCE_DIR}/src/craft_command.cpp
@@ -168,7 +172,10 @@ SET(CATACLYSM_DDA_SOURCES
     ${CMAKE_SOURCE_DIR}/src/bonuses.cpp
     ${CMAKE_SOURCE_DIR}/src/vitamin.cpp
     ${CMAKE_SOURCE_DIR}/src/fault.cpp
-	${CMAKE_SOURCE_DIR}/src/overlay_ordering.cpp
+    ${CMAKE_SOURCE_DIR}/src/dump.cpp
+    ${CMAKE_SOURCE_DIR}/src/overlay_ordering.cpp
+    ${CMAKE_SOURCE_DIR}/src/turret.cpp
+    ${CMAKE_SOURCE_DIR}/src/emit.cpp
 )
 
 SET (CATACLYSM_DDA_HEADERS
@@ -196,6 +203,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/item_location.h
     ${CMAKE_SOURCE_DIR}/src/map.h
     ${CMAKE_SOURCE_DIR}/src/npc.h
+    ${CMAKE_SOURCE_DIR}/src/npc_class.h
     ${CMAKE_SOURCE_DIR}/src/npc_favor.h
     ${CMAKE_SOURCE_DIR}/src/rng.h
     ${CMAKE_SOURCE_DIR}/src/compatibility.h
@@ -218,6 +226,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/effect.h
     ${CMAKE_SOURCE_DIR}/src/explosion.h
     ${CMAKE_SOURCE_DIR}/src/creature.h
+    ${CMAKE_SOURCE_DIR}/src/inventory_ui.h
     ${CMAKE_SOURCE_DIR}/src/vehicle.h
     ${CMAKE_SOURCE_DIR}/src/vehicle_group.h
     ${CMAKE_SOURCE_DIR}/src/visitable.h
@@ -234,6 +243,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/simplexnoise.h
     ${CMAKE_SOURCE_DIR}/src/shadowcasting.h
     ${CMAKE_SOURCE_DIR}/src/scenario.h
+    ${CMAKE_SOURCE_DIR}/src/scent_map.h
     ${CMAKE_SOURCE_DIR}/src/auto_pickup.h
     ${CMAKE_SOURCE_DIR}/src/cata_tiles.h
     ${CMAKE_SOURCE_DIR}/src/cata_utility.h
@@ -241,6 +251,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/coordinates.h
     ${CMAKE_SOURCE_DIR}/src/coordinate_conversions.h
     ${CMAKE_SOURCE_DIR}/src/field.h
+    ${CMAKE_SOURCE_DIR}/src/fire.h
     ${CMAKE_SOURCE_DIR}/src/monstergenerator.h
     ${CMAKE_SOURCE_DIR}/src/monfaction.h
     ${CMAKE_SOURCE_DIR}/src/event.h
@@ -310,6 +321,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/profession.h
     ${CMAKE_SOURCE_DIR}/src/path_info.h
     ${CMAKE_SOURCE_DIR}/src/pathfinding.h
+    ${CMAKE_SOURCE_DIR}/src/projectile.h
     ${CMAKE_SOURCE_DIR}/src/version.h
     ${CMAKE_SOURCE_DIR}/src/input.h
     ${CMAKE_SOURCE_DIR}/src/item_stack.h
@@ -323,6 +335,7 @@ SET (CATACLYSM_DDA_HEADERS
     ${CMAKE_SOURCE_DIR}/src/bonuses.h
     ${CMAKE_SOURCE_DIR}/src/vitamin.h
     ${CMAKE_SOURCE_DIR}/src/fault.h
+    ${CMAKE_SOURCE_DIR}/src/emit.h
 	${CMAKE_SOURCE_DIR}/src/overlay_ordering.h
 	${CMAKE_SOURCE_DIR}/src/int_id.h
 	${CMAKE_SOURCE_DIR}/src/io.h

@@ -23,6 +23,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <memory>
 
 bool trigdist;
 bool use_tiles;
@@ -32,7 +33,7 @@ bool fov_3d;
 bool tile_iso;
 
 #ifdef TILES
-extern cata_tiles *tilecontext;
+extern std::unique_ptr<cata_tiles> tilecontext;
 #endif // TILES
 
 std::map<std::string, std::string> TILESETS; // All found tilesets: <name, tileset_dir>
@@ -267,7 +268,7 @@ options_manager::cOpt::cOpt(const std::string sPageIn, const std::string sMenuTe
 //helper functions
 bool options_manager::cOpt::is_hidden()
 {
-    switch(hide) {
+    switch( hide ) {
     case COPT_NO_HIDE:
         return false;
 
@@ -300,9 +301,11 @@ bool options_manager::cOpt::is_hidden()
         return false;
 #endif
 
-    default:
-        return false; // No hide on default
+    case COPT_ALWAYS_HIDE:
+        return true;
     }
+    // Make compiler happy, this is unreachable.
+    return false;
 }
 
 void options_manager::cOpt::setSortPos(const std::string sPageIn)
@@ -384,13 +387,10 @@ std::string options_manager::cOpt::getValueName()
 std::string options_manager::cOpt::getDefaultText(const bool bTranslated)
 {
     if (sType == "string_select") {
-        std::string sItems = "";
-        for( auto &elem : vItems ) {
-            if (sItems != "") {
-                sItems += _(", ");
-            }
-            sItems += ( bTranslated ) ? optionNames[elem] : elem;
-        }
+        const std::string sItems = enumerate_as_string( vItems.begin(), vItems.end(),
+        [ this, bTranslated ]( const std::string &elem ) {
+            return bTranslated ? optionNames[elem] : elem;
+        }, false );
         return string_format(_("Default: %s - Values: %s"),
                              (bTranslated) ? optionNames[sDefault].c_str() : sDefault.c_str(), sItems.c_str());
 
@@ -848,7 +848,7 @@ void options_manager::init()
 
     OPTIONS["AUTO_NOTES"] = cOpt("general", _("Auto notes"),
                                  _("If true, automatically sets notes on places that have stairs that go up or down"),
-                                 false
+                                 true
                                 );
 
     optionNames["ask"]      = _("Ask");
@@ -881,27 +881,21 @@ void options_manager::init()
     // Note: language names are in their own language and are *not* translated at all.
     // Note: Somewhere in github PR was better link to msdn.microsoft.com with language names.
     // http://en.wikipedia.org/wiki/List_of_language_names
-    optionNames["cs"] = R"(Čeština)";
     optionNames["en"] = R"(English)";
-    optionNames["fi"] = R"(Suomi)";
     optionNames["fr"] =  R"(Français)";
     optionNames["de"] = R"(Deutsch)";
     optionNames["it_IT"] = R"(Italiano)";
-    optionNames["el"] = R"(Ελληνικά)";
     optionNames["es_AR"] = R"(Español (Argentina))";
     optionNames["es_ES"] = R"(Español (España))";
     optionNames["ja"] = R"(日本語)";
     optionNames["ko"] = R"(한국어)";
-    optionNames["pl"] = R"(Polski)";
     optionNames["pt_BR"] = R"(Português (Brasil))";
     optionNames["pt_PT"] = R"(Português (Portugal))";
     optionNames["ru"] = R"(Русский)";
-    optionNames["sr"] = R"(Srpski)";
-    optionNames["vi"] = R"(Tiếng Việt)";
     optionNames["zh_CN"] = R"(中文(天朝))";
     optionNames["zh_TW"] = R"(中文(台灣))";
     OPTIONS["USE_LANG"] = cOpt("interface", _("Language"), _("Switch Language. Requires restart."),
-                               ",cs,en,fi,fr,de,it_IT,el,es_AR,es_ES,ja,ko,pl,pt_BR,pt_PT,ru,sr,vi,zh_CN,zh_TW",
+                               ",en,fr,de,it_IT,es_AR,es_ES,ja,ko,pt_BR,pt_PT,ru,zh_CN,zh_TW",
                                ""
                               );
 
@@ -986,7 +980,7 @@ void options_manager::init()
 
     OPTIONS["VEHICLE_DIR_INDICATOR"] = cOpt("interface", _("Draw vehicle facing indicator"),
                                             _("If true, when controlling a vehicle, a white 'X' (in curses version) or a crosshair (in tiles version) at distance 10 from the center will display its current facing."),
-                                            false
+                                            true
                                            );
 
     mOptionsSort["interface"]++;
@@ -1018,16 +1012,6 @@ void options_manager::init()
                                         _("Number of turns after which a message will be removed from the sidebar log. '0' disables this option."),
                                         0, 1000, 0
                                        );
-
-
-    //~ style of vehicle interaction menu; vertical is old one.
-    optionNames["vertical"] = _("Vertical");
-    optionNames["horizontal"] = _("Horizontal");
-    optionNames["hybrid"] = _("Hybrid");
-    OPTIONS["VEH_MENU_STYLE"] = cOpt("interface", _("Vehicle menu style"),
-                                     _("Switch between two different styles of vehicle interaction menu or combination of them."),
-                                     "vertical,horizontal,hybrid", "vertical"
-                                    );
 
     mOptionsSort["interface"]++;
 
@@ -1226,7 +1210,7 @@ void options_manager::init()
     optionNames["off"] = _("Off");
     OPTIONS["SKILL_RUST"] = cOpt("debug", _("Skill rust"),
                                  _("Set the level of skill rust. Vanilla: Vanilla Cataclysm - Capped: Capped at skill levels 2 - Int: Intelligence dependent - IntCap: Intelligence dependent, capped - Off: None at all."),
-                                 "vanilla,capped,int,intcap,off", "int"
+                                 "vanilla,capped,int,intcap,off", "off"
                                 );
 
 
@@ -1270,7 +1254,7 @@ void options_manager::init()
 
     OPTIONS["NPC_DENSITY"] = cOpt("world_default", _("NPC spawn rate scaling factor"),
                                   _("A scaling factor that determines density of dynamic NPC spawns."),
-                                  0.0, 100.0, 1.0, 0.01
+                                  0.0, 100.0, 0.1, 0.01
                                  );
     OPTIONS["MONSTER_UPGRADE_FACTOR"] = cOpt("world_default", _("Monster evolution scaling factor"),
                                              _("A scaling factor that determines the time between monster upgrades. A higher number means slower evolution. Set to 0.00 to turn off monster upgrades."),
@@ -1364,6 +1348,29 @@ void options_manager::init()
                               _("If true, experimental z-level maps will be enabled. This feature is not finished yet and turning it on will only slow the game down."),
                               false
                              );
+
+    mOptionsSort["world_default"]++;
+
+    OPTIONS["NO_FAULTS"] = cOpt("world_default", _("Disables vehicle part faults."),
+                              _("If true, disables vehicle part faults, vehicle parts will be totally reliable unless destroyed, and can only be repaired via replacement."),
+                                false, COPT_ALWAYS_HIDE
+                             );
+
+    mOptionsSort["world_default"]++;
+
+    OPTIONS["BLACKLIST_MAGAZINES"] = cOpt("world_default", _("Disables removable gun magaziones."),
+                              _("If true, disables removeable gun magazines, guns will all act as if they have integral magazines."),
+                                false, COPT_ALWAYS_HIDE
+                             );
+
+    mOptionsSort["world_default"]++;
+
+    OPTIONS["NO_VITAMINS"] = cOpt("world_default", _("Disables tracking vitamins in food items."),
+                              _("If true, disables vitamin tracking and vitamin disorders."),
+                                false, COPT_ALWAYS_HIDE
+                             );
+
+
 
     for (unsigned i = 0; i < vPages.size(); ++i) {
         mPageItems[i].resize(mOptionsSort[vPages[i].first]);
@@ -1752,8 +1759,9 @@ void options_manager::show(bool ingame)
 
     if (options_changed) {
         if(query_yn(_("Save changes?"))) {
-            save(ingame && world_options_changed);
-            if( world_options_changed ) {
+            save();
+            if( ingame && world_options_changed ) {
+                world_generator->active_world->WORLD_OPTIONS = ACTIVE_WORLD_OPTIONS;
                 world_generator->save_world( world_generator->active_world, false );
             }
         } else {
@@ -1784,7 +1792,6 @@ void options_manager::serialize(JsonOut &json) const
     json.start_array();
 
     for( size_t j = 0; j < vPages.size(); ++j ) {
-        bool update_wopt = (bIngame && (int)j == iWorldOptPage );
         for( auto &elem : mPageItems[j] ) {
             if( OPTIONS[elem].getDefaultText() != "" ) {
                 json.start_object();
@@ -1795,15 +1802,7 @@ void options_manager::serialize(JsonOut &json) const
                 json.member( "value", OPTIONS[elem].getValue() );
 
                 json.end_object();
-
-                if ( update_wopt ) {
-                    world_generator->active_world->WORLD_OPTIONS[elem] = ACTIVE_WORLD_OPTIONS[elem];
-                }
             }
-        }
-
-        if( update_wopt ) {
-            calendar::set_season_length( ACTIVE_WORLD_OPTIONS["SEASON_LENGTH"] );
         }
     }
 
@@ -1824,9 +1823,8 @@ void options_manager::deserialize(JsonIn &jsin)
     }
 }
 
-bool options_manager::save(bool ingame)
+bool options_manager::save()
 {
-    bIngame = ingame;
     const auto savefile = FILENAMES["options"];
 
     trigdist = OPTIONS["CIRCLEDIST"]; // update trigdist as well

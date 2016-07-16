@@ -27,6 +27,7 @@
 #include "overmap.h"
 #include "field.h"
 #include "ui.h"
+#include "scent_map.h"
 
 #include <fstream>
 #include <sstream>
@@ -239,12 +240,12 @@ void editmap_hilight::draw( editmap *hm, bool update )
             int vpart = 0;
             // but only if there's no vehicles/mobs/npcs on a point
             if( ! g->m.veh_at( p, vpart ) && ( g->mon_at( p ) == -1 ) && ( g->npc_at( p ) == -1 ) ) {
-                char t_sym = g->m.ter_at( p ).symbol();
-                nc_color t_col = g->m.ter_at( p ).color();
-
+                const ter_t &terrain = g->m.ter( p ).obj();
+                char t_sym = terrain.symbol();
+                nc_color t_col = terrain.color();
 
                 if( g->m.furn( p ) > 0 ) {
-                    const furn_t &furniture_type = g->m.furn_at( p );
+                    const furn_t &furniture_type = g->m.furn( p ).obj();
                     t_sym = furniture_type.symbol();
                     t_col = furniture_type.color();
                 }
@@ -549,12 +550,13 @@ void editmap::update_view( bool update_info )
             int vpart = 0;
             // but only if there's no vehicles/mobs/npcs on a point
             if( ! g->m.veh_at( p, vpart ) && ( g->mon_at( p ) == -1 ) && ( g->npc_at( p ) == -1 ) ) {
-                char t_sym = g->m.ter_at( p ).symbol();
-                nc_color t_col = g->m.ter_at( p ).color();
+                const ter_t &terrain = g->m.ter( p ).obj();
+                char t_sym = terrain.symbol();
+                nc_color t_col = terrain.color();
 
 
-                if( g->m.has_furn( p ) > 0 ) {
-                    const furn_t &furniture_type = g->m.furn_at( p );
+                if( g->m.has_furn( p ) ) {
+                    const furn_t &furniture_type = g->m.furn( p ).obj();
                     t_sym = furniture_type.symbol();
                     t_col = furniture_type.color();
                 }
@@ -780,8 +782,8 @@ int editmap::edit_ter()
     if( ter_t::count() % xmax != 0 ) {
         tymax++;
     }
-    int fymax = int( furnmap.size() / xmax );
-    if( furnmap.size() % xmax != 0 ) {
+    int fymax = int( furn_t::count() / xmax );
+    if( furn_t::count() % xmax != 0 ) {
         fymax++;
     }
 
@@ -873,8 +875,8 @@ int editmap::edit_ter()
         off += 2;
         int cur_f = 0;
         int fstart = off; // calc vertical offset, draw furniture icons
-        for( int y = fstart; y < pickh && cur_f < ( int ) furnmap.size(); y += 2 ) {
-            for( int x = xmin; x < pickw && cur_f < ( int ) furnmap.size(); x++, cur_f++ ) {
+        for( int y = fstart; y < pickh && cur_f < ( int ) furn_t::count(); y += 2 ) {
+            for( int x = xmin; x < pickw && cur_f < ( int ) furn_t::count(); x++, cur_f++ ) {
                 const furn_id fid( cur_f );
                 const furn_t &ftype = fid.obj();
                 mvwputch( w_pickter, y, x, ( ter_frn_mode == 1 ? ftype.color() : c_dkgray ), ftype.symbol() );
@@ -912,7 +914,7 @@ int editmap::edit_ter()
                 mvwaddch( w_pickter, 0, i, LINE_OXOX );
             }
 
-            mvwprintw( w_pickter, 0, 2, "< %s[%d]: %s >", pftype.id.c_str(), pftype.loadid.to_i(),
+            mvwprintw( w_pickter, 0, 2, "< %s[%d]: %s >", pftype.id.c_str(), pftype.id.id().to_i(),
                        pftype.name.c_str() );
             mvwprintz( w_pickter, off, 2, c_white, _( "movecost %d" ), pftype.movecost );
             std::string fextras = "";
@@ -1016,20 +1018,20 @@ int editmap::edit_ter()
             }
         } else { // todo: cleanup
             if( action == "LEFT" ) {
-                increment( sel_frn, -1, furnmap.size() );
+                increment( sel_frn, -1, furn_t::count() );
             } else if( action == "RIGHT" ) {
-                increment( sel_frn, +1, furnmap.size() );
+                increment( sel_frn, +1, furn_t::count() );
             } else if( action == "UP" ) {
-                if( would_overflow( sel_frn, -xmax, furnmap.size() ) ) {
+                if( would_overflow( sel_frn, -xmax, furn_t::count() ) ) {
                     ter_frn_mode = ( ter_frn_mode == 0 ? 1 : 0 );
                 } else {
-                    increment( sel_frn, -xmax, furnmap.size() );
+                    increment( sel_frn, -xmax, furn_t::count() );
                 }
             } else if( action == "DOWN" ) {
-                if( would_overflow( sel_frn, +xmax, furnmap.size() ) ) {
+                if( would_overflow( sel_frn, +xmax, furn_t::count() ) ) {
                     ter_frn_mode = ( ter_frn_mode == 0 ? 1 : 0 );
                 } else {
-                    increment( sel_frn, +xmax, furnmap.size() );
+                    increment( sel_frn, +xmax, furn_t::count() );
                 }
             } else if( action == "CONFIRM" || action == "CONFIRM_QUIT" ) {
                 for( auto &elem : target_list ) {
@@ -1801,11 +1803,11 @@ int editmap::mapgen_preview( real_coords &tc, uimenu &gmenu )
                             }
                             destsm->field_count = srcsm->field_count; // and count
 
-                            std::memcpy( *destsm->ter, srcsm->ter, sizeof( srcsm->ter ) ); // terrain
-                            std::memcpy( *destsm->frn, srcsm->frn, sizeof( srcsm->frn ) ); // furniture
-                            std::memcpy( *destsm->trp, srcsm->trp, sizeof( srcsm->trp ) ); // traps
-                            std::memcpy( *destsm->rad, srcsm->rad, sizeof( srcsm->rad ) ); // radiation
-                            std::memcpy( *destsm->lum, srcsm->lum, sizeof( srcsm->lum ) ); // emissive items
+                            std::memcpy( destsm->ter, srcsm->ter, sizeof( srcsm->ter ) ); // terrain
+                            std::memcpy( destsm->frn, srcsm->frn, sizeof( srcsm->frn ) ); // furniture
+                            std::memcpy( destsm->trp, srcsm->trp, sizeof( srcsm->trp ) ); // traps
+                            std::memcpy( destsm->rad, srcsm->rad, sizeof( srcsm->rad ) ); // radiation
+                            std::memcpy( destsm->lum, srcsm->lum, sizeof( srcsm->lum ) ); // emissive items
                             for( int x = 0; x < SEEX; ++x ) {
                                 for( int y = 0; y < SEEY; ++y ) {
                                     destsm->itm[x][y].swap( srcsm->itm[x][y] );

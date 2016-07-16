@@ -10,6 +10,7 @@
 #include "sounds.h"
 #include "iuse_actor.h"
 #include "rng.h"
+#include "requirements.h"
 #include "mongroup.h"
 #include "morale_types.h"
 #include "messages.h"
@@ -28,6 +29,7 @@
 
 #include <math.h>
 #include <sstream>
+#include <algorithm>
 
 #define dbg(x) DebugLog((DebugLevel)(x),D_GAME) << __FILE__ << ":" << __LINE__ << ": "
 
@@ -190,10 +192,15 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
     const mtype *corpse = corpse_item.get_mtype();
     auto contents = corpse_item.contents;
     const int age = corpse_item.bday;
+    itype_id meat = corpse->get_meat_itype();
+    if( corpse->made_of( material_id( "bone" ) ) ) {
+        //For butchering yield purposes, we treat it as bones, not meat
+        meat = "null";
+    }
     g->m.i_rem( p->pos(), act->index );
 
     const int factor = p->max_quality( quality_id( "BUTCHER" ) );
-    int pieces = 0;
+    int pieces = corpse->get_meat_chunks_count();
     int skins = 0;
     int bones = 0;
     int fats = 0;
@@ -205,7 +212,6 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
     int max_practice = 4;
     switch( corpse->size ) {
         case MS_TINY:
-            pieces = 1;
             skins = 1;
             bones = 1;
             fats = 1;
@@ -214,7 +220,6 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
             wool = 1;
             break;
         case MS_SMALL:
-            pieces = 2;
             skins = 2;
             bones = 4;
             fats = 2;
@@ -223,7 +228,6 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
             wool = 2;
             break;
         case MS_MEDIUM:
-            pieces = 4;
             skins = 4;
             bones = 9;
             fats = 4;
@@ -232,7 +236,6 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
             wool = 4;
             break;
         case MS_LARGE:
-            pieces = 8;
             skins = 8;
             bones = 14;
             fats = 8;
@@ -242,7 +245,6 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
             max_practice = 5;
             break;
         case MS_HUGE:
-            pieces = 16;
             skins = 16;
             bones = 21;
             fats = 16;
@@ -297,6 +299,9 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
             g->m.spawn_item( p->pos(), "bone", bones, 0, age );
             p->add_msg_if_player( m_good, _( "You harvest some usable bones!" ) );
         }
+    } else if( meat == "null" && corpse->has_flag( MF_BONES ) ) {
+        //print a failure message only if the corpse doesn't have meat and has bones
+        p->add_msg_if_player( m_bad, _( "Your clumsy butchering destroys the bones!" ) );
     }
 
     if( sinews > 0 ) {
@@ -465,25 +470,26 @@ void activity_handlers::butcher_finish( player_activity *act, player *p )
         }
     }
 
-    if( pieces <= 0 ) {
-        p->add_msg_if_player(m_bad, _("Your clumsy butchering destroys the flesh!"));
-    } else {
-        p->add_msg_if_player(m_good, _("You harvest some flesh."));
-        const itype_id meat = corpse->get_meat_itype();
-        if( meat == "null" ) {
-            return;
-        }
+    //now handle the meat, if there is any
+    if( meat!= "null" ) {
+        if( pieces <= 0 ) {
+            p->add_msg_if_player( m_bad, _( "Your clumsy butchering destroys the flesh!" ) );
+        } else {
+            p->add_msg_if_player( m_good, _( "You harvest some flesh." ) );
 
-        item chunk( meat, age );
-        chunk.set_mtype( corpse );
+            item chunk( meat, age );
+            chunk.set_mtype( corpse );
 
-        // for now don't drop non-tainted parts overhaul of taint system to not require excessive item duplication
-        item parts( chunk.is_tainted() || chunk.has_flag( "CANNIBALISM" ) ? meat : "offal", age );
-        parts.set_mtype( corpse );
+            // for now don't drop tainted or cannibal. parts overhaul of taint system to not require excessive item duplication
+            bool make_offal = !chunk.is_tainted() && !chunk.has_flag( "CANNIBALISM" ) &&
+                              !chunk.made_of ( material_id ( "veggy" ) );
+            item parts( make_offal ? "offal" : meat, age );
+            parts.set_mtype( corpse );
 
-        g->m.add_item_or_charges( p->pos(), chunk );
-        for( int i = 1; i <= pieces; ++i ) {
-            g->m.add_item_or_charges( p->pos(), one_in( 3 ) ? parts : chunk );
+            g->m.add_item_or_charges( p->pos(), chunk );
+            for( int i = 1; i <= pieces; ++i ) {
+                g->m.add_item_or_charges( p->pos(), one_in( 3 ) ? parts : chunk );
+            }
         }
     }
 
@@ -569,7 +575,7 @@ void activity_handlers::fill_liquid_do_turn( player_activity *act_, player *p )
             break;
         case LST_INFINITE_MAP:
             liquid.deserialize( act.str_values.at( 0 ) );
-            liquid.charges = std::numeric_limits<long>::max();
+            liquid.charges = item::INFINITE_CHARGES;
             break;
         case LST_MAP_ITEM:
             if( static_cast<size_t>( act.values.at( 1 ) ) >= source_stack.size() ) {
@@ -629,8 +635,12 @@ void activity_handlers::fill_liquid_do_turn( player_activity *act_, player *p )
             on_ground->charges -= removed_charges;
             if( on_ground->charges <= 0 ) {
                 source_stack.erase( on_ground );
-                if( g->m.ter_at( source_pos ).examine == &iexamine::gaspump ) {
+                if( g->m.ter( source_pos ).obj().examine == &iexamine::gaspump ) {
                     add_msg( _( "With a clang and a shudder, the %s pump goes silent."),
+                             liquid.type_name( 1 ).c_str() );
+                } else if( g->m.furn( source_pos ).obj().examine == &iexamine::fvat_full ) {
+                    g->m.furn_set( source_pos, f_fvat_empty );
+                    add_msg( _( "You squeeze the last drops of %s from the vat." ),
                              liquid.type_name( 1 ).c_str() );
                 }
                 act.type = ACT_NULL;
@@ -816,10 +826,10 @@ void activity_handlers::game_do_turn( player_activity *act, player *p )
 
     //Deduct 1 battery charge for every minute spent playing
     if( calendar::once_every(MINUTES(1)) ) {
-        game_item.charges--;
+        game_item.ammo_consume( 1, p->pos() );
         p->add_morale(MORALE_GAME, 1, 100); //1 points/min, almost 2 hours to fill
     }
-    if( game_item.charges == 0 ) {
+    if( game_item.ammo_remaining() == 0 ) {
         act->moves_left = 0;
         add_msg(m_info, _("The %s runs out of batteries."), game_item.tname().c_str());
     }
@@ -1060,32 +1070,14 @@ void activity_handlers::pulp_do_turn( player_activity *act, player *p )
                 }
             }
 
-            // Splatter some blood around
-            tripoint tmp = pos;
-            field_id type_blood = corpse.get_mtype()->bloodType();
-            if( mess_radius > 1 && x_in_y( pulp_power, 10000 ) ) {
-                // Make gore instead of blood this time
-                type_blood = corpse.get_mtype()->gibType();
-            }
-            if( type_blood != fd_null && x_in_y( pulp_power, corpse.volume() ) ) {
+            if( x_in_y( pulp_power, corpse.volume() ) ) { // Splatter some blood around
                 // Splatter a bit more randomly, so that it looks cooler
                 const int radius = mess_radius + x_in_y( pulp_power, 500 ) + x_in_y( pulp_power, 1000 );
                 const tripoint dest( pos.x + rng( -radius, radius ), pos.y + rng( -radius, radius ), pos.z );
-                const auto blood_line = line_to( pos, dest );
-                int line_len = blood_line.size();
-                for( const auto &elem : blood_line ) {
-                    g->m.adjust_field_strength( elem, type_blood, 1 );
-                    line_len--;
-                    if( g->m.impassable( elem ) ) {
-                        // Blood splatters stop at walls.
-                        if( line_len > 0 ) {
-                            // But splatter the rest of the blood at the wall
-                            g->m.adjust_field_strength( elem, type_blood, line_len );
-                        }
-
-                        break;
-                    }
-                }
+                const field_id type_blood = ( mess_radius > 1 && x_in_y( pulp_power, 10000 ) ) ?
+                                            corpse.get_mtype()->gibType() :
+                                            corpse.get_mtype()->bloodType();
+                g->m.add_splatter_trail( type_blood, pos, dest );
             }
 
             float stamina_ratio = (float)p->stamina / p->get_stamina_max();
@@ -1125,6 +1117,10 @@ void activity_handlers::reload_finish( player_activity *act, player *p )
     item *reloadable = &p->i_at( std::atoi( act->name.c_str() ) );
     int qty = act->index;
 
+    if( reloadable->type->can_use( "holster" ) && !reloadable->contents.empty() ) {
+        reloadable = &reloadable->contents.front();
+    }
+
     if( !reloadable->reload( *p, item_location( *p, &p->i_at( act->position ) ), act->index ) ) {
         add_msg( m_info, _( "Can't reload the %s." ), reloadable->tname().c_str() );
         return;
@@ -1138,7 +1134,7 @@ void activity_handlers::reload_finish( player_activity *act, player *p )
 
         if( reloadable->has_flag( "RELOAD_ONE" ) ) {
             for( int i = 0; i != qty; ++i ) {
-                if( reloadable->ammo_type() == "bolt" ) {
+                if( reloadable->ammo_type() == ammotype( "bolt" ) ) {
                     msg = _( "You insert a bolt into the %s." );
                 } else {
                     msg = _( "You insert a cartridge into the %s." );
@@ -1160,32 +1156,23 @@ void activity_handlers::start_fire_finish( player_activity *act, player *p )
     act->type = ACT_NULL;
 }
 
-void activity_handlers::start_fire_lens_do_turn( player_activity *act, player *p )
+void activity_handlers::start_fire_do_turn( player_activity *act, player *p )
 {
-    float natural_light_level = g->natural_light_level( p->posz() );
-    // if the weather changes, we cannot start a fire with a lens. abort activity
-    if( !((g->weather == WEATHER_CLEAR) || (g->weather == WEATHER_SUNNY)) ||
-        !( natural_light_level >= 60 ) ) {
-        add_msg(m_bad, _("There is not enough sunlight to start a fire now. You stop trying."));
+    item &lens_item = p->i_at(act->position);
+    const auto usef = lens_item.type->get_use( "firestarter" );
+    if( usef == nullptr || usef->get_actor_ptr() == nullptr ) {
+        add_msg( m_bad, "You have lost the item you were using to start the fire." );
         p->cancel_activity();
-    } else if( natural_light_level != act->values.back() ) {
-        // when lighting changes we recalculate the time needed
-        float previous_natural_light_level = act->values.back();
-        act->values.pop_back();
-        act->values.push_back(natural_light_level);
-        item &lens_item = p->i_at(act->position);
-        const auto usef = lens_item.type->get_use( "extended_firestarter" );
-        if( usef == nullptr || usef->get_actor_ptr() == nullptr ) {
-            add_msg( m_bad, "You have lost the item you were using as a lens." );
-            p->cancel_activity();
-            return;
-        }
+        return;
+    }
 
-        const auto actor = dynamic_cast< const extended_firestarter_actor* >( usef->get_actor_ptr() );
-        float progress_left = float(act->moves_left) /
-                              float(actor->calculate_time_for_lens_fire(p, previous_natural_light_level));
-        act->moves_left = int(progress_left *
-                              (actor->calculate_time_for_lens_fire(p, natural_light_level)));
+    p->mod_moves( -p->moves );
+    const auto actor = dynamic_cast<const firestarter_actor*>( usef->get_actor_ptr() );
+    float light = actor->light_mod( p->pos() );
+    act->moves_left -= light * 100;
+    if( light < 0.1 ) {
+        add_msg( m_bad, _("There is not enough sunlight to start a fire now. You stop trying.") );
+        p->cancel_activity();
     }
 }
 
@@ -1251,9 +1238,7 @@ void activity_handlers::vehicle_finish( player_activity *act, player *pl )
             g->refresh_all();
             // TODO: Z (and also where the activity is queued)
             // Or not, because the vehicle coords are dropped anyway
-            g->exam_vehicle(*veh,
-                            tripoint( act->values[0], act->values[1], pl->posz() ),
-                            act->values[2], act->values[3]);
+            g->exam_vehicle( *veh, act->values[ 2 ], act->values[ 3 ] );
             return;
         } else {
             dbg(D_ERROR) << "game:process_activity: ACT_VEHICLE: vehicle not found";
@@ -1277,13 +1262,13 @@ void activity_handlers::vibe_do_turn( player_activity *act, player *p )
 
     //Deduct 1 battery charge for every minute using the vibrator
     if( calendar::once_every(MINUTES(1)) ) {
-        vibrator_item.charges--;
+        vibrator_item.ammo_consume( 1, p->pos() );
         p->add_morale(MORALE_FEELING_GOOD, 4, 320); //4 points/min, one hour to fill
         // 1:1 fatigue:morale ratio, so maxing the morale is possible but will take
         // you pretty close to Dead Tired from a well-rested state.
         p->mod_fatigue(4);
     }
-    if( vibrator_item.charges == 0 ) {
+    if( vibrator_item.ammo_remaining() == 0 ) {
         act->moves_left = 0;
         add_msg(m_info, _("The %s runs out of batteries."), vibrator_item.tname().c_str());
     }
@@ -1361,7 +1346,7 @@ void activity_handlers::oxytorch_finish( player_activity *act, player *p )
     const ter_id ter = g->m.ter( pos );
 
     // fast players might still have some charges left to be consumed
-    p->i_at( act->position ).charges -= act->values[0];
+    p->i_at( act->position ).ammo_consume( act->values[0], p->pos() );
 
     if( g->m.furn( pos ) == f_rack ) {
         g->m.furn_set( pos, f_null );
@@ -1523,8 +1508,7 @@ void activity_handlers::repair_item_finish( player_activity *act, player *p )
 
     // TODO: Allow setting this in the actor
     // TODO: Don't use charges_to_use: welder has 50 charges per use, soldering iron has 1
-    const int charges_to_use = used_tool->type->charges_to_use();
-    if( used_tool->charges < charges_to_use ) {
+    if( !used_tool->ammo_sufficient() ) {
         p->add_msg_if_player( _( "Your %s ran out of charges" ), used_tool->tname().c_str() );
         act->type = ACT_NULL;
         return;
@@ -1538,7 +1522,7 @@ void activity_handlers::repair_item_finish( player_activity *act, player *p )
         const int old_level = p->get_skill_level( actor->used_skill );
         const auto attempt = actor->repair( *p, *used_tool, fix );
         if( attempt != repair_item_actor::AS_CANT ) {
-            p->consume_charges( *used_tool, charges_to_use );
+            p->consume_charges( *used_tool, used_tool->ammo_required() );
         }
 
         // Print message explaining why we stopped
@@ -1569,7 +1553,12 @@ void activity_handlers::repair_item_finish( player_activity *act, player *p )
 
     if( need_input ) {
         g->draw();
-        auto action_type = actor->default_action( fix );
+        const int level = p->get_skill_level( actor->used_skill );
+        auto action_type = actor->default_action( fix, level );
+        if( action_type == repair_item_actor::RT_NOTHING ) {
+            p->add_msg_if_player( _( "You won't learn anything more by doing that." ) );
+        }
+
         const auto chance = actor->repair_chance( *p, fix, action_type );
         if( chance.first <= 0.0f ) {
             action_type = repair_item_actor::RT_PRACTICE;

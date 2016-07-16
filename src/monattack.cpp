@@ -13,6 +13,7 @@
 #include "sounds.h"
 #include "monattack.h"
 #include "mondefense.h"
+#include "projectile.h"
 #include "iuse_actor.h"
 #include "weighted_list.h"
 #include "mongroup.h"
@@ -202,7 +203,7 @@ bool mattack::antqueen(monster *z)
 
         if( g->is_empty( dest ) && g->m.has_items( dest ) ) {
             for( auto &i : g->m.i_at( dest ) ) {
-                if( i.type->id == "ant_egg" ) {
+                if( i.typeId() == "ant_egg" ) {
                     egg_points.push_back( dest );
                     // Done looking at this tile
                     break;
@@ -235,7 +236,7 @@ bool mattack::antqueen(monster *z)
         for( auto &i : egg_points ) {
             auto eggs = g->m.i_at( i );
             for( size_t j = 0; j < eggs.size(); j++ ) {
-                if( eggs[j].type->id != "ant_egg" ) {
+                if( eggs[j].typeId() != "ant_egg" ) {
                     continue;
                 }
                 g->m.i_rem( i, j );
@@ -606,34 +607,6 @@ bool mattack::pull_metal_weapon(monster *z)
                                                        _("The %s unsuccessfully attempts to pull <npcname>'s weapon away."), z->name().c_str() );
             }
         }
-    }
-
-    return true;
-}
-
-bool mattack::smokecloud(monster *z)
-{
-    const auto place_smoke = [&]( const int x, const int y ) {
-        tripoint dest( x, y, z->posz() );
-        if( g->m.passable( dest ) &&
-            g->m.clear_path( z->pos(), dest, 3, 1, 100 ) ) {
-            g->m.add_field( dest, fd_smoke, 2, 0 );
-        }
-    };
-
-    const int monx = z->posx();
-    const int mony = z->posy();
-    for (int i = -3; i <= 3; i++) {
-        for (int j = -3; j <= 3; j++) {
-            place_smoke( monx + i, mony + j );
-        }
-    }
-    //Round it out a bit
-    for( int i = -2; i <= 2; i++ ) {
-        place_smoke( monx + i, mony + 4 );
-        place_smoke( monx + i, mony - 4 );
-        place_smoke( monx + 4, mony + i );
-        place_smoke( monx - 4, mony + i );
     }
 
     return true;
@@ -1781,13 +1754,8 @@ bool mattack::fungus_fortify(monster *z)
         // Oops, can't reach. ):
         // How's about we spawn more tendrils? :)
         // Aimed at the player, too?  Sure!
-        int i = rng(-1, 1);
-        int j = rng(-1, 1);
-        if ((i == 0) && (j == 0)) { // Direct hit! :D
-            if (g->u.uncanny_dodge()) {
-                return true;
-            }
-
+        const tripoint hit_pos = target->pos() + point( rng( -1, 1 ), rng( -1, 1 ) );
+        if( hit_pos == target->pos() && !target->uncanny_dodge() ) {
             const body_part hit = body_part_hit_by_plant();
             //~ %s is bodypart name in accusative.
             add_msg(m_bad, _("A fungal tendril bursts forth from the earth and pierces your %s!"),
@@ -1795,9 +1763,8 @@ bool mattack::fungus_fortify(monster *z)
             g->u.deal_damage( z, hit, damage_instance( DT_CUT, rng( 5, 11 ) ) );
             g->u.check_dead_state();
             // Probably doesn't have spores available *just* yet.  Let's be nice.
-        } else {
+        } else if( g->is_empty( hit_pos ) ) {
             add_msg( m_bad, _("A fungal tendril bursts forth from the earth!") );
-            const tripoint hit_pos = tripoint( g->u.posx() + i, g->u.posy() + j, z->posz() );
             if( g->summon_mon(mon_fungal_tendril, hit_pos) ) {
                 monster *tendril = g->monster_at( hit_pos );
                 tendril->make_ally(z);
@@ -2276,6 +2243,10 @@ bool mattack::dance(monster *z)
 
 bool mattack::dogthing(monster *z)
 {
+    if( z == nullptr ) {
+        return false; // TODO: replace pointers with references
+    }
+
     if (!one_in(3) || !g->u.sees(*z)) {
         return false;
     }
@@ -2283,11 +2254,7 @@ bool mattack::dogthing(monster *z)
     add_msg(_("The %s's head explodes in a mass of roiling tentacles!"),
             z->name().c_str());
 
-    for( const tripoint &dest : g->m.points_in_radius( z->pos(), 2 ) ) {
-        if( rng(0, 2) >= rl_dist( z->pos(), dest ) ) {
-            g->m.add_field( dest, fd_blood, 2, 0 );
-        }
-    }
+    g->m.add_splash( z->bloodType(), z->pos(), 2, 3 );
 
     z->friendly = 0;
     z->poly( mon_headless_dog_thing );
@@ -2952,7 +2919,7 @@ bool mattack::searchlight(monster *z)
         for (int x = zposx - 24; x < zposx + 24; x++) {
             for (int y = zposy - 24; y < zposy + 24; y++) {
                 tripoint dest( x, y, z->posz() );
-                if (g->m.ter_at(dest).id == "t_plut_generator") {
+                if( g->m.ter( dest ) == ter_str_id( "t_plut_generator" ) ) {
                     generator_ok = true;
                 }
             }
@@ -3137,7 +3104,7 @@ void mattack::flame( monster *z, Creature *target )
             }
             g->m.add_field( i, fd_fire, 1, 0 );
         }
-        target->add_effect( effect_onfire, 8);
+        target->add_effect( effect_onfire, 8, bp_torso );
 
         return;
     }
@@ -3160,7 +3127,7 @@ void mattack::flame( monster *z, Creature *target )
         g->m.add_field(i, fd_fire, 1, 0);
     }
     if( !target->uncanny_dodge() ) {
-        target->add_effect( effect_onfire, 8);
+        target->add_effect( effect_onfire, 8, bp_torso );
     }
 }
 
@@ -3174,7 +3141,7 @@ bool mattack::copbot(monster *z)
     // TODO: Make it recognize zeds as human, but ignore animals
     player *foe = dynamic_cast<player*>( target );
     bool sees_u = foe != nullptr && z->sees( *foe );
-    bool cuffed = foe != nullptr && foe->weapon.type->id == "e_handcuffs";
+    bool cuffed = foe != nullptr && foe->weapon.typeId() == "e_handcuffs";
     // Taze first, then ask questions (simplifies later checks for non-humans)
     if( !cuffed && is_adjacent( z, target, true ) ) {
         taze( z, target );
@@ -3529,18 +3496,14 @@ bool mattack::stretch_bite(monster *z)
         return false;
     }
 
-    std::vector<tripoint> line = g->m.find_clear_path( z->pos(), target->pos() );
-
     z->moves -= 150;
 
-    for (auto &i : line){
-        ter_t terrain = g->m.ter_at( i );
-        //head's not going to fit through the bars
-        if( terrain.movecost == 0 ){
+    for (auto &pnt : g->m.find_clear_path( z->pos(), target->pos() ) ){
+        if( g->m.impassable( pnt ) ){
             z->add_effect( effect_stunned, 6);
             target->add_msg_player_or_npc( _("The %1$s stretches its head at you, but bounces off the %2$s"),
                                            _("The %1$s stretches its head at <npcname>, but bounces off the %2$s"),
-                                           z->name().c_str(), terrain.name.c_str() );
+                                           z->name().c_str(), g->m.obstacle_name( pnt ).c_str() );
             return true;
         }
     }
@@ -3750,12 +3713,26 @@ bool mattack::longswipe(monster *z)
     if( target == nullptr ) {
         return false;
     }
+    if( rl_dist( z->pos(), target->pos() ) > 3 || !z->sees( *target ) ) {
+        return false; //out of range
+    }
+    //Is there something impassable blocking the claw?
+    for( const auto &pnt : g->m.find_clear_path( z->pos(), target->pos() ) ){
+        if( g->m.impassable(pnt) ) {
+            //If we're here, it's an unadjacent attack, which is only attempted 1/5 of the time.
+            if( !one_in( 5 ) ) {
+                return false;
+            }
+            target->add_msg_player_or_npc( _( "The %1$s thrusts a claw at you, but it bounces off the %2$s!" ),
+                                           _( "The %1$s thrusts a claw at <npcname>, but it bounces off the %2$s!" ),
+                                           z->name().c_str(), g->m.obstacle_name( pnt ).c_str() );
+            z->mod_moves( -150 );
+            return true;
+        }
+    }
+
     if( !is_adjacent( z, target, true ) ) {
         if (one_in(5)) {
-            if( rl_dist( z->pos(), target->pos() ) > 3 ||
-                !z->sees( *target ) ) {
-                return false; // Out of range
-            }
 
             z->moves -= 150;
 
@@ -4022,7 +3999,7 @@ bool mattack::riotbot(monster *z)
     //already arrested?
     //and yes, if the player has no hands, we are not going to arrest him.
     if( foe != nullptr &&
-        ( foe->weapon.type->id == "e_handcuffs" || !foe->has_two_arms() ) ) {
+        ( foe->weapon.typeId() == "e_handcuffs" || !foe->has_two_arms() ) ) {
         z->anger = 0;
 
         if( calendar::once_every(25) ) {
@@ -4333,8 +4310,7 @@ bool mattack::kamikaze(monster *z)
         if (z->get_effect( effect_countdown).get_duration() == 1) {
             z->die(nullptr);
             // Timer is out, detonate
-            item i_explodes(act_bomb_type->id, 0);
-            i_explodes.charges = 0;
+            item i_explodes( act_bomb_type, calendar::turn, 0 );
             i_explodes.active = true;
             i_explodes.process(nullptr, z->pos(), false);
             return false;
@@ -4595,22 +4571,16 @@ bool mattack::stretch_attack(monster *z)
     }
 
     int distance = rl_dist( z->pos(), target->pos() );
-    if( distance > 3 || !z->sees(*target)) {
-        return false;
-    }
-
-    std::vector<tripoint> line = g->m.find_clear_path( z->pos(), target->pos() );
-    if( distance < 2 && distance > 3 ) {
+    if( distance < 2 || distance > 3 || !z->sees( *target ) ) {
         return false;
     }
 
     int dam = rng(5, 10);
     z->moves -= 100;
-    ter_t terrain;
-    for (auto &i : line){
-            terrain = g->m.ter_at( i );
-            if (!(terrain.id == "t_bars") && terrain.movecost == 0 ){
-                add_msg( _("The %1$s thrusts its arm at you but bounces off the %2$s"), z->name().c_str(), terrain.name.c_str() );
+    for( auto &pnt : g->m.find_clear_path( z->pos(), target->pos() ) ) {
+            if( g->m.impassable( pnt ) ) {
+                add_msg( _( "The %1$s thrusts its arm at you but bounces off the %2$s" ), z->name().c_str(),
+                         g->m.obstacle_name( pnt ).c_str() );
                 return true;
             }
     }

@@ -965,11 +965,13 @@ void cata_tiles::draw( int destx, int desty, const tripoint &center, int width, 
 
             draw_points.push_back( tile_render_info( tripoint( x, y, center.z ), height_3d ) );
         }
-        // for each of the drawing layers in order, back to front ...
-        for( auto f : { &cata_tiles::draw_furniture, &cata_tiles::draw_trap,
+	const decltype (&cata_tiles::draw_furniture) drawing_layers[]={
+			 &cata_tiles::draw_furniture, &cata_tiles::draw_trap,
                         &cata_tiles::draw_field_or_item, &cata_tiles::draw_vpart,
                         &cata_tiles::draw_vpart_below, &cata_tiles::draw_terrain_below,
-                        &cata_tiles::draw_critter_at } ) {
+                        &cata_tiles::draw_critter_at };
+        // for each of the drawing layers in order, back to front ...
+        for( auto f : drawing_layers ) {
             // ... draw all the points we drew terrain for, in the same order
             for( auto &p : draw_points ) {
                 (this->*f)( p.pos, ch.visibility_cache[p.pos.x][p.pos.y], p.height_3d );
@@ -1020,7 +1022,7 @@ void cata_tiles::draw( int destx, int desty, const tripoint &center, int width, 
                              {g->ter_view_x, g->ter_view_y, center.z}, 0, 0, LL_LIT, false );
     }
     if( g->u.controlling_vehicle ) {
-        tripoint indicator_offset = g->get_veh_dir_indicator_location();
+        tripoint indicator_offset = g->get_veh_dir_indicator_location( true );
         if( indicator_offset != tripoint_min ) {
             draw_from_id_string( "cursor", C_NONE, empty_string,
                                  { indicator_offset.x + g->u.posx(),
@@ -1260,10 +1262,10 @@ void cata_tiles::draw_minimap( int destx, int desty, const tripoint &center, int
                 if( veh != nullptr ) {
                     color = cursesColorToSDL( veh->part_color( veh_part ) );
                 } else if( g->m.has_furn( p ) ) {
-                    auto &furniture = g->m.furn_at( p );
+                    auto &furniture = g->m.furn( p ).obj();
                     color = cursesColorToSDL( furniture.color() );
                 } else {
-                    auto &terrain = g->m.ter_at( p );
+                    auto &terrain = g->m.ter( p ).obj();
                     color = cursesColorToSDL( terrain.color() );
                 }
             }
@@ -1466,8 +1468,9 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
         uint32_t sym = UNKNOWN_UNICODE;
         nc_color col = c_white;
         if (category == C_FURNITURE) {
-            if (furnmap.count(id) > 0) {
-                const furn_t &f = furnmap[id];
+            const furn_str_id fid( id );
+            if( fid.is_valid() ) {
+                const furn_t &f = fid.obj();
                 sym = f.symbol();
                 col = f.color();
             }
@@ -1513,7 +1516,7 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
             }
         } else if (category == C_ITEM) {
             const auto tmp = item( id, 0 );
-            sym = tmp.symbol();
+            sym = tmp.symbol().empty() ? ' ' : tmp.symbol().front();
             col = tmp.color();
         }
         // Special cases for walls
@@ -1677,7 +1680,8 @@ bool cata_tiles::draw_from_id_string(std::string id, TILE_CATEGORY category,
         // use a fair mix function to turn the "random" seed into a random int
         // taken from public domain code at http://burtleburtle.net/bob/c/lookup3.c 2015/12/11
 #define rot32(x,k) (((x)<<(k)) | ((x)>>(32-(k))))
-        unsigned int a = seed, b = -seed, c = seed*seed;
+        // to avoid compile error on MSVC, calculate b by (UINT32_MAX - seed + 1)
+        unsigned int a = seed, b = UINT32_MAX - seed + 1, c = seed*seed;
         c ^= b; c -= rot32(b,14);
         a ^= c; a -= rot32(c,11);
         b ^= a; b -= rot32(a,25);
@@ -1856,8 +1860,8 @@ bool cata_tiles::draw_terrain_below( const tripoint &p, lit_level /*ll*/, int &/
     tripoint pbelow = tripoint( p.x, p.y, p.z - 1 );
     SDL_Color tercol = cursesColorToSDL( c_dkgray );
 
-    const ter_t &curr_ter = g->m.ter_at( pbelow );
-    const furn_t &curr_furn = g->m.furn_at( pbelow );
+    const ter_t &curr_ter = g->m.ter( pbelow ).obj();
+    const furn_t &curr_furn = g->m.furn( pbelow ).obj();
     int part_below;
     int sizefactor = 2;
     const vehicle *veh;
@@ -1924,7 +1928,7 @@ bool cata_tiles::draw_terrain( const tripoint &p, lit_level ll, int &height_3d )
     int subtile = 0, rotation = 0;
 
     int connect_group;
-    if( g->m.ter_at( p ).connects( connect_group ) ) {
+    if( g->m.ter( p ).obj().connects( connect_group ) ) {
         get_connect_values( p, subtile, rotation, connect_group );
     } else {
         get_terrain_orientation( p, rotation, subtile );
@@ -1959,7 +1963,7 @@ bool cata_tiles::draw_furniture( const tripoint &p, lit_level ll, int &height_3d
     get_tile_values(f_id, neighborhood, subtile, rotation);
 
     // get the name of this furniture piece
-    const std::string& f_name = f_id.obj().id; // replace with furniture names array access
+    const std::string& f_name = f_id.obj().id.str();
     bool ret = draw_from_id_string( f_name, C_FURNITURE, empty_string, p, subtile, rotation, ll,
                                     nv_goggles_activated, height_3d );
     if( ret && g->m.sees_some_items( p, g->u ) ) {
@@ -2061,7 +2065,7 @@ bool cata_tiles::draw_field_or_item( const tripoint &p, lit_level ll, int &heigh
         // get the last item in the stack, it will be used for display
         const item &displayed_item = cur_maptile.get_uppermost_item();
         // get the item's name, as that is the key used to find it in the map
-        const std::string &it_name = displayed_item.type->id;
+        const std::string &it_name = displayed_item.typeId();
         const std::string it_category = displayed_item.type->get_item_type_string();
         ret_draw_item = draw_from_id_string( it_name, C_ITEM, it_category, p, 0, 0, ll,
                                              nv_goggles_activated, height_3d );
@@ -2686,10 +2690,10 @@ void cata_tiles::get_rotation_and_subtile(const char val, const int num_connects
 void cata_tiles::get_connect_values( const tripoint &p, int &subtile, int &rotation, int connect_group )
 {
     const bool connects[4] = {
-        g->m.ter_at( tripoint( p.x, p.y + 1, p.z ) ).connects_to( connect_group ),
-        g->m.ter_at( tripoint( p.x + 1, p.y, p.z ) ).connects_to( connect_group ),
-        g->m.ter_at( tripoint( p.x - 1, p.y, p.z ) ).connects_to( connect_group ),
-        g->m.ter_at( tripoint( p.x, p.y - 1, p.z ) ).connects_to( connect_group )
+        g->m.ter( tripoint( p.x, p.y + 1, p.z ) ).obj().connects_to( connect_group ),
+        g->m.ter( tripoint( p.x + 1, p.y, p.z ) ).obj().connects_to( connect_group ),
+        g->m.ter( tripoint( p.x - 1, p.y, p.z ) ).obj().connects_to( connect_group ),
+        g->m.ter( tripoint( p.x, p.y - 1, p.z ) ).obj().connects_to( connect_group )
     };
     char val = 0;
     int num_connects = 0;
@@ -2723,7 +2727,7 @@ void cata_tiles::do_tile_loading_report() {
     DebugLog( D_INFO, DC_ALL ) << "Loaded tileset: " << OPTIONS["TILES"].getValue();
 
     tile_loading_report<ter_t>( ter_t::count(), "Terrain", "" );
-    tile_loading_report(furnmap, "Furniture", "");
+    tile_loading_report<furn_t>( furn_t::count(), "Furniture", "" );
     //TODO: exclude fake items from Item_factory::init_old()
     tile_loading_report(item_controller->get_all_itypes(), "Items", "");
     auto mtypes = MonsterGenerator::generator().get_all_mtypes();

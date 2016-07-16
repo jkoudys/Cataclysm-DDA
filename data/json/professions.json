@@ -298,8 +298,8 @@
         "type": "profession",
         "ident": "labtech",
         "name": "Lab Technician",
-        "description": "Thanks to your time in the lab, you're familiar with the basics of conducting science.  You escaped along with the lucky civilians, but at least you kept your lab gear.",
-        "points": 2,
+        "description": "Thanks to your time in the lab, you're familiar with the basics of conducting science.  Now that the world has ended, only one question remains: Can you undo the very Cataclysm you helped create?",
+        "points": 3,
         "skills": [
             {
                 "level": 2,
@@ -377,23 +377,23 @@
         "points": 2,
         "skills": [
             {
-                "level": 2,
+                "level": 1,
                 "name": "melee"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "stabbing"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "unarmed"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "dodge"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "barter"
             }
         ],
@@ -727,27 +727,27 @@
         "points": 3,
         "skills": [
             {
-                "level": 2,
+                "level": 1,
                 "name": "melee"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "unarmed"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "stabbing"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "gun"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "pistol"
             },
             {
-                "level": 2,
+                "level": 1,
                 "name": "driving"
             }
         ],
@@ -1385,6 +1385,84 @@
                 "knife_hunting",
                 "hat_hunting",
                 "quiver"
+            ],
+            "male": [
+                "boxer_shorts"
+            ],
+            "female": [
+                "sports_bra",
+                "boxer_shorts"
+            ]
+        }
+    },
+    {
+        "type": "profession",
+        "ident": "shotgun_hunter",
+        "name": "Shotgun Hunter",
+        "description": "Ever since you were a child you loved hunting, and you soon took a liking to the challenge of hunting with a shotgun.  Why, if the world ended there's nothing you'd want at your side more than your trusty shotgun.  So when it did, you made sure to bring it along.",
+        "points": 2,
+        "skills": [
+            {
+                "level": 1,
+                "name": "gun"
+            },
+            {
+                "level": 1,
+                "name": "shotgun"
+            }
+        ],
+        "items": {
+            "both": [
+                "army_top",
+                "knit_scarf",
+                "socks",
+                "boots_steel",
+                "pants_cargo",
+                "jacket_flannel",
+                "shotgun_d",
+                "shot_00",
+                "knife_hunting",
+                "hat_hunting",
+                "bandolier_shotgun"
+            ],
+            "male": [
+                "boxer_shorts"
+            ],
+            "female": [
+                "sports_bra",
+                "boxer_shorts"
+            ]
+        }
+    },
+    {
+        "type": "profession",
+        "ident": "rifle_hunter",
+        "name": "Rifle Hunter",
+        "description": "Ever since you were a child you loved hunting, and you soon took a liking to the challenge of hunting with a rifle.  Why, if the world ended there's nothing you'd want at your side more than your trusty rifle.  So when it did, you made sure to bring it along.",
+        "points": 2,
+        "skills": [
+            {
+                "level": 1,
+                "name": "gun"
+            },
+            {
+                "level": 1,
+                "name": "rifle"
+            }
+        ],
+        "items": {
+            "both": [
+                "army_top",
+                "knit_scarf",
+                "socks",
+                "boots_steel",
+                "pants_cargo",
+                "jacket_flannel",
+                "remington_700",
+                "270",
+                "knife_hunting",
+                "hat_hunting",
+                "bandolier_rifle"
             ],
             "male": [
                 "boxer_shorts"
@@ -2194,6 +2272,7 @@
                 "lighter",
                 "mil_mess_kit",
                 "m2010",
+                "m2010mag",
                 "300_winmag",
                 "300_winmag",
                 "suppressor"
@@ -3381,6 +3460,47 @@
     },
     {
         "type": "profession",
+        "ident": "boxer",
+        "name": "Boxer",
+        "description": "You were training for the fight of your life before the Cataclysm struck.  Now you fight just to keep yourself alive.",
+        "points": 3,
+        "traits": [
+            "PROF_BOXER"
+        ],
+        "skills": [
+            {
+                "level": 2,
+                "name": "melee"
+            },
+            {
+                "level": 2,
+                "name": "unarmed"
+            },
+            {
+                "level": 2,
+                "name": "dodge"
+            }
+        ],
+        "items": {
+            "both": [
+                "under_armor_shorts",
+                "under_armor",
+                "shorts",
+                "gloves_wraps",
+                "boxing_gloves",
+                "headgear",
+                "mouthpiece",
+                "socks",
+                "boots",
+                "towel"
+            ],
+            "female": [
+                "sports_bra"
+            ]
+        }
+    },
+    {
+        "type": "profession",
         "ident": "pizzaboy",
         "name": {
             "male": "Pizza Delivery Boy",
@@ -3794,6 +3914,151 @@
             "female": [
                 "sports_bra",
                 "panties"
+            ]
+        },
+        "flags" : ["SCEN_ONLY"]
+    },
+    {
+        "type": "profession",
+        "ident": "road_warrior",
+        "name" : "Road Warrior",
+        "description" : "You lived by your wheels during the first few months of the apocalypse, but now your car is lost to this maelstrom of decay, your ammo is low, and your situation is dire.  You've been reduced to a scavenger, living off the corpse of the old world.",
+        "points" : 6,
+        "skills": [
+            {
+                "level": 5,
+                "name": "driving"
+            },
+            {
+                "level": 3,
+                "name": "mechanics"
+            },
+            {
+                "level": 2,
+                "name": "survival"
+            },
+            {
+                "level": 2,
+                "name": "gun"
+            },
+            {
+                "level" : 1,
+                "name" : "shotgun"
+            },
+            {
+                "level": 1,
+                "name": "melee"
+            },
+            {
+                "level": 1,
+                "name": "unarmed"
+            },
+            {
+                "level": 1,
+                "name": "firstaid"
+            }
+        ],
+        "items": {
+            "both": [
+                "tank_top",
+                "pants_leather",
+                "jacket_leather_mod",
+                "boots_steel",
+                "gloves_fingerless_mod",
+                "hat_cotton",
+                "survivor_goggles",
+                "long_patchwork_scarf",
+                "bandolier_shotgun",
+                "survivor_belt",
+                "legrig",
+                "back_holster",
+                "canteen",
+                "whistle",
+                "binoculars",
+                "wearable_light",
+                "shotgun_d",
+                "reloaded_shot_00",
+                "knife_combat",
+                "duct_tape",
+                "ref_lighter",
+                "gasoline_cooker"
+            ],
+            "male": [
+                "boxer_shorts"
+            ],
+            "female": [
+                "sports_bra",
+                "boy_shorts"
+            ]
+        },
+        "flags" : ["SCEN_ONLY"]
+    },
+    {
+        "type": "profession",
+        "ident": "waste_ranger",
+        "name" : "Wasteland Ranger",
+        "description" : "If the human race is to survive, the threats facing its existence must be eliminated, no matter the cost.  If it's hostile, you kill it.",
+        "points" : 6,
+        "skills": [
+            {
+                "level": 3,
+                "name": "survival"
+            },
+            {
+                "level": 3,
+                "name": "gun"
+            },
+            {
+                "level": 2,
+                "name": "rifle"
+            },
+            {
+                "level": 1,
+                "name": "dodge"
+            },
+            {
+                "level": 1,
+                "name": "melee"
+            },
+            {
+                "level" : 1,
+                "name" : "pistol"
+            },
+            {
+                "level": 1,
+                "name": "stabbing"
+            }
+        ],
+        "items": {
+            "both": [
+                "lsurvivor_suit",
+                "boots_lsurvivor",
+                "gloves_lsurvivor",
+                "mask_lsurvivor",
+                "hood_lsurvivor",
+                "bandolier_shotgun",
+                "shoulder_strap",
+                "helsing",
+                "quiver",
+                "bolt_steel",
+                "bolt_steel",
+                "ashot",
+                "holster",
+                "reloaded_shot_00",
+                "knife_trench",
+                "sheath",
+                "canteen",
+                "wearable_light",
+                "throwing_knife",
+                "survivor_mess_kit",
+                "ref_lighter"
+            ],
+            "male": [
+                "boxer_shorts"
+            ],
+            "female": [
+                "sports_bra",
+                "boy_shorts"
             ]
         },
         "flags" : ["SCEN_ONLY"]
