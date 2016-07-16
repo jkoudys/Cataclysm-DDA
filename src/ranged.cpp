@@ -435,6 +435,8 @@ double player::gun_engagement_range( const item& gun, engagement opts, int penal
         case engagement::absolute_max:
             return gun_engagement_range( gun, -1, penalty, 10, accuracy_grazing );
     }
+
+    return 0;
 }
 
 bool player::handle_gun_damage( item &it )
